@@ -13,6 +13,8 @@ export type Vector3Like = {
   z: number;
 };
 
+export type Callback = (() => void) | null;
+
 
 export class App {
   #fontURL: string;
@@ -46,13 +48,12 @@ export class App {
 
   addScene(...elements: THREE.Object3D[]) { elements.forEach(e => this.scene.add(e)); }
 
-  initCamera(position: Vector3Like = {
-    x: 0,
-    y: 0,
-    z: 5
-  }) {
+  initCamera(position: Partial<Vector3Like> = {}) {
+    const defaultPosition: Vector3Like = { x: 0, y: 0, z: 5 };
+    const finalPosition: Vector3Like = Object.assign({}, defaultPosition, position);
+
     this.camera = new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
-    this.camera.position.set(position.x, position.y, position.z);
+    this.camera.position.set(finalPosition.x, finalPosition.y, finalPosition.z);
     this.addScene(this.camera);
   }
 
@@ -123,6 +124,39 @@ export class App {
     return new THREE.Mesh(geometry, material);
   }
 
+  changePosition(
+    target: THREE.Object3D,
+    position: Partial<Vector3Like>
+  ) {
+    const { x = target.position.x, y = target.position.y, z = target.position.z } = position;
+    target.position.set(x, y, z);
+  }
+
+  changeRotation(
+    target: THREE.Object3D,
+    rotation: Partial<Vector3Like>
+  ) {
+    const { x = target.rotation.x, y = target.rotation.y, z = target.rotation.z } = rotation;
+    target.rotation.set(x, y, z);
+  }
+
+  changeScale(
+    target: THREE.Object3D,
+    scale: Partial<Vector3Like> | number
+  ) {
+    let x: number, y: number, z: number;
+
+    if (typeof scale === 'number') {
+      x = y = z = scale;
+    } else {
+    // オブジェクトなら、指定された軸だけ変更し、他は元の値を使う
+      x = scale.x ?? target.scale.x;
+      y = scale.y ?? target.scale.y;
+      z = scale.z ?? target.scale.z;
+    }
+
+    target.scale.set(x, y, z);
+  }
 
   draw() {
     this.controls?.update();
