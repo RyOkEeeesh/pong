@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { MeshStandardMaterialParameters } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Font, FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
@@ -15,9 +16,23 @@ export type Vector3Like = {
 
 export type Callback = (() => void) | null;
 
+type typeGeoOp = {
+  font: Font;
+  size?: number;
+  depth?: number;
+  curveSegments?: number;
+  bevelEnabled?: boolean;
+  bevelThickness?: number;
+  bevelSize?: number;
+  bevelSegments?: number;
+};
+
 
 export class App {
   #fontURL: string;
+  #start: boolean = false;
+  #stop: boolean = false;
+
   width: number;
   height: number;
   scene!:THREE.Scene;
@@ -71,6 +86,8 @@ export class App {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(this.width, this.height);
       this.renderer.setPixelRatio(window.devicePixelRatio);
+
+      this.composer?.setSize(this.width, this.height);
     });
   }
 
@@ -81,8 +98,8 @@ export class App {
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(this.width, this.height),
       1, // 強さ
-      0.4, // 半径
-      0.85 // しきい値
+      0.1, // 半径
+      0.5 // しきい値
     );
     this.composer.addPass(bloomPass);
   }
@@ -98,28 +115,36 @@ export class App {
     this.addScene(this.ambientLight);
   }
 
-  async loadFontText(text: string) {
+  async fontLoader(font?: string): Promise<Font> {
+    const fontURL = font ?? this.#fontURL;
     const fontLoader = new FontLoader();
-    const font = await new Promise<Font>((resolve, reject) => fontLoader.load(this.#fontURL, resolve, undefined, reject));
+    return await new Promise<Font>((resolve, reject) => fontLoader.load(fontURL, resolve, undefined, reject));
+  }
 
-    const geometry = new TextGeometry(text, {
+  async loadFontText(text: string, geometryOption?: Partial<typeGeoOp>, materialOption?: Partial<MeshStandardMaterialParameters> ) {
+    const font = await this.fontLoader();
+
+    const defaultGeoOp: typeGeoOp = {
       font,
       size: 1,
-      depth: 0.1,
+      depth: 0,
       curveSegments: 1,
-      bevelEnabled: true,
-      bevelThickness: 0.001,
-      bevelSize: 0.02,
-      bevelSegments: 1
-    });
+      bevelEnabled: false,
+    }
 
-    const material = new THREE.MeshStandardMaterial({
+    const defaultMatOp: MeshStandardMaterialParameters = {
       color: 0xffffff,
-      emissive: 0x7fba00,
-      emissiveIntensity: 2,
-      metalness: 0.3,
-      roughness: 0.2
-    });
+      emissive: 0xffffff,
+      emissiveIntensity: 0.8, // 自発光の強さ
+      metalness: 0.3, // 金属っぽさ
+      roughness: 0.2 // 表面の粗さ
+    }
+
+    const geoOp = Object.assign({}, defaultGeoOp, geometryOption);
+    const matOp = Object.assign({}, defaultMatOp, materialOption);
+
+    const geometry = new TextGeometry(text, geoOp);
+    const material = new THREE.MeshStandardMaterial(matOp);
 
     return new THREE.Mesh(geometry, material);
   }
@@ -128,6 +153,7 @@ export class App {
     target: THREE.Object3D,
     position: Partial<Vector3Like>
   ) {
+    target.updateMatrixWorld();
     const { x = target.position.x, y = target.position.y, z = target.position.z } = position;
     target.position.set(x, y, z);
   }
@@ -136,6 +162,7 @@ export class App {
     target: THREE.Object3D,
     rotation: Partial<Vector3Like>
   ) {
+    target.updateMatrixWorld();
     const { x = target.rotation.x, y = target.rotation.y, z = target.rotation.z } = rotation;
     target.rotation.set(x, y, z);
   }
@@ -144,6 +171,7 @@ export class App {
     target: THREE.Object3D,
     scale: Partial<Vector3Like> | number
   ) {
+    target.updateMatrixWorld();
     let x: number, y: number, z: number;
 
     if (typeof scale === 'number') {
@@ -158,13 +186,34 @@ export class App {
     target.scale.set(x, y, z);
   }
 
+  centerObject(target: THREE.Object3D) {
+    target.updateMatrixWorld();
+
+    const box = new THREE.Box3().setFromObject(target);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    target.position.sub(center);
+  }
+
   draw() {
+    if (!this.#start) return
     this.controls?.update();
     this.composer ? this.composer.render() : this.renderer.render(this.scene, this.camera);
+
+    if (this.#stop) return
     requestAnimationFrame(this.draw);
   }
 
-  start() { this.draw(); }
+  start() {
+    this.#start = true;
+    this.#stop = false;
+    this.draw();
+  }
+
+  stop() {
+    this.#start = false;
+    this.#stop = true;
+  }
 }
 
 
