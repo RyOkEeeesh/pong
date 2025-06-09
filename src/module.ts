@@ -33,6 +33,9 @@ export class App {
   #start: boolean = false;
   #stop: boolean = false;
 
+  #fontCache: Map<string, Font> = new Map();
+  #animationId: number | null = null;
+
   width: number;
   height: number;
   scene!:THREE.Scene;
@@ -85,8 +88,6 @@ export class App {
       this.camera.aspect = this.width / this.height;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(this.width, this.height);
-      this.renderer.setPixelRatio(window.devicePixelRatio);
-
       this.composer?.setSize(this.width, this.height);
     });
   }
@@ -117,8 +118,16 @@ export class App {
 
   async fontLoader(font?: string): Promise<Font> {
     const fontURL = font ?? this.#fontURL;
+
+    if (this.#fontCache.has(fontURL)) return this.#fontCache.get(fontURL)!;
+
     const fontLoader = new FontLoader();
-    return await new Promise<Font>((resolve, reject) => fontLoader.load(fontURL, resolve, undefined, reject));
+    const loadedFont = await new Promise<Font>((resolve, reject) =>
+      fontLoader.load(fontURL, resolve, undefined, reject)
+    );
+
+    this.#fontCache.set(fontURL, loadedFont);
+    return loadedFont;
   }
 
   async loadFontText(text: string, geometryOption?: Partial<typeGeoOp>, materialOption?: Partial<MeshStandardMaterialParameters> ) {
@@ -147,6 +156,11 @@ export class App {
     const material = new THREE.MeshStandardMaterial(matOp);
 
     return new THREE.Mesh(geometry, material);
+  }
+
+  
+  removeFromScene(...objects: THREE.Object3D[]) {
+    objects.forEach(obj => this.scene.remove(obj));
   }
 
   changePosition(
@@ -200,8 +214,7 @@ export class App {
     this.controls?.update();
     this.composer ? this.composer.render() : this.renderer.render(this.scene, this.camera);
 
-    if (this.#stop) return
-    requestAnimationFrame(this.draw);
+    if (!this.#stop) this.#animationId = requestAnimationFrame(this.draw);
   }
 
   start() {
@@ -213,8 +226,13 @@ export class App {
   stop() {
     this.#start = false;
     this.#stop = true;
+    if (this.#animationId !== null) {
+      cancelAnimationFrame(this.#animationId);
+      this.#animationId = null;
+    }
   }
 }
+
 
 
 export {OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
