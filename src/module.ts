@@ -27,7 +27,6 @@ type typeGeoOp = {
   bevelSegments?: number;
 };
 
-
 export class App {
   #fontURL: string;
   #start: boolean = false;
@@ -158,7 +157,6 @@ export class App {
     return new THREE.Mesh(geometry, material);
   }
 
-  
   removeFromScene(...objects: THREE.Object3D[]) {
     objects.forEach(obj => this.scene.remove(obj));
   }
@@ -233,6 +231,8 @@ export class App {
   }
 }
 
-
+export class game {
+  
+}
 
 export {OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
