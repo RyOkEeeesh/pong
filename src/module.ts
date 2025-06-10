@@ -172,9 +172,8 @@ export class txtMesh{
 
   constructor(urls?: string[]) {
     this.#fontURL = './font/Jersey15_Regular.json';
-    if (urls?.length) {
-      urls.forEach((url) => this.fontLoader(url));
-    }
+    this.fontLoader();
+    urls?.forEach((url) => this.fontLoader(url));
   }
 
   async fontLoader(font?: string): Promise<Font> {
