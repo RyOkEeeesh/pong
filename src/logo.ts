@@ -1,8 +1,20 @@
-import { App } from './module'
+import { App, txtMesh, TC } from './module'
+import Stats from "stats.js";
 
-const app = new App(true, true);
+// スタッツを作成
+const stats = new Stats();
+stats.showPanel(0);
+document.body.appendChild(stats.dom);
 
-const text = await app.loadFontText(
+const app = new App({
+  cameraPosition: { z: 2 },
+  controls: true,
+  composer: true
+});
+
+const txt = new txtMesh()
+
+const text = await txt.loadFontText(
   'PONG',
   /* geometry option */ {
     depth: 0.1,
@@ -17,6 +29,9 @@ const text = await app.loadFontText(
 
 app.addScene(text);
 
-app.centerObject(text);
+TC.centerObject(text);
+
+app.onBeforeRender(() => stats.begin());
+app.onAfterRender(() => stats.end());
 
 app.start();
