@@ -16,8 +16,14 @@ export type Vector3Like = {
 
 export type Callback = (() => void) | null;
 
+type appSetting = Partial<{
+  cameraPosition: Partial<Vector3Like>,
+  controls: boolean,
+  composer: boolean
+}>
+
 type typeGeoOp = {
-  font: Font;
+  font: Font; // 必須
   size?: number;
   depth?: number;
   curveSegments?: number;
@@ -28,72 +34,72 @@ type typeGeoOp = {
 };
 
 export class App {
-  #fontURL: string;
+
   #start: boolean = false;
   #stop: boolean = false;
 
-  #fontCache: Map<string, Font> = new Map();
+  #beforeRenderCallbacks: Callback[] = [];
+  #afterRenderCallbacks: Callback[] = [];
   #animationId: number | null = null;
 
   width: number;
   height: number;
-  scene!:THREE.Scene;
-  camera!: THREE.PerspectiveCamera;
-  controls!: OrbitControls;
-  renderer!: THREE.WebGLRenderer;
-  ambientLight!: THREE.AmbientLight;
-  composer!: EffectComposer;
+  #scene!:THREE.Scene;
+  #camera!: THREE.PerspectiveCamera;
+  #controls!: OrbitControls;
+  #renderer!: THREE.WebGLRenderer;
+  #ambientLight!: THREE.AmbientLight;
+  #composer!: EffectComposer;
 
-  constructor(composer: boolean = true, control: boolean = true) {
+  constructor(option: appSetting) {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
-    this.#fontURL = './font/Jersey15_Regular.json';
 
     this.initScene();
-    this.initCamera();
+    this.initCamera(option.cameraPosition);
     this.initRenderer();
-    if (composer) this.initComposer();
+    if (option.composer) this.initComposer();
     this.initLight();
-    if (control) this.initControls();
+    if (option.controls) this.initControls();
     this.draw = this.draw.bind(this);
   }
 
   initScene(backgroundColor: number = 0x000000) {
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(backgroundColor);
+    this.#scene = new THREE.Scene();
+    this.#scene.background = new THREE.Color(backgroundColor);
   }
 
-  addScene(...elements: THREE.Object3D[]) { elements.forEach(e => this.scene.add(e)); }
+  addScene(...elements: THREE.Object3D[]) { elements.forEach(e => this.#scene.add(e)); }
 
   initCamera(position: Partial<Vector3Like> = {}) {
     const defaultPosition: Vector3Like = { x: 0, y: 0, z: 5 };
     const finalPosition: Vector3Like = Object.assign({}, defaultPosition, position);
 
-    this.camera = new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
-    this.camera.position.set(finalPosition.x, finalPosition.y, finalPosition.z);
-    this.addScene(this.camera);
+    this.#camera = new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
+    this.#camera.position.set(finalPosition.x, finalPosition.y, finalPosition.z);
+    this.addScene(this.#camera);
   }
 
   initRenderer() {
-    this.renderer = new THREE.WebGLRenderer();
-    this.renderer.setSize(this.width, this.height);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(this.renderer.domElement);
+    this.#renderer = new THREE.WebGLRenderer({antialias: true});
+    this.#renderer.setSize(this.width, this.height);
+    this.#renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(this.#renderer.domElement);
 
     window.addEventListener('resize', () => {
       this.width = window.innerWidth;
       this.height = window.innerHeight;
 
-      this.camera.aspect = this.width / this.height;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(this.width, this.height);
-      this.composer?.setSize(this.width, this.height);
+      this.#camera.aspect = this.width / this.height;
+      this.#camera.updateProjectionMatrix();
+      this.#renderer.setSize(this.width, this.height);
+      this.#composer?.setSize(this.width, this.height);
     });
   }
 
   initComposer() {
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.#composer = new EffectComposer(this.#renderer);
+    this.#composer.addPass(new RenderPass(this.#scene, this.#camera));
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(this.width, this.height),
@@ -101,18 +107,74 @@ export class App {
       0.1, // 半径
       0.5 // しきい値
     );
-    this.composer.addPass(bloomPass);
+    this.#composer.addPass(bloomPass);
   }
 
   initControls() {
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.2;
+    this.#controls = new OrbitControls(this.#camera, this.#renderer.domElement);
+    this.#controls.enableDamping = true;
+    this.#controls.dampingFactor = 0.2;
   }
 
   initLight() {
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 1);
-    this.addScene(this.ambientLight);
+    this.#ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    this.addScene(this.#ambientLight);
+  }
+
+  removeFromScene(...objects: THREE.Object3D[]) {
+    objects.forEach(obj => this.#scene.remove(obj));
+  }
+
+  onBeforeRender(callback: Callback) {
+    if (callback) this.#beforeRenderCallbacks.push(callback);
+  }
+
+  onAfterRender(callback: Callback) {
+    if (callback) this.#afterRenderCallbacks.push(callback);
+  }
+
+  draw() {
+    if (!this.#start) return;
+
+    // 前処理
+    this.#beforeRenderCallbacks.forEach(cb => cb?.());
+
+    this.#controls?.update();
+    this.#composer
+      ? this.#composer.render()
+      : this.#renderer.render(this.#scene, this.#camera);
+
+    // 後処理
+    this.#afterRenderCallbacks.forEach(cb => cb?.());
+
+    if (!this.#stop) this.#animationId = requestAnimationFrame(this.draw);
+  }
+
+  start() {
+    this.#start = true;
+    this.#stop = false;
+    this.draw();
+  }
+
+  stop() {
+    this.#start = false;
+    this.#stop = true;
+    if (this.#animationId !== null) {
+      cancelAnimationFrame(this.#animationId);
+      this.#animationId = null;
+    }
+  }
+}
+
+export class txtMesh{
+  #fontURL: string;
+  #fontCache: Map<string, Font> = new Map();
+
+  constructor(urls?: string[]) {
+    this.#fontURL = './font/Jersey15_Regular.json';
+    if (urls?.length) {
+      urls.forEach((url) => this.fontLoader(url));
+    }
   }
 
   async fontLoader(font?: string): Promise<Font> {
@@ -156,10 +218,13 @@ export class App {
 
     return new THREE.Mesh(geometry, material);
   }
+}
 
-  removeFromScene(...objects: THREE.Object3D[]) {
-    objects.forEach(obj => this.scene.remove(obj));
-  }
+export const TC = {
+
+  toRad(deg: number) {
+    return THREE.MathUtils.degToRad(deg)
+  },
 
   changePosition(
     target: THREE.Object3D,
@@ -168,7 +233,7 @@ export class App {
     target.updateMatrixWorld();
     const { x = target.position.x, y = target.position.y, z = target.position.z } = position;
     target.position.set(x, y, z);
-  }
+  },
 
   changeRotation(
     target: THREE.Object3D,
@@ -177,7 +242,7 @@ export class App {
     target.updateMatrixWorld();
     const { x = target.rotation.x, y = target.rotation.y, z = target.rotation.z } = rotation;
     target.rotation.set(x, y, z);
-  }
+  },
 
   changeScale(
     target: THREE.Object3D,
@@ -196,7 +261,7 @@ export class App {
     }
 
     target.scale.set(x, y, z);
-  }
+  },
 
   centerObject(target: THREE.Object3D) {
     target.updateMatrixWorld();
@@ -207,32 +272,6 @@ export class App {
     target.position.sub(center);
   }
 
-  draw() {
-    if (!this.#start) return
-    this.controls?.update();
-    this.composer ? this.composer.render() : this.renderer.render(this.scene, this.camera);
-
-    if (!this.#stop) this.#animationId = requestAnimationFrame(this.draw);
-  }
-
-  start() {
-    this.#start = true;
-    this.#stop = false;
-    this.draw();
-  }
-
-  stop() {
-    this.#start = false;
-    this.#stop = true;
-    if (this.#animationId !== null) {
-      cancelAnimationFrame(this.#animationId);
-      this.#animationId = null;
-    }
-  }
-}
-
-export class game {
-  
 }
 
 export {OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
