@@ -18,6 +18,7 @@ export type Callback = (() => void) | null;
 type AppSetting = Partial<{
   add: 	HTMLDivElement,
   cameraPosition: Partial<Vector3Like>,
+  backgroundColor: number,
   controls: boolean,
   composer: boolean
 }>
@@ -68,16 +69,16 @@ export class App {
   #ambientLight!: THREE.AmbientLight;
   #composer!: EffectComposer;
 
-  constructor(option: AppSetting) {
-    this.width = option.add?.clientWidth || window.innerWidth;
-    this.height = option.add?.clientHeight ||  window.innerHeight;
+  constructor(option?: AppSetting) {
+    this.width = option?.add?.clientWidth || window.innerWidth;
+    this.height = option?.add?.clientHeight ||  window.innerHeight;
 
-    this.initScene();
-    this.initCamera(option.cameraPosition);
-    this.initRenderer(option.add);
-    if (option.composer) this.initComposer();
+    this.initScene(option?.backgroundColor);
+    this.initCamera(option?.cameraPosition);
+    this.initRenderer(option?.add);
+    if (option?.composer) this.initComposer();
     this.initLight();
-    if (option.controls) this.initControls();
+    if (option?.controls) this.initControls();
     this.draw = this.draw.bind(this);
   }
 
@@ -356,4 +357,4 @@ export const TC = {
 
 }
 
-export {OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
+export {THREE, OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};

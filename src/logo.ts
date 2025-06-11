@@ -7,6 +7,7 @@ stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
 const app = new App({
+  backgroundColor: 0x38393c,
   cameraPosition: { z: 2 },
   controls: true,
   composer: true
