@@ -22,7 +22,6 @@ type AppSetting = Partial<{
   composer: boolean
 }>
 
-
 export const ToneMappingTypes = {
   None: THREE.NoToneMapping,
   Linear: THREE.LinearToneMapping,
@@ -46,6 +45,7 @@ type GeoOp = {
 
 type FontOp = Partial<{
   fontURL: string,
+  lineHeight: number,
   geometryOption: Partial<GeoOp>,
   materialOption: Partial<MeshStandardMaterialParameters>
 }>
@@ -270,6 +270,36 @@ export class txtMesh{
 
     return new THREE.Mesh(geometry, material);
   }
+
+  async loadMultilineText(text: string, option: FontOp) {
+    const lines = text.split('\n');
+    const group = new THREE.Group();
+
+    for (let i = 0; i < lines.length; i++) {
+      const mesh = await this.loadFontText(lines[i], option);
+      mesh.position.y = -i * (option?.lineHeight ?? 1.2);
+      group.add(mesh);
+    }
+
+    return group;
+  }
+
+  clearFontCache() {
+    this.#fontCache.clear();
+  }
+
+  async updateText(group: THREE.Group, newText: string, option: FontOp) {
+    const newGroup = await this.loadMultilineText(newText, option);
+
+    // 古いメッシュを削除
+    group.clear();
+
+    // 新しいメッシュを追加
+    newGroup.children.forEach(child => {
+      group.add(child.clone());
+    });
+  }
+
 }
 
 export const TC = {
