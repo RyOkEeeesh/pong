@@ -7,7 +7,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-
 export type Vector3Like = {
   x: number;
   y: number;
@@ -16,13 +15,25 @@ export type Vector3Like = {
 
 export type Callback = (() => void) | null;
 
-type appSetting = Partial<{
+type AppSetting = Partial<{
+  add: 	HTMLDivElement,
   cameraPosition: Partial<Vector3Like>,
   controls: boolean,
   composer: boolean
 }>
 
-type typeGeoOp = {
+
+export const ToneMappingTypes = {
+  None: THREE.NoToneMapping,
+  Linear: THREE.LinearToneMapping,
+  Reinhard: THREE.ReinhardToneMapping,
+  Cineon: THREE.CineonToneMapping,
+  ACESFilmic: THREE.ACESFilmicToneMapping
+} as const;
+
+export type ToneMappingKey = keyof typeof ToneMappingTypes;
+
+type GeoOp = {
   font: Font; // 必須
   size?: number;
   depth?: number;
@@ -32,6 +43,12 @@ type typeGeoOp = {
   bevelSize?: number;
   bevelSegments?: number;
 };
+
+type FontOp = Partial<{
+  fontURL: string,
+  geometryOption: Partial<GeoOp>,
+  materialOption: Partial<MeshStandardMaterialParameters>
+}>
 
 export class App {
 
@@ -46,18 +63,18 @@ export class App {
   height: number;
   #scene!:THREE.Scene;
   #camera!: THREE.PerspectiveCamera;
-  #controls!: OrbitControls;
+  #controls: OrbitControls | null = null;
   #renderer!: THREE.WebGLRenderer;
   #ambientLight!: THREE.AmbientLight;
   #composer!: EffectComposer;
 
-  constructor(option: appSetting) {
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
+  constructor(option: AppSetting) {
+    this.width = option.add?.clientWidth || window.innerWidth;
+    this.height = option.add?.clientHeight ||  window.innerHeight;
 
     this.initScene();
     this.initCamera(option.cameraPosition);
-    this.initRenderer();
+    this.initRenderer(option.add);
     if (option.composer) this.initComposer();
     this.initLight();
     if (option.controls) this.initControls();
@@ -80,21 +97,26 @@ export class App {
     this.addScene(this.#camera);
   }
 
-  initRenderer() {
+  initRenderer(add?:	HTMLDivElement) {
+    const addDocument = add ?? document.body;
+
     this.#renderer = new THREE.WebGLRenderer({antialias: true});
     this.#renderer.setSize(this.width, this.height);
     this.#renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(this.#renderer.domElement);
+    addDocument.appendChild(this.#renderer.domElement);
 
-    window.addEventListener('resize', () => {
-      this.width = window.innerWidth;
-      this.height = window.innerHeight;
+    if(!add) {
+      window.addEventListener('resize', () => {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
 
-      this.#camera.aspect = this.width / this.height;
-      this.#camera.updateProjectionMatrix();
-      this.#renderer.setSize(this.width, this.height);
-      this.#composer?.setSize(this.width, this.height);
-    });
+        this.#camera.aspect = this.width / this.height;
+        this.#camera.updateProjectionMatrix();
+        this.#renderer.setSize(this.width, this.height);
+        this.#composer?.setSize(this.width, this.height);
+      });
+    }
+
   }
 
   initComposer() {
@@ -133,10 +155,17 @@ export class App {
     if (callback) this.#afterRenderCallbacks.push(callback);
   }
 
+  setToneMapping(
+    type: ToneMappingKey,
+    exposure: number = 1.0
+  ) {
+    this.#renderer.toneMapping = ToneMappingTypes[type];;
+    this.#renderer.toneMappingExposure = exposure;
+  }
+
   draw() {
     if (!this.#start) return;
 
-    // 前処理
     this.#beforeRenderCallbacks.forEach(cb => cb?.());
 
     this.#controls?.update();
@@ -144,7 +173,6 @@ export class App {
       ? this.#composer.render()
       : this.#renderer.render(this.#scene, this.#camera);
 
-    // 後処理
     this.#afterRenderCallbacks.forEach(cb => cb?.());
 
     if (!this.#stop) this.#animationId = requestAnimationFrame(this.draw);
@@ -164,6 +192,31 @@ export class App {
       this.#animationId = null;
     }
   }
+
+  get camera(): THREE.PerspectiveCamera {
+    return this.#camera;
+  }
+
+  get scene(): THREE.Scene {
+    return this.#scene;
+  }
+
+  get renderer(): THREE.WebGLRenderer {
+    return this.#renderer;
+  }
+
+  get composer(): EffectComposer | undefined {
+    return this.#composer;
+  }
+
+  get controls(): OrbitControls | null {
+    return this.#controls;
+  }
+
+  get animationId(): number | null {
+    return this.#animationId;
+  }
+
 }
 
 export class txtMesh{
@@ -190,10 +243,10 @@ export class txtMesh{
     return loadedFont;
   }
 
-  async loadFontText(text: string, geometryOption?: Partial<typeGeoOp>, materialOption?: Partial<MeshStandardMaterialParameters> ) {
-    const font = await this.fontLoader();
+  async loadFontText(text: string, option: FontOp ) {
+    const font = await this.fontLoader(option?.fontURL);
 
-    const defaultGeoOp: typeGeoOp = {
+    const defaultGeoOp: GeoOp = {
       font,
       size: 1,
       depth: 0,
@@ -209,8 +262,8 @@ export class txtMesh{
       roughness: 0.2 // 表面の粗さ
     }
 
-    const geoOp = Object.assign({}, defaultGeoOp, geometryOption);
-    const matOp = Object.assign({}, defaultMatOp, materialOption);
+    const geoOp = Object.assign({}, defaultGeoOp, option?.geometryOption);
+    const matOp = Object.assign({}, defaultMatOp, option?.materialOption);
 
     const geometry = new TextGeometry(text, geoOp);
     const material = new THREE.MeshStandardMaterial(matOp);
