@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import type { MeshStandardMaterialParameters } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Font, FontLoader } from 'three/examples/jsm/loaders/FontLoader';
@@ -15,7 +16,7 @@ export type Vector3Like = {
 
 export type Callback = (() => void) | null;
 
-type AppSetting = Partial<{
+export type AppSetting = Partial<{
   add: 	HTMLDivElement,
   cameraPosition: Partial<Vector3Like>,
   backgroundColor: number,
@@ -44,7 +45,7 @@ type GeoOp = {
   bevelSegments?: number;
 };
 
-type FontOp = Partial<{
+export type FontOp = Partial<{
   fontURL: string,
   lineHeight: number,
   geometryOption: Partial<GeoOp>,
@@ -101,7 +102,10 @@ export class App {
   initRenderer(add?:	HTMLDivElement) {
     const addDocument = add ?? document.body;
 
-    this.#renderer = new THREE.WebGLRenderer({antialias: true});
+    this.#renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      logarithmicDepthBuffer: true
+    });
     this.#renderer.setSize(this.width, this.height);
     this.#renderer.setPixelRatio(window.devicePixelRatio);
     addDocument.appendChild(this.#renderer.domElement);
@@ -303,6 +307,73 @@ export class txtMesh{
   }
 
 }
+
+export class UserSetting {
+
+}
+
+export class Game extends App{
+
+  wallLeft!: THREE.Mesh;
+  wallRight!: THREE.Mesh;
+  wallBefore!: THREE.Mesh;
+  wallAfter!: THREE.Mesh;
+  walls: THREE.Mesh[] = [];
+
+  ball!: THREE.Mesh;
+
+  myPaddle!: THREE.Mesh;
+  enemyPaddle!: THREE.Mesh;
+
+
+  constructor(option?: AppSetting) {
+    super(option)
+    this.initStage();
+  }
+
+  initStage() {
+    THREE.Mesh.prototype.raycast = acceleratedRaycast;
+
+    const returnMesh = (geo: THREE.BoxGeometry, mat: THREE.Material) => new THREE.Mesh(geo, mat);
+    
+    const height = 28;
+    const width = height / 4 * 3;
+    
+    const sideWallGeo = new THREE.BoxGeometry(height, 1, 0.1);
+    const ABWallGeo = new THREE.BoxGeometry(width, 1, 0.1);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.2, // 自発光の強さ
+      metalness: 0.3, // 金属っぽさ
+      roughness: 0.2 // 表面の粗さ
+    });
+    
+    this.wallLeft = returnMesh(sideWallGeo, material);
+    TC.changePosition(this.wallLeft, { x: -width / 2 });
+    TC.changeRotation(this.wallLeft, { y: TC.toRad(-90) });
+    
+    this.wallRight = returnMesh(sideWallGeo, material);
+    TC.changePosition(this.wallRight, { x: width / 2 });
+    TC.changeRotation(this.wallRight, { y: TC.toRad(90) });
+    
+    this.wallBefore = returnMesh(ABWallGeo, material);
+    TC.changePosition(this.wallBefore, { z: height / 2 });
+    
+    this.wallAfter = returnMesh(ABWallGeo, material);
+    TC.changePosition(this.wallAfter, { z: -height / 2 });
+    
+    this.walls = [this.wallLeft, this.wallRight, this.wallBefore, this.wallAfter];
+    this.walls.forEach(wall => wall.geometry.boundsTree = new MeshBVH(wall.geometry));
+    
+    super.addScene(...this.walls);
+    
+    this.ball = returnMesh(new THREE.BoxGeometry(1, 1, 1), material);
+    this.ball.position.set(0, 0, 0);
+    super.addScene(this.ball);
+  }
+}
+
 
 export const TC = {
 
