@@ -267,6 +267,7 @@ export class txtMesh{
     const matOp = Object.assign({}, defaultMatOp, option?.materialOption);
 
     const geometry = new TextGeometry(text, geoOp);
+    geometry.center();
     const material = new THREE.MeshStandardMaterial(matOp);
 
     return new THREE.Mesh(geometry, material);
@@ -309,6 +310,16 @@ export const TC = {
     return THREE.MathUtils.degToRad(deg)
   },
 
+  vec2(vec: Partial<{x: number, y: number}>) {
+    const { x = 0, y = 0 } = vec;
+    return new THREE.Vector2(x, y);
+  },
+
+  vec3(vec: Partial<Vector3Like>) {
+    const { x = 0, y = 0, z = 0 } = vec;
+    return new THREE.Vector3(x, y, z);
+  },
+
   changePosition(
     target: THREE.Object3D,
     position: Partial<Vector3Like>
@@ -316,6 +327,7 @@ export const TC = {
     target.updateMatrixWorld();
     const { x = target.position.x, y = target.position.y, z = target.position.z } = position;
     target.position.set(x, y, z);
+    target.updateMatrixWorld();
   },
 
   changeRotation(
@@ -325,6 +337,7 @@ export const TC = {
     target.updateMatrixWorld();
     const { x = target.rotation.x, y = target.rotation.y, z = target.rotation.z } = rotation;
     target.rotation.set(x, y, z);
+    target.updateMatrixWorld();
   },
 
   changeScale(
@@ -344,6 +357,7 @@ export const TC = {
     }
 
     target.scale.set(x, y, z);
+    target.updateMatrixWorld();
   },
 
   centerObject(target: THREE.Object3D) {
@@ -353,6 +367,7 @@ export const TC = {
     const center = new THREE.Vector3();
     box.getCenter(center);
     target.position.sub(center);
+    target.updateMatrixWorld();
   }
 
 }

@@ -14,11 +14,12 @@ const app = new App({
 });
 
 
-const txt = new txtMesh()
+const txt = new txtMesh(['./font/mplus.json']);
 
 const text = await txt.loadMultilineText(
-  'PONG',
+  '加地',
   {
+    fontURL: './font/mplus.json',
     geometryOption: {
       depth: 0.1
     },
