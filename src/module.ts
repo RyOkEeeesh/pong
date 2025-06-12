@@ -131,8 +131,8 @@ export class App {
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(this.width, this.height),
       1, // 強さ
-      0.1, // 半径
-      0.5 // しきい値
+      0.5, // 半径
+      0.6 // しきい値
     );
     this.#composer.addPass(bloomPass);
   }
@@ -338,15 +338,20 @@ export class Game extends App{
     
     const height = 28;
     const width = height / 4 * 3;
+
+    const paddleWidth = width / 6;
+
+    const boxHeight = 1;
+    const boxDepth = 0.1;
     
-    const sideWallGeo = new THREE.BoxGeometry(height, 1, 0.1);
-    const ABWallGeo = new THREE.BoxGeometry(width, 1, 0.1);
+    const sideWallGeo = new THREE.BoxGeometry(height - boxDepth, boxHeight, boxDepth);
+    const ABWallGeo = new THREE.BoxGeometry(width + boxDepth, boxHeight, boxDepth);
     const material = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0xffffff,
-      emissiveIntensity: 0.2, // 自発光の強さ
-      metalness: 0.3, // 金属っぽさ
-      roughness: 0.2 // 表面の粗さ
+      emissiveIntensity: 0.25, // 自発光の強さ
+      metalness: 0, // 金属っぽさ
+      roughness: 0 // 表面の粗さ
     });
     
     this.wallLeft = returnMesh(sideWallGeo, material);
@@ -367,6 +372,21 @@ export class Game extends App{
     this.walls.forEach(wall => wall.geometry.boundsTree = new MeshBVH(wall.geometry));
     
     super.addScene(...this.walls);
+
+    const paddleGeo = new THREE.BoxGeometry(paddleWidth, 1, 1);
+
+    this.myPaddle = returnMesh(paddleGeo, material);
+    // this.myPaddle.geometry.boundsTree = new MeshBVH(this.myPaddle.geometry);
+    TC.changePosition(this.myPaddle, { z: height / 2 - 1 });
+
+
+    this.enemyPaddle = returnMesh(paddleGeo, material);
+    // this.enemyPaddle.geometry.boundsTree = new MeshBVH(this.enemyPaddle.geometry);
+    TC.changePosition(this.enemyPaddle, { z: -height / 2 + 1 });
+
+    super.addScene(this.myPaddle, this.enemyPaddle)
+
+
     
     this.ball = returnMesh(new THREE.BoxGeometry(1, 1, 1), material);
     this.ball.position.set(0, 0, 0);

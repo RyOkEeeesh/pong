@@ -6,30 +6,48 @@ const game = new Game({
   composer: true
 });
 
-function createStretchEffect(center: THREE.Vector3, wallNormal: THREE.Vector3) {
-  const planeCount = 2;
-  const duration = 500;
-  const maxScale = 3;
+function createStretchEffect(center: THREE.Vector3, wallNormal: THREE.Vector3, wall: THREE.Mesh) {
+  const duration = 750;
+  const width = 1;
+  const height = 1;
+  const maxOffset = 3;
+  const depthOffset = 0.01;
 
+  // 壁に沿った方向（法線と垂直）
   const wallTangent = new THREE.Vector3().crossVectors(wallNormal, new THREE.Vector3(0, 1, 0)).normalize();
 
-  for (let i = 0; i < planeCount; i++) {
-    const side = i < 2 ? -1 : 1; // 左右
-    const offsetIndex = i % 2;   // 0 or 1
-    const offset = wallTangent.clone().multiplyScalar(offsetIndex * 0.3 * side);
+  // 壁のサイズと向きを取得
+  wall.geometry.computeBoundingBox();
+  const wallSize = new THREE.Vector3();
+  wall.geometry.boundingBox?.getSize(wallSize);
+  wall.updateMatrixWorld(true);
 
-    const geometry = new THREE.PlaneGeometry(1, 0.2); // 横長
+  const wallCenter = new THREE.Vector3();
+  wall.getWorldPosition(wallCenter);
+
+  const wallDirection = wallTangent.clone(); // 壁の横方向
+  const halfLength = wallSize.x / 2;
+  const wallStart = wallCenter.clone().add(wallDirection.clone().multiplyScalar(-halfLength));
+  const wallEnd = wallCenter.clone().add(wallDirection.clone().multiplyScalar(halfLength));
+
+  for (let i = 0; i < 2; i++) {
+    const side = i === 0 ? -1 : 1;
+
+    const geometry = new THREE.PlaneGeometry(width, height);
     const material = new THREE.MeshStandardMaterial({
-      color: 0xffffaa,
-      emissive: 0xffffaa,
+      color: 0x000000,
+      emissive: 0xffffff,
       emissiveIntensity: 3,
       transparent: true,
-      opacity: 1,
-      side: THREE.DoubleSide
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false
     });
 
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.copy(center.clone().add(offset));
+
+    const basePosition = center.clone().add(wallNormal.clone().multiplyScalar(depthOffset));
+    mesh.position.copy(basePosition);
 
     // 壁に貼り付ける
     const planeNormal = new THREE.Vector3(0, 0, 1);
@@ -38,30 +56,42 @@ function createStretchEffect(center: THREE.Vector3, wallNormal: THREE.Vector3) {
 
     game.scene.add(mesh);
 
-    // アニメーション：スケールを伸ばして縮める
     const startTime = performance.now();
     const animate = () => {
       const elapsed = performance.now() - startTime;
-      const t = elapsed / duration;
-      if (t >= 1) {
+      const progress = elapsed / duration;
+
+      if (progress >= 1) {
         game.scene.remove(mesh);
         return;
       }
 
-      // 前半：伸びる、後半：縮む
-      const scaleFactor = t < 0.5
-        ? 1 + (maxScale - 1) * (t / 0.5)
-        : maxScale - (maxScale - 1) * ((t - 0.5) / 0.5);
+      const offset = wallTangent.clone().multiplyScalar(maxOffset * progress * side);
+      let effectPos = basePosition.clone().add(offset);
 
-      mesh.scale.set(scaleFactor, 1, 1);
-      material.opacity = 1 - t;
-      material.emissiveIntensity = 3 * (1 - t);
+      // 壁の範囲にクランプ（エフェクトの幅を考慮）
+      const localOffset = effectPos.clone().sub(wallStart);
+      const projectedLength = localOffset.dot(wallDirection);
+      const halfEffectWidth = width / 2;
+
+      if (projectedLength < halfEffectWidth) {
+        effectPos = wallStart.clone().add(wallDirection.clone().multiplyScalar(halfEffectWidth));
+      } else if (projectedLength > wallSize.x - halfEffectWidth) {
+        effectPos = wallEnd.clone().add(wallDirection.clone().multiplyScalar(-halfEffectWidth));
+      }
+
+      mesh.position.copy(effectPos);
+      material.opacity = 1 - progress;
+      material.emissiveIntensity = 3 * (1 - progress);
+
 
       requestAnimationFrame(animate);
     };
     animate();
   }
 }
+
+
 
 
 // 初期速度
@@ -81,7 +111,8 @@ game.onBeforeRender(() => {
         normal.transformDirection(wall.matrixWorld);
         velocity.reflect(normal);
 
-        createStretchEffect(intersects[0].point.clone(), normal.clone());
+        createStretchEffect(intersects[0].point.clone(), normal.clone(), wall);
+
         break;
       }
     }
