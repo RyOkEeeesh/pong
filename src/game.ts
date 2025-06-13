@@ -38,7 +38,7 @@ game.onBeforeRender(() => {
       }
     }
   }
-  
+
   // パドルとの衝突判定
   const paddles = [game.myPaddle, game.enemyPaddle];
   for (const paddle of paddles) {

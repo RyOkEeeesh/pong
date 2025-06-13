@@ -401,6 +401,13 @@ export class Game extends App{
   reflectorGame() {
     this.deltaTime = Math.min(this.clock.getDelta(), 0.05);
 
+    if(!this.ballVelocity) throw new Error('Ball velocity is null');
+
+    const frameVelocity = this.ballVelocity.clone().multiplyScalar(this.deltaTime);
+    this.ball.position.add(frameVelocity);
+
+    const raycaster = new THREE.Raycaster( this.ball.position, this.ballVelocity.clone().normalize(), 0.05, 1 );
+
   }
 
   createStretchEffect(center: THREE.Vector3, wallNormal: THREE.Vector3, wall: THREE.Mesh) {
