@@ -231,7 +231,7 @@ export class txtMesh{
   constructor(urls?: string[]) {
     this.#fontURL = './font/Jersey15_Regular.json';
     this.fontLoader();
-    urls?.forEach((url) => this.fontLoader(url));
+    urls?.forEach(url => this.fontLoader(url));
   }
 
   async fontLoader(font?: string): Promise<Font> {
@@ -296,14 +296,8 @@ export class txtMesh{
 
   async updateText(group: THREE.Group, newText: string, option: FontOp) {
     const newGroup = await this.loadMultilineText(newText, option);
-
-    // 古いメッシュを削除
     group.clear();
-
-    // 新しいメッシュを追加
-    newGroup.children.forEach(child => {
-      group.add(child.clone());
-    });
+    newGroup.children.forEach(child => group.add(child.clone()));
   }
 
 }
@@ -325,9 +319,19 @@ export class Game extends App{
   myPaddle!: THREE.Mesh;
   enemyPaddle!: THREE.Mesh;
 
+  ballSpeed: number = 20;
+  ballVelocity!: THREE.Vector3;
+
+  clock: THREE.Clock = new THREE.Clock();
+  deltaTime! :number;
+
+  myPoint: number = 0;
+  enemyPoint: number = 0;
 
   constructor(option?: AppSetting) {
     super(option)
+
+    this.ballVelocity = TC.vec3({x: 0.1, z: 0.1}).normalize().multiplyScalar(this.ballSpeed);
     this.initStage();
   }
 
@@ -339,7 +343,7 @@ export class Game extends App{
     const height = 28;
     const width = height / 4 * 3;
 
-    const paddleWidth = width / 6;
+    const paddleWidth = width / 5;
 
     const boxHeight = 1;
     const boxDepth = 0.1;
@@ -376,22 +380,109 @@ export class Game extends App{
     const paddleGeo = new THREE.BoxGeometry(paddleWidth, 1, 1);
 
     this.myPaddle = returnMesh(paddleGeo, material);
-    // this.myPaddle.geometry.boundsTree = new MeshBVH(this.myPaddle.geometry);
+    this.myPaddle.geometry.boundsTree = new MeshBVH(this.myPaddle.geometry);
     TC.changePosition(this.myPaddle, { z: height / 2 - 1 });
+    this.myPaddle.geometry.computeBoundingBox();
 
 
     this.enemyPaddle = returnMesh(paddleGeo, material);
-    // this.enemyPaddle.geometry.boundsTree = new MeshBVH(this.enemyPaddle.geometry);
+    this.enemyPaddle.geometry.boundsTree = new MeshBVH(this.enemyPaddle.geometry);
     TC.changePosition(this.enemyPaddle, { z: -height / 2 + 1 });
+    this.enemyPaddle.geometry.computeBoundingBox();
 
     super.addScene(this.myPaddle, this.enemyPaddle)
 
 
-    
     this.ball = returnMesh(new THREE.BoxGeometry(1, 1, 1), material);
     this.ball.position.set(0, 0, 0);
     super.addScene(this.ball);
   }
+
+  reflectorGame() {
+    this.deltaTime = Math.min(this.clock.getDelta(), 0.05);
+
+  }
+
+  createStretchEffect(center: THREE.Vector3, wallNormal: THREE.Vector3, wall: THREE.Mesh) {
+    const duration = 750;
+    const width = 1;
+    const height = 1;
+    const maxOffset = 3;
+    const depthOffset = 0.01;
+
+    const wallTangent = new THREE.Vector3().crossVectors(wallNormal, new THREE.Vector3(0, 1, 0)).normalize();
+
+    wall.geometry.computeBoundingBox();
+    const wallSize = new THREE.Vector3();
+    wall.geometry.boundingBox?.getSize(wallSize);
+    wall.updateMatrixWorld();
+
+    const wallCenter = new THREE.Vector3();
+    wall.getWorldPosition(wallCenter);
+
+    const wallDirection = wallTangent.clone(); // 壁の横方向
+    const halfLength = wallSize.x / 2;
+    const wallStart = wallCenter.clone().add(wallDirection.clone().multiplyScalar(-halfLength));
+    const wallEnd = wallCenter.clone().add(wallDirection.clone().multiplyScalar(halfLength));
+
+    for (let i = 0; i < 2; i++) {
+      const side = i === 0 ? -1 : 1;
+
+      const geometry = new THREE.PlaneGeometry(width, height);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: 0xffffff,
+        emissiveIntensity: 3,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+
+      const basePosition = center.clone().add(wallNormal.clone().multiplyScalar(depthOffset));
+      mesh.position.copy(basePosition);
+
+      const planeNormal = new THREE.Vector3(0, 0, 1);
+      const quaternion = new THREE.Quaternion().setFromUnitVectors(planeNormal, wallNormal.clone().normalize());
+      mesh.quaternion.copy(quaternion);
+
+      this.scene.add(mesh);
+
+      const startTime = performance.now();
+      const animate = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = elapsed / duration;
+
+        if (progress >= 1) {
+          this.scene.remove(mesh);
+          return;
+        }
+
+        const offset = wallTangent.clone().multiplyScalar(maxOffset * progress * side);
+        let effectPos = basePosition.clone().add(offset);
+
+        const localOffset = effectPos.clone().sub(wallStart);
+        const projectedLength = localOffset.dot(wallDirection);
+        const halfEffectWidth = width / 2;
+
+        if (projectedLength < halfEffectWidth) {
+          effectPos = wallStart.clone().add(wallDirection.clone().multiplyScalar(halfEffectWidth));
+        } else if (projectedLength > wallSize.x - halfEffectWidth) {
+          effectPos = wallEnd.clone().add(wallDirection.clone().multiplyScalar(-halfEffectWidth));
+        }
+
+        mesh.position.copy(effectPos);
+        material.opacity = 1 - progress;
+        material.emissiveIntensity = 3 * (1 - progress);
+
+        requestAnimationFrame(animate);
+      };
+      animate();
+    }
+  }
+
 }
 
 
