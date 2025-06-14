@@ -392,10 +392,101 @@ export class Game extends App{
 
     super.addScene(this.myPaddle, this.enemyPaddle)
 
-
     this.ball = returnMesh(new THREE.BoxGeometry(1, 1, 1), material);
     this.ball.position.set(0, 0, 0);
     super.addScene(this.ball);
+  }
+
+  initUserControl() {
+
+  }
+
+  refectPaddle(raycaster: THREE.Raycaster) {
+    const paddles = [ this.myPaddle, this.enemyPaddle ];
+    let reflection: boolean = false;
+
+    for (const paddle of paddles) {
+      const intersects = raycaster.intersectObject(paddle, true);
+      if (intersects.length > 0) {
+        const normal = intersects[0].face?.normal.clone();
+        if (normal) {
+          normal.transformDirection(paddle.matrixWorld);
+
+          if (Math.abs(normal.z) > 0.9) {
+
+            const hitPoint = intersects[0].point.clone();
+            const localHitPoint = paddle.worldToLocal(hitPoint);
+            const geometry = paddle.geometry;
+
+            if (!geometry.boundingBox) {
+              this.ballVelocity.reflect(normal);
+              reflection = true
+              break;
+            }
+
+            const width = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
+            const halfWidth = (width * paddle.scale.x) / 2;
+
+            const normalized = THREE.MathUtils.clamp(localHitPoint.x / halfWidth, -1, 1);
+
+            const maxAngle = Math.PI / 3; // 60度
+            const angle = normalized * maxAngle;
+
+            const speed = this.ballSpeed;
+            const directionZ = this.ball.position.z < paddle.position.z ? -1 : 1;
+
+            this.ballVelocity.set(
+              speed * Math.sin(angle),
+              0,
+              directionZ * speed * Math.cos(angle)
+            );
+
+            const offset = normal.clone().multiplyScalar(0.01); // 少しだけ押し出す
+            this.ball.position.add(offset);
+
+            // パドルに当たったときのX座標を使う
+            hitPoint.x = this.ball.position.x;
+
+            if (directionZ === -1) {
+              // x軸そのままの自陣地側の壁にエフェクト追加
+              this.createStretchEffect(hitPoint, normal.clone(), this.wallBefore);
+            } else {
+              this.createStretchEffect(hitPoint, normal.clone(), this.wallAfter);
+            }
+
+          }else {
+            this.ballVelocity.reflect(normal);
+          }
+
+          reflection = true;
+
+          break;
+        }
+      }
+    }
+
+    return reflection;
+  }
+
+  refectWall(raycaster: THREE.Raycaster) {
+    const reflectWalls = [ this.wallLeft, this.wallRight, this.wallBefore, this.wallAfter ];
+    let reflection = false;
+
+    for (const reflectWall of reflectWalls) {
+      const intersects =  raycaster.intersectObject(reflectWall, true);
+      if (intersects.length > 0) {
+        const normal = intersects[0].face?.normal.clone();
+        if (normal) {
+          normal.transformDirection(reflectWall.matrixWorld);
+          this.ballVelocity.reflect(normal)
+          this.createStretchEffect(intersects[0].point.clone(), normal.clone(), reflectWall);
+          reflection = true;
+          break;
+        }
+      }
+    }
+
+    return reflection;
   }
 
   reflectorGame() {
@@ -407,6 +498,11 @@ export class Game extends App{
     this.ball.position.add(frameVelocity);
 
     const raycaster = new THREE.Raycaster( this.ball.position, this.ballVelocity.clone().normalize(), 0.05, 1 );
+
+
+    if (this.refectPaddle(raycaster)) return;
+
+    if (this.refectWall(raycaster)) return;
 
   }
 
