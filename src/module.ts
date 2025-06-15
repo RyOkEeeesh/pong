@@ -115,7 +115,7 @@ export class App {
     });
 
     if (op.composer) this.initComposer();
-    if (op)this.initLight();
+    if (op.ambientLight)this.initLight();
     if (op.controls || op.controlArea) this.initControls(op.controlArea);
     this.draw = this.draw.bind(this);
   }
@@ -456,7 +456,7 @@ export class Game extends App{
   }
 
   initUserControl() {
-
+    
   }
 
   refectPaddle(raycaster: THREE.Raycaster) {
@@ -468,6 +468,7 @@ export class Game extends App{
       if (intersects.length > 0) {
         const normal = intersects[0].face?.normal.clone();
         if (normal) {
+
           normal.transformDirection(paddle.matrixWorld);
 
           if (Math.abs(normal.z) > 0.9) {
@@ -499,20 +500,25 @@ export class Game extends App{
               directionZ * speed * Math.cos(angle)
             );
 
-            const offset = normal.clone().multiplyScalar(0.01); // 少しだけ押し出す
+            if (Math.abs(this.ballVelocity.z) < 0.01) {
+              this.ballVelocity.z = directionZ * 0.1;
+              this.ballVelocity.normalize().multiplyScalar(this.ballSpeed);
+            }
+
+            const offset = normal.clone().multiplyScalar(0.01);
             this.ball.position.add(offset);
 
-            // パドルに当たったときのX座標を使う
             hitPoint.x = this.ball.position.x;
 
             if (directionZ === -1) {
-              // x軸そのままの自陣地側の壁にエフェクト追加
+              hitPoint.z = this.wallBefore.position.z;
               this.createStretchEffect(hitPoint, normal.clone(), this.wallBefore);
             } else {
+              hitPoint.z = this.wallAfter.position.z;
               this.createStretchEffect(hitPoint, normal.clone(), this.wallAfter);
             }
 
-          }else {
+          } else {
             this.ballVelocity.reflect(normal);
           }
 
@@ -567,7 +573,7 @@ export class Game extends App{
     const width = 1;
     const height = 1;
     const maxOffset = 3;
-    const depthOffset = 0.01;
+    const depthOffset = 0.06;
 
     const wallTangent = new THREE.Vector3().crossVectors(wallNormal, new THREE.Vector3(0, 1, 0)).normalize();
 
