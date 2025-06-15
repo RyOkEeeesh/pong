@@ -18,10 +18,15 @@ export type Callback = (() => void) | null;
 
 export type AppSetting = Partial<{
   add: 	HTMLDivElement,
-  cameraPosition: Partial<Vector3Like>,
+  scene: THREE.Scene,
   backgroundColor: number,
+  camera: THREE.PerspectiveCamera,
+  cameraPosition: Partial<Vector3Like>,
+  renderer: THREE.WebGLRenderer,
+  composer: boolean,
+  ambientLight: boolean,
   controls: boolean,
-  composer: boolean
+  controlArea: HTMLDivElement,
 }>
 
 export const ToneMappingTypes = {
@@ -71,38 +76,82 @@ export class App {
   #composer!: EffectComposer;
 
   constructor(option?: AppSetting) {
-    this.width = option?.add?.clientWidth || window.innerWidth;
-    this.height = option?.add?.clientHeight ||  window.innerHeight;
+    const defOp = {
+      add: undefined,
+      scene: undefined,
+      backgroundColor: 0x000000,
+      camera: undefined,
+      renderer: undefined,
+      composer: false,
+      ambientLight: true,
+      controls: false,
+    }
 
-    this.initScene(option?.backgroundColor);
-    this.initCamera(option?.cameraPosition);
-    this.initRenderer(option?.add);
-    if (option?.composer) this.initComposer();
-    this.initLight();
-    if (option?.controls) this.initControls();
+    const op = Object.assign({}, defOp, option) as AppSetting;
+
+    const isDiv = (e: any): e is HTMLDivElement => e instanceof HTMLElement;
+
+    if (isDiv(op.add)) {
+      this.width = op.add!.clientWidth;
+      this.height = op.add!.clientHeight;
+    } else {
+      this.width = window.innerWidth;
+      this.height = window.innerHeight
+    }
+
+    this.initScene({
+      scene: op.scene,
+      backgroundColor: op.backgroundColor ?? 0x000000
+    });
+
+    this.initCamera({
+      camera: op.camera,
+      position: op.cameraPosition
+    });
+
+    this.initRenderer({
+      add: op.add,
+      renderer: op.renderer
+    });
+
+    if (op.composer) this.initComposer();
+    if (op)this.initLight();
+    if (op.controls || op.controlArea) this.initControls(op.controlArea);
     this.draw = this.draw.bind(this);
   }
 
-  initScene(backgroundColor: number = 0x000000) {
-    this.#scene = new THREE.Scene();
-    this.#scene.background = new THREE.Color(backgroundColor);
+  initScene(op: {
+    scene?: THREE.Scene | undefined,
+    backgroundColor: number
+  }) {
+    const isScene = (e: any): e is THREE.Scene => e instanceof THREE.Scene;
+    this.#scene = isScene(op.scene) ? op.scene : new THREE.Scene();
+    this.#scene.background = new THREE.Color(op.backgroundColor);
   }
 
   addScene(...elements: THREE.Object3D[]) { elements.forEach(e => this.#scene.add(e)); }
 
-  initCamera(position: Partial<Vector3Like> = {}) {
-    const defaultPosition: Vector3Like = { x: 0, y: 0, z: 5 };
-    const finalPosition: Vector3Like = Object.assign({}, defaultPosition, position);
-
-    this.#camera = new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
-    this.#camera.position.set(finalPosition.x, finalPosition.y, finalPosition.z);
+  initCamera(op: Partial<{
+    camera: THREE.PerspectiveCamera,
+    position: Partial<Vector3Like>
+  }> = {}) {
+    const isCamera = (e: any): e is THREE.Camera => e instanceof THREE.PerspectiveCamera;
+    const position = Object.assign({}, { x: 0, y: 0, z: 5 }, op.position);
+    this.#camera = isCamera(op.camera) ? op.camera : new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
+    this.#camera.position.set(position.x, position.y, position.z);
     this.addScene(this.#camera);
   }
 
-  initRenderer(add?:	HTMLDivElement) {
-    const addDocument = add ?? document.body;
+  initRenderer(op: {
+    add: HTMLDivElement | undefined,
+    renderer: THREE.WebGLRenderer | undefined
+  }) {
 
-    this.#renderer = new THREE.WebGLRenderer({
+    const addDocument = op.add || document.body;
+
+    const isRenderer = (e: any): e is THREE.WebGLRenderer => e instanceof THREE.WebGLRenderer;
+
+    this.#renderer = isRenderer(op.renderer) ? op.renderer : new THREE.WebGLRenderer({
       antialias: true,
       logarithmicDepthBuffer: true
     });
@@ -110,18 +159,20 @@ export class App {
     this.#renderer.setPixelRatio(window.devicePixelRatio);
     addDocument.appendChild(this.#renderer.domElement);
 
-    if(!add) {
+    if (op.add) {
+      const resizeObserver = new ResizeObserver(() => {
+        this.width = op.add!.clientWidth;
+        this.height = op.add!.clientHeight;
+        this.update();
+      });
+      resizeObserver.observe(op.add);
+    } else {
       window.addEventListener('resize', () => {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
-
-        this.#camera.aspect = this.width / this.height;
-        this.#camera.updateProjectionMatrix();
-        this.#renderer.setSize(this.width, this.height);
-        this.#composer?.setSize(this.width, this.height);
+        this.update();
       });
     }
-
   }
 
   initComposer() {
@@ -137,8 +188,8 @@ export class App {
     this.#composer.addPass(bloomPass);
   }
 
-  initControls() {
-    this.#controls = new OrbitControls(this.#camera, this.#renderer.domElement);
+  initControls(controlArea?: HTMLDivElement) {
+    this.#controls = new OrbitControls(this.#camera, controlArea ?? this.#renderer.domElement);
     this.#controls.enableDamping = true;
     this.#controls.dampingFactor = 0.2;
   }
@@ -146,6 +197,13 @@ export class App {
   initLight() {
     this.#ambientLight = new THREE.AmbientLight(0xffffff, 1);
     this.addScene(this.#ambientLight);
+  }
+
+  update() {
+    this.#camera.aspect = this.width / this.height;
+    this.#camera.updateProjectionMatrix();
+    this.#renderer.setSize(this.width, this.height);
+    this.#composer?.setSize(this.width, this.height);
   }
 
   removeFromScene(...objects: THREE.Object3D[]) {
@@ -420,7 +478,7 @@ export class Game extends App{
 
             if (!geometry.boundingBox) {
               this.ballVelocity.reflect(normal);
-              reflection = true
+              reflection = true;
               break;
             }
 
@@ -464,7 +522,6 @@ export class Game extends App{
         }
       }
     }
-
     return reflection;
   }
 
@@ -485,7 +542,6 @@ export class Game extends App{
         }
       }
     }
-
     return reflection;
   }
 
