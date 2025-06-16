@@ -372,7 +372,12 @@ export class Game extends App{
   wallAfter!: THREE.Mesh;
   walls: THREE.Mesh[] = [];
 
+  ballSize: number = 1;
   ball!: THREE.Mesh;
+
+  stageHeight: number = 28;
+  stageWidth: number = this.stageHeight / 4 * 3;
+  paddleWidth: number = this.stageWidth / 5;
 
   myPaddle!: THREE.Mesh;
   enemyPaddle!: THREE.Mesh;
@@ -386,28 +391,26 @@ export class Game extends App{
   myPoint: number = 0;
   enemyPoint: number = 0;
 
+  keyPress: Record<string, boolean> = {};
+
   constructor(option?: AppSetting) {
     super(option)
-
     this.ballVelocity = TC.vec3({x: 0.1, z: 0.1}).normalize().multiplyScalar(this.ballSpeed);
     this.initStage();
+    this.initUserControl();
+    this.rendering();
   }
 
   initStage() {
     THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
     const returnMesh = (geo: THREE.BoxGeometry, mat: THREE.Material) => new THREE.Mesh(geo, mat);
-    
-    const height = 28;
-    const width = height / 4 * 3;
-
-    const paddleWidth = width / 5;
 
     const boxHeight = 1;
     const boxDepth = 0.1;
     
-    const sideWallGeo = new THREE.BoxGeometry(height - boxDepth, boxHeight, boxDepth);
-    const ABWallGeo = new THREE.BoxGeometry(width + boxDepth, boxHeight, boxDepth);
+    const sideWallGeo = new THREE.BoxGeometry(this.stageHeight - boxDepth, boxHeight, boxDepth);
+    const ABWallGeo = new THREE.BoxGeometry(this.stageWidth + boxDepth, boxHeight, boxDepth);
     const material = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0xffffff,
@@ -417,46 +420,69 @@ export class Game extends App{
     });
     
     this.wallLeft = returnMesh(sideWallGeo, material);
-    TC.changePosition(this.wallLeft, { x: -width / 2 });
+    TC.changePosition(this.wallLeft, { x: -this.stageWidth / 2 });
     TC.changeRotation(this.wallLeft, { y: TC.toRad(-90) });
     
     this.wallRight = returnMesh(sideWallGeo, material);
-    TC.changePosition(this.wallRight, { x: width / 2 });
+    TC.changePosition(this.wallRight, { x: this.stageWidth / 2 });
     TC.changeRotation(this.wallRight, { y: TC.toRad(90) });
     
     this.wallBefore = returnMesh(ABWallGeo, material);
-    TC.changePosition(this.wallBefore, { z: height / 2 });
+    TC.changePosition(this.wallBefore, { z: this.stageHeight / 2 });
     
     this.wallAfter = returnMesh(ABWallGeo, material);
-    TC.changePosition(this.wallAfter, { z: -height / 2 });
+    TC.changePosition(this.wallAfter, { z: -this.stageHeight / 2 });
     
     this.walls = [this.wallLeft, this.wallRight, this.wallBefore, this.wallAfter];
     this.walls.forEach(wall => wall.geometry.boundsTree = new MeshBVH(wall.geometry));
     
     super.addScene(...this.walls);
 
-    const paddleGeo = new THREE.BoxGeometry(paddleWidth, 1, 1);
+    const paddleGeo = new THREE.BoxGeometry(this.paddleWidth, 1, 1);
 
     this.myPaddle = returnMesh(paddleGeo, material);
     this.myPaddle.geometry.boundsTree = new MeshBVH(this.myPaddle.geometry);
-    TC.changePosition(this.myPaddle, { z: height / 2 - 1 });
+    TC.changePosition(this.myPaddle, { z: this.stageHeight / 2 - 1 });
     this.myPaddle.geometry.computeBoundingBox();
-
 
     this.enemyPaddle = returnMesh(paddleGeo, material);
     this.enemyPaddle.geometry.boundsTree = new MeshBVH(this.enemyPaddle.geometry);
-    TC.changePosition(this.enemyPaddle, { z: -height / 2 + 1 });
+    TC.changePosition(this.enemyPaddle, { z: -this.stageHeight / 2 + 1 });
     this.enemyPaddle.geometry.computeBoundingBox();
 
     super.addScene(this.myPaddle, this.enemyPaddle)
 
-    this.ball = returnMesh(new THREE.BoxGeometry(1, 1, 1), material);
+    this.ball = returnMesh(new THREE.BoxGeometry(this.ballSize, this.ballSize, this.ballSize), material);
     this.ball.position.set(0, 0, 0);
     super.addScene(this.ball);
   }
 
   initUserControl() {
-    
+    window.addEventListener('keydown', e => this.keyPress[e.code] = true);
+    window.addEventListener('keyup', e => this.keyPress[e.code] = false);
+  }
+
+  paddleMove(target: boolean) {
+    const speed = 15 * this.deltaTime;
+    const paddle = target ? this.myPaddle : this.enemyPaddle;
+
+    if (this.keyPress['KeyA']) {
+      paddle.position.x -= speed;
+    }
+    if (this.keyPress['KeyD']) {
+      paddle.position.x += speed;
+    }
+
+    if (paddle.geometry.boundingBox) {
+      const halfWidth = this.stageWidth / 2;
+      const paddleHalfSize = this.paddleWidth / 2;
+
+      paddle.position.x = THREE.MathUtils.clamp(
+        paddle.position.x,
+        -halfWidth + paddleHalfSize,
+        halfWidth - paddleHalfSize
+      );
+    }
   }
 
   refectPaddle(raycaster: THREE.Raycaster) {
@@ -523,7 +549,6 @@ export class Game extends App{
           }
 
           reflection = true;
-
           break;
         }
       }
@@ -541,7 +566,7 @@ export class Game extends App{
         const normal = intersects[0].face?.normal.clone();
         if (normal) {
           normal.transformDirection(reflectWall.matrixWorld);
-          this.ballVelocity.reflect(normal)
+          this.ballVelocity.reflect(normal);
           this.createStretchEffect(intersects[0].point.clone(), normal.clone(), reflectWall);
           reflection = true;
           break;
@@ -552,15 +577,17 @@ export class Game extends App{
   }
 
   reflectorGame() {
-    this.deltaTime = Math.min(this.clock.getDelta(), 0.05);
-
     if(!this.ballVelocity) throw new Error('Ball velocity is null');
 
     const frameVelocity = this.ballVelocity.clone().multiplyScalar(this.deltaTime);
     this.ball.position.add(frameVelocity);
 
-    const raycaster = new THREE.Raycaster( this.ball.position, this.ballVelocity.clone().normalize(), 0.05, 1 );
-
+    const raycaster = new THREE.Raycaster(
+      this.ball.position,
+      this.ballVelocity.clone().normalize(),
+      0.01,
+      frameVelocity.length() + 1
+    );
 
     if (this.refectPaddle(raycaster)) return;
 
@@ -615,10 +642,12 @@ export class Game extends App{
 
       this.scene.add(mesh);
 
-      const startTime = performance.now();
+      const clock = new THREE.Clock();
+      clock.start();
+
       const animate = () => {
-        const elapsed = performance.now() - startTime;
-        const progress = elapsed / duration;
+        const elapsed = clock.getElapsedTime();
+        const progress = elapsed * 1000 / duration;
 
         if (progress >= 1) {
           this.scene.remove(mesh);
@@ -648,8 +677,48 @@ export class Game extends App{
     }
   }
 
-}
+  enemyPaddleAI() {
+    const speed = 15 * this.deltaTime;
+    const paddleZ = this.enemyPaddle.position.z;
+    const ballZ = this.ball.position.z;
+    const ballVelocityZ = this.ballVelocity.z;
 
+    // ボールが敵側に向かっているか確認
+    if (ballVelocityZ >= 0) return;
+
+    // 到達までの時間を予測
+    const timeToReach = Math.abs((paddleZ - ballZ) / ballVelocityZ);
+
+    // 予測位置（X軸）にノイズを加える
+    const missChance = 0.1;
+    const noise = Math.random() < missChance ? (Math.random() - 0.5) * 4 : 0;
+    const predictedX = this.ball.position.x + this.ballVelocity.x * timeToReach + noise;
+
+    // 目標位置に向かって移動
+    const direction = predictedX - this.enemyPaddle.position.x;
+    this.enemyPaddle.position.x += THREE.MathUtils.clamp(direction, -speed, speed);
+
+    // ステージの端を超えないように制限
+    const halfWidth = this.stageWidth / 2;
+    const paddleHalfSize = this.paddleWidth / 2;
+    this.enemyPaddle.position.x = THREE.MathUtils.clamp(
+      this.enemyPaddle.position.x,
+      -halfWidth + paddleHalfSize,
+      halfWidth - paddleHalfSize
+    );
+  }
+
+
+  rendering() {
+    super.onBeforeRender(() => {
+      this.deltaTime = Math.min(this.clock.getDelta(), 0.05);
+      this.reflectorGame();
+      this.paddleMove(true);
+      this.enemyPaddleAI()
+    })
+  }
+
+}
 
 export const TC = {
 
@@ -719,4 +788,4 @@ export const TC = {
 
 }
 
-export {THREE, OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
+export {THREE, MeshBVH, acceleratedRaycast, OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
