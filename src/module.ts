@@ -374,6 +374,10 @@ export class Game extends App{
 
   ballSize: number = 1;
   ball!: THREE.Mesh;
+  defBallSpeed = 20;
+  ballSpeed: number = this.defBallSpeed;
+  ballVelocity!: THREE.Vector3;
+  acceleration: number = 0.2;
 
   stageHeight: number = 28;
   stageWidth: number = this.stageHeight / 4 * 3;
@@ -382,8 +386,7 @@ export class Game extends App{
   myPaddle!: THREE.Mesh;
   enemyPaddle!: THREE.Mesh;
 
-  ballSpeed: number = 20;
-  ballVelocity!: THREE.Vector3;
+
 
   clock: THREE.Clock = new THREE.Clock();
   deltaTime! :number;
@@ -450,7 +453,7 @@ export class Game extends App{
     TC.changePosition(this.enemyPaddle, { z: -this.stageHeight / 2 + 1 });
     this.enemyPaddle.geometry.computeBoundingBox();
 
-    super.addScene(this.myPaddle, this.enemyPaddle)
+    super.addScene(this.myPaddle, this.enemyPaddle);
 
     this.ball = returnMesh(new THREE.BoxGeometry(this.ballSize, this.ballSize, this.ballSize), material);
     this.ball.position.set(0, 0, 0);
@@ -548,6 +551,7 @@ export class Game extends App{
             this.ballVelocity.reflect(normal);
           }
 
+          this.ballSpeed += this.acceleration;
           reflection = true;
           break;
         }
@@ -561,37 +565,58 @@ export class Game extends App{
     let reflection = false;
 
     for (const reflectWall of reflectWalls) {
-      const intersects =  raycaster.intersectObject(reflectWall, true);
+      const intersects = raycaster.intersectObject(reflectWall, true);
       if (intersects.length > 0) {
         const normal = intersects[0].face?.normal.clone();
         if (normal) {
           normal.transformDirection(reflectWall.matrixWorld);
+
           this.ballVelocity.reflect(normal);
+
+          const offset = normal.clone().multiplyScalar(0.01);
+          this.ball.position.add(offset);
+
           this.createStretchEffect(intersects[0].point.clone(), normal.clone(), reflectWall);
+
           reflection = true;
           break;
         }
       }
     }
+
     return reflection;
   }
 
-  reflectorGame() {
+
+  reflector() {
     if(!this.ballVelocity) throw new Error('Ball velocity is null');
 
     const frameVelocity = this.ballVelocity.clone().multiplyScalar(this.deltaTime);
     this.ball.position.add(frameVelocity);
 
-    const raycaster = new THREE.Raycaster(
-      this.ball.position,
-      this.ballVelocity.clone().normalize(),
-      0.01,
-      frameVelocity.length() + 1
-    );
+    const halfSize = this.ballSize / 2;
+    const offsets = [
+      new THREE.Vector3(halfSize, 0, halfSize),
+      new THREE.Vector3(-halfSize, 0, halfSize),
+      new THREE.Vector3(halfSize, 0, -halfSize),
+      new THREE.Vector3(-halfSize, 0, -halfSize),
+      new THREE.Vector3(0, 0, 0) // 中央
+    ];
 
-    if (this.refectPaddle(raycaster)) return;
-
-    if (this.refectWall(raycaster)) return;
+    for (const offset of offsets) {
+      const origin = this.ball.position.clone().add(offset);
+      const raycaster = new THREE.Raycaster(
+        origin,
+        this.ballVelocity.clone().normalize(),
+        0,
+        frameVelocity.length() + 0.1
+      );
+      if (this.refectPaddle(raycaster) || this.refectWall(raycaster)) {
+        this.predictedTargetX = null;
+        // reflected = true;
+        break;
+      }
+    }
 
   }
 
@@ -677,25 +702,37 @@ export class Game extends App{
     }
   }
 
+  // Gameクラス内に追加するプロパティ
+  private predictedTargetX: number | null = null;
+
+  // enemyPaddleAIの修正
   enemyPaddleAI() {
-    const speed = 15 * this.deltaTime;
+    const speed = 20 * this.deltaTime;
     const paddleZ = this.enemyPaddle.position.z;
     const ballZ = this.ball.position.z;
     const ballVelocityZ = this.ballVelocity.z;
 
     // ボールが敵側に向かっているか確認
-    if (ballVelocityZ >= 0) return;
+    if (ballVelocityZ >= 0) {
+      this.predictedTargetX = null; // ボールが戻ってきたら予測をリセット
+      return;
+    }
 
-    // 到達までの時間を予測
-    const timeToReach = Math.abs((paddleZ - ballZ) / ballVelocityZ);
+    // 予測がまだされていない場合のみ計算
+    if (this.predictedTargetX === null) {
+      const timeToReach = Math.abs((paddleZ - ballZ) / ballVelocityZ);
+      const missChance = 0.1;
+      const noise = Math.random() < missChance ? (Math.random() - 0.5) * 4 : 0;
 
-    // 予測位置（X軸）にノイズを加える
-    const missChance = 0.1;
-    const noise = Math.random() < missChance ? (Math.random() - 0.5) * 4 : 0;
-    const predictedX = this.ball.position.x + this.ballVelocity.x * timeToReach + noise;
+      // ランダムな反射位置を決定
+      const paddleHalfSize = this.paddleWidth / 2;
+      const randomHitOffset = (Math.random() * 2 - 1) * paddleHalfSize;
+
+      this.predictedTargetX = this.ball.position.x + this.ballVelocity.x * timeToReach + noise + randomHitOffset;
+    }
 
     // 目標位置に向かって移動
-    const direction = predictedX - this.enemyPaddle.position.x;
+    const direction = this.predictedTargetX - this.enemyPaddle.position.x;
     this.enemyPaddle.position.x += THREE.MathUtils.clamp(direction, -speed, speed);
 
     // ステージの端を超えないように制限
@@ -709,10 +746,11 @@ export class Game extends App{
   }
 
 
+
   rendering() {
     super.onBeforeRender(() => {
       this.deltaTime = Math.min(this.clock.getDelta(), 0.05);
-      this.reflectorGame();
+      this.reflector();
       this.paddleMove(true);
       this.enemyPaddleAI()
     })
