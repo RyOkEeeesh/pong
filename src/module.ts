@@ -370,7 +370,6 @@ export class Game extends App{
   wallRight!: THREE.Mesh;
   wallBefore!: THREE.Mesh;
   wallAfter!: THREE.Mesh;
-  walls: THREE.Mesh[] = [];
 
   ballSize: number = 1;
   ball!: THREE.Mesh;
@@ -386,13 +385,44 @@ export class Game extends App{
   myPaddle!: THREE.Mesh;
   enemyPaddle!: THREE.Mesh;
 
-
-
   clock: THREE.Clock = new THREE.Clock();
   deltaTime! :number;
 
-  myPoint: number = 0;
-  enemyPoint: number = 0;
+  // パドル移動を受け付ける
+  acceptingInputPaddle: boolean = false;
+
+  pointStatus: {
+    myPoint: number,
+    enemyPoint: number,
+    pointGetter: boolean | null, // true: me, false: enemy
+    getPoint: boolean,
+    max: number,
+    deuce: boolean
+  } = {
+    myPoint: 0,
+    enemyPoint: 0,
+    getPoint: false,
+    pointGetter: null,
+    max: 10,
+    deuce: false
+  }
+
+  serveStartTime: number = 0;
+  isServing: boolean = false;
+  serveReady: boolean = false;
+
+
+  #AIStatus: {
+    speed: number,
+    missChance: number,
+    precision: number,
+    predictedTargetX: number | null
+  } = {
+    speed: 0,
+    missChance: 0,
+    precision: 0,
+    predictedTargetX: null
+  }
 
   keyPress: Record<string, boolean> = {};
 
@@ -401,7 +431,9 @@ export class Game extends App{
     this.ballVelocity = TC.vec3({x: 0.1, z: 0.1}).normalize().multiplyScalar(this.ballSpeed);
     this.initStage();
     this.initUserControl();
+    this.initAI('hard');
     this.rendering();
+    this.acceptingInputPaddle = true; // 後で変更
   }
 
   initStage() {
@@ -436,10 +468,10 @@ export class Game extends App{
     this.wallAfter = returnMesh(ABWallGeo, material);
     TC.changePosition(this.wallAfter, { z: -this.stageHeight / 2 });
     
-    this.walls = [this.wallLeft, this.wallRight, this.wallBefore, this.wallAfter];
-    this.walls.forEach(wall => wall.geometry.boundsTree = new MeshBVH(wall.geometry));
+    const walls = [this.wallLeft, this.wallRight, this.wallBefore, this.wallAfter];
+    walls.forEach(wall => wall.geometry.boundsTree = new MeshBVH(wall.geometry));
     
-    super.addScene(...this.walls);
+    super.addScene(...walls);
 
     const paddleGeo = new THREE.BoxGeometry(this.paddleWidth, 1, 1);
 
@@ -466,6 +498,7 @@ export class Game extends App{
   }
 
   paddleMove(target: boolean) {
+    if (!this.acceptingInputPaddle) return;
     const speed = 15 * this.deltaTime;
     const paddle = target ? this.myPaddle : this.enemyPaddle;
 
@@ -488,7 +521,15 @@ export class Game extends App{
     }
   }
 
-  refectPaddle(raycaster: THREE.Raycaster) {
+  refectPaddle(raycaster: THREE.Raycaster, serve: boolean = false) {
+
+    if (serve) {
+      if (this.pointStatus.pointGetter) { // 敵サーブ
+        
+
+      }
+    }
+
     const paddles = [ this.myPaddle, this.enemyPaddle ];
     let reflection: boolean = false;
 
@@ -561,7 +602,7 @@ export class Game extends App{
   }
 
   refectWall(raycaster: THREE.Raycaster) {
-    const reflectWalls = [ this.wallLeft, this.wallRight, this.wallBefore, this.wallAfter ];
+    const reflectWalls = [ this.wallLeft, this.wallRight ];
     let reflection = false;
 
     for (const reflectWall of reflectWalls) {
@@ -573,7 +614,7 @@ export class Game extends App{
 
           this.ballVelocity.reflect(normal);
 
-          const offset = normal.clone().multiplyScalar(0.01);
+          const offset = normal.clone().multiplyScalar(0.1);
           this.ball.position.add(offset);
 
           this.createStretchEffect(intersects[0].point.clone(), normal.clone(), reflectWall);
@@ -583,12 +624,146 @@ export class Game extends App{
         }
       }
     }
-
     return reflection;
   }
 
+  pointWall(raycaster: THREE.Raycaster) {
+    this.pointStatus.getPoint = false;
+    if (raycaster.intersectObject(this.wallBefore, true).length > 0) {
+      this.acceptingInputPaddle = false;
+      this.pointStatus.enemyPoint++;
+      this.pointStatus.pointGetter = false;
+      this.pointStatus.getPoint = true;
+    } else if (raycaster.intersectObject(this.wallAfter, true).length > 0) {
+      this.acceptingInputPaddle = false;
+      this.pointStatus.myPoint++;
+      this.pointStatus.pointGetter = true;
+      this.pointStatus.getPoint = true;
+    }
+    return this.pointStatus.getPoint;
+  }
+
+  isServe() {
+    if (this.isServing && this.serveReady) {
+      const paddle = this.pointStatus.pointGetter ? this.enemyPaddle : this.myPaddle;
+      this.updateServeBall(paddle);
+
+      const elapsed = this.clock.getElapsedTime() - this.serveStartTime;
+      if (this.keyPress['Space'] || elapsed > 10) {
+        this.isServing = false;
+        this.serveReady = false;
+        const raycaster = new THREE.Raycaster(
+          this.ball.position,
+          this.ballVelocity.clone().normalize(),
+          0,
+          this.ballSpeed * this.deltaTime
+        );
+        this.refectPaddle(raycaster, true);
+      }
+    }
+  }
+
+  async serve() {
+    this.isServing = true;
+    this.acceptingInputPaddle = false;
+    this.serveReady = false;
+
+    await this.animateServePosition(); // 1秒で移動
+
+    this.acceptingInputPaddle = true;
+    this.serveStartTime = this.clock.getElapsedTime();
+    this.serveReady = true;
+  }
+
+  private isAnimatingServe: boolean = false;
+
+  async animateServePosition() {
+    if (this.isAnimatingServe) return; // すでに実行中ならスキップ
+    this.isAnimatingServe = true;
+
+    const paddle = this.pointStatus.pointGetter ? this.enemyPaddle : this.myPaddle;
+    const direction = this.pointStatus.pointGetter ? 1 : -1;
+    const targetZ = paddle.position.z + direction * 1.5;
+
+    const initialZ = this.ball.position.z;
+    const initialX = this.ball.position.x;
+    const duration = 300;
+
+    // Z軸移動
+    await new Promise(resolve => {
+      const clockZ = new THREE.Clock();
+      const animateZ = () => {
+        const elapsed = clockZ.getElapsedTime() * 1000;
+        const t = Math.min(elapsed / duration, 1);
+        this.ball.position.z = THREE.MathUtils.lerp(initialZ, targetZ, t);
+        console.log('Z:', t);
+        if (t < 1) {
+          requestAnimationFrame(animateZ);
+        } else {
+          resolve(undefined);
+        }
+      };
+      animateZ();
+    });
+
+    // X軸移動
+    await new Promise(resolve => {
+      const clockX = new THREE.Clock();
+      const animateX = () => {
+        const elapsed = clockX.getElapsedTime() * 1000;
+        const t = Math.min(elapsed / duration, 1);
+        this.ball.position.x = THREE.MathUtils.lerp(initialX, paddle.position.x, t);
+        console.log('X:', t);
+        if (t < 1) {
+          requestAnimationFrame(animateX);
+        } else {
+          resolve(undefined);
+        }
+      };
+      animateX();
+    });
+
+    this.isAnimatingServe = false;
+  }
+
+
+
+  updateServeBall(paddle: THREE.Mesh) {
+    const paddleBox = paddle.geometry.boundingBox!;
+    const halfWidth = (paddleBox.max.x - paddleBox.min.x) / 2 * paddle.scale.x;
+    const leftEdge = paddle.position.x - halfWidth;
+    const rightEdge = paddle.position.x + halfWidth;
+
+    const ballX = this.ball.position.x;
+
+    // ボールが端にいるか判定
+    const isAtLeft = Math.abs(ballX - leftEdge) < 0.01;
+    const isAtRight = Math.abs(ballX - rightEdge) < 0.01;
+
+    if (isAtLeft || isAtRight) {
+      // パドルと一緒に動かす
+      this.ball.position.x = isAtLeft ? leftEdge : rightEdge;
+    } else {
+      // 範囲内でボールを左右に動かす（例：ゆっくり往復）
+      const time = this.clock.getElapsedTime();
+      const range = halfWidth - 0.1;
+      this.ball.position.x = paddle.position.x + Math.sin(time * 2) * range;
+    }
+
+    // YとZはパドルに合わせる
+    this.ball.position.z = paddle.position.z - 0.5;
+  }
+
+
 
   reflector() {
+
+    if (this.pointStatus.getPoint) {
+      this.ballVelocity.set(0, 0, 0);
+      this.serve();
+      return;
+    }
+
     if(!this.ballVelocity) throw new Error('Ball velocity is null');
 
     const frameVelocity = this.ballVelocity.clone().multiplyScalar(this.deltaTime);
@@ -600,7 +775,7 @@ export class Game extends App{
       new THREE.Vector3(-halfSize, 0, halfSize),
       new THREE.Vector3(halfSize, 0, -halfSize),
       new THREE.Vector3(-halfSize, 0, -halfSize),
-      new THREE.Vector3(0, 0, 0) // 中央
+      new THREE.Vector3(0, 0, 0)
     ];
 
     for (const offset of offsets) {
@@ -609,11 +784,10 @@ export class Game extends App{
         origin,
         this.ballVelocity.clone().normalize(),
         0,
-        frameVelocity.length() + 0.1
+        frameVelocity.length() * 2
       );
-      if (this.refectPaddle(raycaster) || this.refectWall(raycaster)) {
-        this.predictedTargetX = null;
-        // reflected = true;
+      if (this.refectPaddle(raycaster) || this.refectWall(raycaster) || this.pointWall(raycaster)) {
+        this.#AIStatus.predictedTargetX = null;
         break;
       }
     }
@@ -702,40 +876,49 @@ export class Game extends App{
     }
   }
 
-  // Gameクラス内に追加するプロパティ
-  private predictedTargetX: number | null = null;
+  initAI(mode: 'easy'|'middle'|'hard') {
+    if (mode === 'easy') {
+      this.#AIStatus.speed = this.ballSpeed - 10;
+      this.#AIStatus.missChance = 0.3;
+      this.#AIStatus.precision = 6;
+      return;
+    }
+    if (mode === 'middle') {
+      this.#AIStatus.speed = this.ballSpeed - 7;
+      this.#AIStatus.missChance = 0.2;
+      this.#AIStatus.precision = 5;
+      return;
+    }
+    if (mode === 'hard') {
+      this.#AIStatus.speed = this.ballSpeed - 5;
+      this.#AIStatus.missChance = 0.1;
+      this.#AIStatus.precision = 4;
+      return;
+    }
+  }
 
-  // enemyPaddleAIの修正
   enemyPaddleAI() {
-    const speed = 20 * this.deltaTime;
+    const speed = this.#AIStatus.speed * this.deltaTime;
     const paddleZ = this.enemyPaddle.position.z;
     const ballZ = this.ball.position.z;
     const ballVelocityZ = this.ballVelocity.z;
 
-    // ボールが敵側に向かっているか確認
     if (ballVelocityZ >= 0) {
-      this.predictedTargetX = null; // ボールが戻ってきたら予測をリセット
+      this.#AIStatus.predictedTargetX = null;
       return;
     }
 
-    // 予測がまだされていない場合のみ計算
-    if (this.predictedTargetX === null) {
+    if (this.#AIStatus.predictedTargetX === null) {
       const timeToReach = Math.abs((paddleZ - ballZ) / ballVelocityZ);
-      const missChance = 0.1;
-      const noise = Math.random() < missChance ? (Math.random() - 0.5) * 4 : 0;
-
-      // ランダムな反射位置を決定
+      const noise = Math.random() < this.#AIStatus.missChance ? (Math.random() - 0.5) * this.#AIStatus.precision : 0;
       const paddleHalfSize = this.paddleWidth / 2;
       const randomHitOffset = (Math.random() * 2 - 1) * paddleHalfSize;
-
-      this.predictedTargetX = this.ball.position.x + this.ballVelocity.x * timeToReach + noise + randomHitOffset;
+      this.#AIStatus.predictedTargetX = this.ball.position.x + this.ballVelocity.x * timeToReach + noise + randomHitOffset;
     }
 
-    // 目標位置に向かって移動
-    const direction = this.predictedTargetX - this.enemyPaddle.position.x;
+    const direction = this.#AIStatus.predictedTargetX - this.enemyPaddle.position.x;
     this.enemyPaddle.position.x += THREE.MathUtils.clamp(direction, -speed, speed);
 
-    // ステージの端を超えないように制限
     const halfWidth = this.stageWidth / 2;
     const paddleHalfSize = this.paddleWidth / 2;
     this.enemyPaddle.position.x = THREE.MathUtils.clamp(
@@ -745,14 +928,13 @@ export class Game extends App{
     );
   }
 
-
-
   rendering() {
     super.onBeforeRender(() => {
       this.deltaTime = Math.min(this.clock.getDelta(), 0.05);
       this.reflector();
       this.paddleMove(true);
-      this.enemyPaddleAI()
+      this.isServe();
+      this.enemyPaddleAI();
     })
   }
 
@@ -804,7 +986,6 @@ export const TC = {
     if (typeof scale === 'number') {
       x = y = z = scale;
     } else {
-    // オブジェクトなら、指定された軸だけ変更し、他は元の値を使う
       x = scale.x ?? target.scale.x;
       y = scale.y ?? target.scale.y;
       z = scale.z ?? target.scale.z;
