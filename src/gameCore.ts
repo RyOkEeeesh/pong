@@ -1,24 +1,41 @@
-import { THREE } from './module';
+import { THREE } from './ThreeModule';
 
 export enum GameMode {
   Selecting,
   Single,
   Duo,
   Multi
-}
+};
+
+export enum GameStatus {
+  First,
+  Serving,
+  Playing,
+  GetPoint,
+  Pause,
+  end
+};
+
+
 
 export function normalize(val: number, min: number, max: number) {
-  if (min === max) return null;
+  if (min === max) return;
   return (val - min) / (max - min);
-}
+};
 
-export function  denormalize(val: number, min: number, max: number) {
-  return val * (max - min) + min;
-}
+export function  denormalize(val: number, min: number, max: number) { return val * (max - min) + min; };
+
+export const defMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  emissive: 0xffffff,
+  emissiveIntensity: 0.25,
+  metalness: 0,
+  roughness: 0
+});
 
 export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
   const intersects = ray.intersectObject(obj, true);
-  if (intersects.length > 0) {
+  if (intersects.length > 0 && intersects[0].distance < 1) {
     const normal = intersects[0].face?.normal.clone();
     if (normal) return {
       normal: normal.transformDirection(obj.matrixWorld),
@@ -26,7 +43,7 @@ export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
     };
   }
   return;
-}
+};
 
 export class GameManager {
   #clock: THREE.Clock = new THREE.Clock;
@@ -47,54 +64,33 @@ export class GameManager {
     this.#height = management.h;
   }
 
-  get clock() {
-    return this.#clock;
-  }
+  get clock() { return this.#clock; }
 
-  get deltaTime() {
-    return this.#deltaTime;
-  }
-  set deltaTime(value: number) {
-    this.#deltaTime = value;
-  }
+  get deltaTime() { return this.#deltaTime; }
+  set deltaTime(value: number) { this.#deltaTime = value; }
 
-  get width() {
-    return this.#width;
-  }
+  get width() { return this.#width; }
 
-  get height() {
-    return this.#height;
-  }
+  get height() { return this.#height; }
 
-  get ball() {
-    return this.#ball;
-  }
-  set ball(value: THREE.Mesh) {
-    this.#ball = value;
-  }
+  get ball() { return this.#ball; }
+  set ball(value: THREE.Mesh) { this.#ball = value; }
 
-  get speed() {
-    return this.#ballSpeed
-  }
+  get speed() { return this.#ballSpeed }
   set speed(value: number) {
     if (value < 0) throw new Error('Don\' set negative value');
     this.#ballSpeed = value;
   }
 
-  get velocity() {
-    return this.#ballVelocity;
-  }
+  get velocity() { return this.#ballVelocity; }
   set velocity(value: THREE.Vector3) {
-    if (!this.#ballVelocity) {
-      this.#ballVelocity = value.clone();
-    } else {
-      this.#ballVelocity.set(value.x, value.y, value.z);
-    }
+    if (!this.#ballVelocity) this.#ballVelocity = value.clone();
+    else this.#ballVelocity.set(value.x, value.y, value.z);
   }
-}
+};
 
 export class Stage {
-  #hitObjects: THREE.Mesh[] = [];
+  #hitObjects: (Paddle | ObstacleWall | GoalWall)[] = [];
 
   #wallMaterial!: THREE.MeshStandardMaterial;
   #wallLeft!: ObstacleWall;
@@ -103,7 +99,6 @@ export class Stage {
   #wallAfter!: GoalWall;
 
   #ball!: Ball;
-
   #my!: Paddle;
   #enemy!: Paddle;
 
@@ -112,94 +107,77 @@ export class Stage {
   }
 
   init() {
+    this.initWallMaterial();
+    this.initBall();
+    this.initPaddles();
+    this.initWalls();
+    this.initHitObjects();
+  }
+
+  private initWallMaterial() {
+    this.#wallMaterial = defMat.clone();
+  }
+
+  private initBall() {
+    this.#ball = new Ball(this.manager).init();
+  }
+
+  private initPaddles() {
     const w = this.manager.width;
     const h = this.manager.height;
+    this.#my = new Paddle(this.manager).init(w / 6, h / 2 - 1);
+    this.#enemy = new Paddle(this.manager).init(w / 6, -h / 2 + 1);
+  }
 
+  private initWalls() {
+    const w = this.manager.width;
+    const h = this.manager.height;
     const wallHeight = 1;
     const wallDepth = 0.1;
 
     const obstacleWallGeo = new THREE.BoxGeometry(h - wallDepth, wallHeight, wallDepth);
     const goalWallGeo = new THREE.BoxGeometry(w - wallDepth, wallHeight, wallDepth);
-    this.#wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: 0xffffff,
-      emissiveIntensity: 0.25,
-      metalness: 0,
-      roughness: 0
-    });
 
-    this.#ball = new Ball(this.manager).init();
-    this.#my = new Paddle(this.manager).init(w/6, h/2 - 1);
-    this.#enemy = new Paddle(this.manager).init(w/6, -h/2 + 1);
-
-    const WL = new THREE.Mesh(
-      obstacleWallGeo,
-      this.#wallMaterial
-    );
+    const WL = new THREE.Mesh(obstacleWallGeo, this.#wallMaterial);
     WL.position.x = -w / 2;
     WL.rotation.y = THREE.MathUtils.degToRad(-90);
-
     this.#wallLeft = new ObstacleWall(this.manager).init(WL);
 
     const WR = WL.clone();
     WR.position.x = w / 2;
     WR.rotation.y = THREE.MathUtils.degToRad(90);
-
     this.#wallRight = new ObstacleWall(this.manager).init(WR);
 
-    const WA = new THREE.Mesh(
-      goalWallGeo,
-      this.#wallMaterial
-    );
+    const WA = new THREE.Mesh(goalWallGeo, this.#wallMaterial);
     WA.position.z = -h / 2;
-
     this.#wallAfter = new GoalWall(this.manager).init(WA);
 
     const WB = WA.clone();
     WB.position.z = h / 2;
-
     this.#wallBefore = new GoalWall(this.manager).init(WB);
-
-    this.#hitObjects = [ this.#my.mesh, this.#enemy.mesh, this.#wallAfter.mesh, this.#wallBefore.mesh, this.#wallLeft.mesh, this.#wallRight.mesh ];
-
   }
 
-  get ball() {
-    return this.#ball;
+  private initHitObjects() {
+    this.#hitObjects = [
+      this.#my,
+      this.#enemy,
+      this.#wallAfter,
+      this.#wallBefore,
+      this.#wallLeft,
+      this.#wallRight
+    ];
   }
 
-  get my() {
-    return this.#my;
-  }
-
-  get enemy() {
-    return this.#enemy;
-  }
-
-  get wallLeft() {
-    return this.#wallLeft;
-  }
-
-  get wallRight() {
-    return this.#wallRight;
-  }
-
-  get wallAfter() {
-    return this.#wallAfter;
-  }
-
-  get wallBefore() {
-    return this.#wallBefore;
-  }
-
-  get wallMat() {
-    return this.#wallMaterial;
-  }
-
-  get hitObjects() {
-    return this.#hitObjects;
-  }
-}
+  get ball() { return this.#ball; }
+  get my() { return this.#my; }
+  get enemy() { return this.#enemy; }
+  get wallLeft() { return this.#wallLeft; }
+  get wallRight() { return this.#wallRight; }
+  get wallAfter() { return this.#wallAfter; }
+  get wallBefore() { return this.#wallBefore; }
+  get wallMat() { return this.#wallMaterial; }
+  get hitObjects() { return this.#hitObjects; }
+};
 
 export class Ball {
   #mesh!: THREE.Mesh;
@@ -210,13 +188,7 @@ export class Ball {
   init(mat?: THREE.Material) {
     this.manager.ball = this.#mesh = new THREE.Mesh(
       new THREE.BoxGeometry(this.#size, this.#size, this.#size),
-      mat ?? new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: 0xffffff,
-      emissiveIntensity: 0.25,
-      metalness: 0,
-      roughness: 0
-      })
+      mat ?? defMat.clone()
     );
     return this;
   }
@@ -240,12 +212,11 @@ export class Ball {
     ];
   }
 
-  get mesh() {
-    return this.#mesh;
-  }
+  get mesh() { return this.#mesh; }
 }
 
 export abstract class HitObject {
+  abstract get mesh(): THREE.Mesh;
   abstract onHit(ray: THREE.Raycaster): void;
 }
 
@@ -265,13 +236,7 @@ export class Paddle extends HitObject{
 
     this.#mesh = new THREE.Mesh(
       new THREE.BoxGeometry(this.#paddleWidth, this.#paddleSize, this.#paddleSize),
-      mat ?? new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: 0xffffff,
-        emissiveIntensity: 0.25,
-        metalness: 0,
-        roughness: 0
-      })
+      mat ?? defMat.clone()
     );
     this.#mesh.position.z = positionZ;
     this.#mesh.geometry.computeBoundingBox();
@@ -289,7 +254,12 @@ export class Paddle extends HitObject{
     );
   }
 
-  override onHit() {
+  override onHit(ray: THREE.Raycaster) {
+    const hit = isHit(ray, this.#mesh);
+    if (!hit) return;
+    console.log(hit);
+    return true;
+
     // TODO
   }
 
@@ -298,14 +268,9 @@ export class Paddle extends HitObject{
     this.#mesh.material.needsUpdate;
   }
 
-  get mesh() {
-    return this.#mesh;
-  }
-
-  get boundingBox() {
-    return this.#boundingBox;
-  }
-}
+  get mesh() { return this.#mesh; }
+  get boundingBox() { return this.#boundingBox; }
+};
 
 export class ObstacleWall extends HitObject {
   #mesh!: THREE.Mesh;
@@ -320,13 +285,15 @@ export class ObstacleWall extends HitObject {
   }
 
   override onHit(ray: THREE.Raycaster) {
+    const hit = isHit(ray, this.#mesh);
+    if (!hit) return;
+    console.log(hit);
+    return true;
     // TODO
   }
 
-  get mesh() {
-    return this.#mesh;
-  }
-}
+  get mesh() { return this.#mesh; }
+};
 
 export class GoalWall extends HitObject {
   #mesh!: THREE.Mesh;
@@ -341,18 +308,20 @@ export class GoalWall extends HitObject {
   }
 
   override onHit(ray: THREE.Raycaster) {
+    const hit = isHit(ray, this.#mesh);
+    if (!hit) return;
+    console.log(hit);
+    return true;
     // TODO
   }
 
-  get mesh() {
-    return this.#mesh;
-  }
-}
+  get mesh() { return this.#mesh; }
+};
 
 export class Controls {
 
-}
+};
 
 export class Cpu {
   
-}
+};
