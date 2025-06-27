@@ -13,10 +13,14 @@ export enum GameStatus {
   Playing,
   GetPoint,
   Pause,
-  end
+  End
 };
 
-
+export enum ServiceStatus {
+  Pending,
+  Running,
+  Done
+};
 
 export function normalize(val: number, min: number, max: number) {
   if (min === max) return;
@@ -35,7 +39,7 @@ export const defMat = new THREE.MeshStandardMaterial({
 
 export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
   const intersects = ray.intersectObject(obj, true);
-  if (intersects.length > 0 && intersects[0].distance < 1) {
+  if (intersects.length > 0) {
     const normal = intersects[0].face?.normal.clone();
     if (normal) return {
       normal: normal.transformDirection(obj.matrixWorld),
@@ -45,16 +49,31 @@ export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
   return;
 };
 
+export class ModeManager {
+
+};
+
+export class UserSetting {
+
+}
+
 export class GameManager {
   #clock: THREE.Clock = new THREE.Clock;
   #deltaTime: number = this.#clock.getDelta();
+
+  gameStatus: GameStatus = GameStatus.First;
 
   #width!: number;
   #height!: number;
 
   #ball!: THREE.Mesh;
-  #ballSpeed!: number;
-  #ballVelocity!: THREE.Vector3;
+
+  #defBallSpeed = 25;
+  #ballSpeed: number = this.#defBallSpeed;
+  #ballVelocity: THREE.Vector3 = new THREE.Vector3(0.1, 0, 0.1).normalize().multiplyScalar(this.#ballSpeed);
+  #acceleration: number = 0.2;
+
+  #effect: boolean = true;
 
   constructor(management: {
     w: number,
@@ -64,9 +83,14 @@ export class GameManager {
     this.#height = management.h;
   }
 
+  accele() {
+    this.#ballSpeed += this.#acceleration;
+    this.#ballVelocity = this.#ballVelocity.clone().normalize().multiplyScalar(this.#ballSpeed);
+  }
+
   get clock() { return this.#clock; }
 
-  get deltaTime() { return this.#deltaTime; }
+  get deltaTime(): number { return this.#deltaTime; }
   set deltaTime(value: number) { this.#deltaTime = value; }
 
   get width() { return this.#width; }
@@ -83,14 +107,22 @@ export class GameManager {
   }
 
   get velocity() { return this.#ballVelocity; }
-  set velocity(value: THREE.Vector3) {
-    if (!this.#ballVelocity) this.#ballVelocity = value.clone();
-    else this.#ballVelocity.set(value.x, value.y, value.z);
-  }
+  set velocity(value: THREE.Vector3) { this.#ballVelocity = value.clone(); }
+
+  get effect() { return this.#effect; }
+  set effect(value: boolean) { this.#effect = value; }
 };
 
+export class ServiceManager {
+  serviceStatus: ServiceStatus = ServiceStatus.Pending;
+}
+
+export class UserManager {
+  // ユーザ名など　検討中
+}
+
 export class Stage {
-  #hitObjects: (Paddle | ObstacleWall | GoalWall)[] = [];
+  #hitObjects: ( Paddle | ObstacleWall | GoalWall )[] = [];
 
   #wallMaterial!: THREE.MeshStandardMaterial;
   #wallLeft!: ObstacleWall;
@@ -194,7 +226,8 @@ export class Ball {
   }
 
   add() {
-    this.#mesh.position.add(this.manager.velocity);
+    const frameVelocity = this.manager.velocity.clone().multiplyScalar(this.manager.deltaTime);
+    this.#mesh.position.add(frameVelocity);
   }
 
   changeMat(mat: THREE.Material) {
@@ -231,7 +264,7 @@ export class Paddle extends HitObject{
     super();
   }
 
-  init(paddleWidth: number,positionZ: number, mat?: THREE.Material) {
+  init(paddleWidth: number, positionZ: number, mat?: THREE.Material) {
     this.#paddleWidth = paddleWidth;
 
     this.#mesh = new THREE.Mesh(
@@ -254,13 +287,35 @@ export class Paddle extends HitObject{
     );
   }
 
+  refectPaddle() {
+    const normalized = THREE.MathUtils.clamp( (this.manager.ball.position.x - this.mesh.position.x) / ((this.#boundingBox.max.x - this.#boundingBox.min.x) / 2), -1, 1 );
+    const maxAngle = Math.PI / 3;
+    const angle = normalized * maxAngle;
+    const dz = -Math.sign(this.manager.velocity.z);
+
+    this.manager.velocity.set(
+      this.manager.speed * Math.sin(angle),
+      0,
+      dz * this.manager.speed * Math.cos(angle)
+    );
+
+    if (Math.abs(this.manager.velocity.z) < 0.01) {
+      this.manager.velocity.z = dz * 0.1;
+      this.manager.velocity.normalize().multiplyScalar(this.manager.speed);
+    }
+  }
+
   override onHit(ray: THREE.Raycaster) {
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
-    console.log(hit);
-    return true;
 
-    // TODO
+    Math.abs(hit.normal.z) > 0.9
+      ? this.refectPaddle()
+      : this.manager.velocity.reflect(hit.normal);
+
+    if (this.manager.gameStatus === GameStatus.Playing) this.manager.accele();
+
+    return hit;
   }
 
   changeMat(mat: THREE.Material) {
@@ -287,9 +342,12 @@ export class ObstacleWall extends HitObject {
   override onHit(ray: THREE.Raycaster) {
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
-    console.log(hit);
-    return true;
-    // TODO
+
+    this.manager.velocity.reflect(hit.normal);
+    const offset = hit.normal.clone().multiplyScalar(0.5);
+    this.manager.ball.position.add(offset);
+
+    return hit;
   }
 
   get mesh() { return this.#mesh; }
@@ -310,9 +368,12 @@ export class GoalWall extends HitObject {
   override onHit(ray: THREE.Raycaster) {
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
-    console.log(hit);
-    return true;
-    // TODO
+
+    this.manager.velocity.reflect(hit.normal);
+    const offset = hit.normal.clone().multiplyScalar(0.5);
+    this.manager.ball.position.add(offset);
+
+    return hit;
   }
 
   get mesh() { return this.#mesh; }
