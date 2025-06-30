@@ -22,12 +22,19 @@ export enum ServiceStatus {
   Done
 };
 
+export type ControlSetting = {
+  L: string,
+  R: string,
+  U: string,
+  D: string
+};
+
 export function normalize(val: number, min: number, max: number) {
-  if (min === max) return;
+  if (min === max) return 0;
   return (val - min) / (max - min);
 };
 
-export function  denormalize(val: number, min: number, max: number) { return val * (max - min) + min; };
+export function denormalize(val: number, min: number, max: number) { return val * (max - min) + min; };
 
 export const defMat = new THREE.MeshStandardMaterial({
   color: 0xffffff,
@@ -49,13 +56,66 @@ export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
   return;
 };
 
-export class ModeManager {
+export class GameContext {
+  #mm: ModeManager = new ModeManager();
+  #us: UserSetting = new UserSetting();
+  #gm: GameManager = new GameManager();
+  #sm: ServiceManager = new ServiceManager();
 
+  constructor() {}
+
+  get ModeManager() { return this.#mm; }
+  get UserSetting() { return this.#us; }
+  get GameManager() { return this.#gm; }
+  get ServiceManager() { return this.#sm; }
+}
+
+export class ModeManager {
+  #mode = GameMode.Selecting;
+
+  constructor() {}
+
+  setMode(m: GameMode) {
+    switch (m) {
+      case GameMode.Selecting:
+        // メニュー表示
+        break;
+      case GameMode.Single:
+        // シングルモード
+        break;
+      case GameMode.Duo:
+        // デュオモード
+        break;
+      case GameMode.Multi:
+        // マルチモード
+        break;
+    }
+  }
+
+  get mode():GameMode { return this.#mode; }
 };
 
 export class UserSetting {
+  #speed: number = 15;
 
-}
+  #control: ControlSetting = {
+    L: 'KeyA',
+    R: 'KeyD',
+    U: 'KeyW',
+    D: 'KeyS'
+  };
+
+  setControl(op: Partial<ControlSetting>) {
+    if (Object.keys(op).length === 0) return;
+    Object.keys(op).forEach(key => {
+      const k = key as keyof ControlSetting;
+      this.#control[k] = op[k]!;
+    });
+  }
+
+  get control() { return this.#control; }
+  get speed() { return this.#speed; }
+};
 
 export class GameManager {
   #clock: THREE.Clock = new THREE.Clock;
@@ -63,8 +123,8 @@ export class GameManager {
 
   gameStatus: GameStatus = GameStatus.First;
 
-  #width!: number;
-  #height!: number;
+  #height: number = 28;
+  #width: number = this.#height / 5 * 4;
 
   #ball!: THREE.Mesh;
 
@@ -75,13 +135,7 @@ export class GameManager {
 
   #effect: boolean = true;
 
-  constructor(management: {
-    w: number,
-    h: number
-  }) {
-    this.#width = management.w;
-    this.#height = management.h;
-  }
+  constructor() {}
 
   accele() {
     this.#ballSpeed += this.#acceleration;
@@ -102,7 +156,7 @@ export class GameManager {
 
   get speed() { return this.#ballSpeed }
   set speed(value: number) {
-    if (value < 0) throw new Error('Don\' set negative value');
+    if (value < 0) throw new Error('Don\'t set negative value');
     this.#ballSpeed = value;
   }
 
@@ -119,6 +173,8 @@ export class ServiceManager {
 
 export class UserManager {
   // ユーザ名など　検討中
+  #name: string = 'Guest';
+  #id: string | null = null; // multi用
 }
 
 export class Stage {
@@ -131,8 +187,8 @@ export class Stage {
   #wallAfter!: GoalWall;
 
   #ball!: Ball;
-  #my!: Paddle;
-  #enemy!: Paddle;
+  #p1!: Paddle;
+  #p2!: Paddle;
 
   constructor(private manager: GameManager) {
     this.init();
@@ -157,8 +213,8 @@ export class Stage {
   private initPaddles() {
     const w = this.manager.width;
     const h = this.manager.height;
-    this.#my = new Paddle(this.manager).init(w / 6, h / 2 - 1);
-    this.#enemy = new Paddle(this.manager).init(w / 6, -h / 2 + 1);
+    this.#p1 = new Paddle(this.manager).init(w / 6, h / 2 - 1);
+    this.#p2 = new Paddle(this.manager).init(w / 6, -h / 2 + 1);
   }
 
   private initWalls() {
@@ -191,8 +247,8 @@ export class Stage {
 
   private initHitObjects() {
     this.#hitObjects = [
-      this.#my,
-      this.#enemy,
+      this.#p1,
+      this.#p2,
       this.#wallAfter,
       this.#wallBefore,
       this.#wallLeft,
@@ -201,8 +257,8 @@ export class Stage {
   }
 
   get ball() { return this.#ball; }
-  get my() { return this.#my; }
-  get enemy() { return this.#enemy; }
+  get p1() { return this.#p1; }
+  get p2() { return this.#p2; }
   get wallLeft() { return this.#wallLeft; }
   get wallRight() { return this.#wallRight; }
   get wallAfter() { return this.#wallAfter; }
@@ -246,6 +302,7 @@ export class Ball {
   }
 
   get mesh() { return this.#mesh; }
+  get position() { return this.#mesh.position; }
 }
 
 export abstract class HitObject {
@@ -282,13 +339,13 @@ export class Paddle extends HitObject{
     this.#mesh.position.x += denormalize(x, -this.manager.width/2, this.manager.width/2);
     this.#mesh.position.x = THREE.MathUtils.clamp(
       this.#mesh.position.x,
-      -this.manager.width/2 + this.#paddleWidth/2,
-      this.manager.width/2 - this.#paddleWidth/2
+      -this.manager.width/2 + this.halfX(),
+      this.manager.width/2 - this.halfX()
     );
   }
 
   refectPaddle() {
-    const normalized = THREE.MathUtils.clamp( (this.manager.ball.position.x - this.mesh.position.x) / ((this.#boundingBox.max.x - this.#boundingBox.min.x) / 2), -1, 1 );
+    const normalized = THREE.MathUtils.clamp( (this.manager.ball.position.x - this.mesh.position.x) / this.halfX(), -1, 1 );
     const maxAngle = Math.PI / 3;
     const angle = normalized * maxAngle;
     const dz = -Math.sign(this.manager.velocity.z);
@@ -323,7 +380,10 @@ export class Paddle extends HitObject{
     this.#mesh.material.needsUpdate;
   }
 
+  halfX() { return (this.#boundingBox.max.x - this.#boundingBox.min.x) / 2; }
+
   get mesh() { return this.#mesh; }
+  get position() {return this.#mesh.position; }
   get boundingBox() { return this.#boundingBox; }
 };
 
@@ -379,8 +439,31 @@ export class GoalWall extends HitObject {
   get mesh() { return this.#mesh; }
 };
 
-export class Controls {
+export class Controller {
+  #keyPress: Record<string, boolean> = {};
 
+  constructor(private context: GameContext) {
+    this.init();
+  }
+
+  init() {
+    document.addEventListener('keydown', e => this.#keyPress[e.code] = true);
+    document.addEventListener('keyup', e => this.#keyPress[e.code] = false);
+  }
+
+  control(paddle: Paddle) {
+    const max = this.context.GameManager.width / 2;
+    const min = -this.context.GameManager.width / 2;
+    const setting = this.context.UserSetting;
+    if (this.#keyPress[setting.control.L]) {
+      const speed = normalize(-setting.speed * this.context.GameManager.deltaTime, min, max);
+      paddle.move(speed);
+    }
+    if (this.#keyPress[setting.control.R]) {
+      const speed = normalize(setting.speed * this.context.GameManager.deltaTime, min, max);
+      paddle.move(speed);
+    }
+  }
 };
 
 export class Cpu {
