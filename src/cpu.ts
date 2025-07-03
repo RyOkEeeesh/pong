@@ -1,5 +1,6 @@
 import { THREE } from './ThreeModule';
-import { normalize, GameManager, Paddle } from "./gameCore";
+import { normalize, Paddle } from "./gameCore";
+import { GameManager, GameStatus } from './manager';
 
 export enum CPUMode {
   Easy,
@@ -42,22 +43,40 @@ export class CPU {
     this.#mode = mode;
     switch (mode) {
       case CPUMode.Easy:
-        this.#CPUStatus.speed = this.manager.speed - 10;
+        this.#CPUStatus.speed = this.manager.defSpeed - 10;
         this.#CPUStatus.missChance = 0.5;
         this.#CPUStatus.precision = 8;
         break;
       
       case CPUMode.Normal:
-        this.#CPUStatus.speed = this.manager.speed - 7.5;
+        this.#CPUStatus.speed = this.manager.defSpeed - 7.5;
         this.#CPUStatus.missChance = 0.3;
         this.#CPUStatus.precision = 6;
         break;
       
       case CPUMode.Hard:
-        this.#CPUStatus.speed = this.manager.speed - 5;
+        this.#CPUStatus.speed = this.manager.defSpeed - 5;
         this.#CPUStatus.missChance = 0.1;
         this.#CPUStatus.precision = 4;
         break;
+    }
+  }
+
+  centar(dt?: number) {
+    if (this.#paddle.position.x === 0) return true;
+    const targetX = 0;
+    const deltaTime = dt ?? this.manager.deltaTime;
+    const dx = targetX - this.#paddle.position.x;
+    const moveX = Math.sign(dx);
+    const speed = this.manager.gameStatus === GameStatus.Serving ? 20 : this.#CPUStatus.speed;
+    const step = moveX * speed * deltaTime;
+
+    if (Math.abs(dx) <= Math.abs(step)) {
+      this.#paddle.position.x = 0;
+      return true;
+    } else {
+      this.#paddle.position.x += step;
+      return false;
     }
   }
 
@@ -71,7 +90,7 @@ export class CPU {
       this.#CPUStatus.predictedTargetX = null;
       // ハードモードは真ん中に戻る処理追加
       if (this.#mode === CPUMode.Hard) {
-
+        this.centar();
       }
       return;
     }
@@ -86,7 +105,20 @@ export class CPU {
     const direction = this.#CPUStatus.predictedTargetX - this.#paddle.position.x;
     const clampMove = THREE.MathUtils.clamp(direction, -speed, speed);
     this.#paddle.move(normalize(clampMove, -this.manager.width / 2, this.manager.width / 2));
+  }
 
+  async moveCentar() {
+    this.#CPUStatus.serviceToMoveCenter = true;
+    let time = performance.now();
+
+    await new Promise(resolve => {
+      const animate = (now: number) => {
+        const deltaTime = (now - time) / 1000;
+        time = now;
+        this.centar(deltaTime) ? resolve(null) : requestAnimationFrame(animate);
+      };
+      animate(performance.now());
+    });
   }
 
   resetPredict() { this.#CPUStatus.predictedTargetX = null; }

@@ -1,33 +1,6 @@
+import { ControlSetting, UserSetting } from './control';
+import { GameManager, GameMode, GameStatus, ModeManager, PointManager, ServiceManager, ServiceStatus } from './manager';
 import { THREE } from './ThreeModule';
-
-export enum GameMode {
-  Selecting,
-  Single,
-  Duo,
-  Multi
-};
-
-export enum GameStatus {
-  First,
-  Serving,
-  Playing,
-  GetPoint,
-  Pause,
-  End
-};
-
-export enum ServiceStatus {
-  Pending,
-  Running,
-  Done
-};
-
-export type ControlSetting = {
-  L: string,
-  R: string,
-  U: string,
-  D: string
-};
 
 export function normalize(val: number, min: number, max: number) {
   if (min === max) return 0;
@@ -61,6 +34,7 @@ export class GameContext {
   #us: UserSetting = new UserSetting();
   #gm: GameManager = new GameManager();
   #sm: ServiceManager = new ServiceManager();
+  #pm: PointManager = new PointManager();
 
   constructor() {}
 
@@ -68,113 +42,7 @@ export class GameContext {
   get UserSetting() { return this.#us; }
   get GameManager() { return this.#gm; }
   get ServiceManager() { return this.#sm; }
-}
-
-export class ModeManager {
-  #mode = GameMode.Selecting;
-
-  constructor() {}
-
-  setMode(m: GameMode) {
-    switch (m) {
-      case GameMode.Selecting:
-        // メニュー表示
-        break;
-      case GameMode.Single:
-        // シングルモード
-        break;
-      case GameMode.Duo:
-        // デュオモード
-        break;
-      case GameMode.Multi:
-        // マルチモード
-        break;
-    }
-  }
-
-  get mode():GameMode { return this.#mode; }
-};
-
-export class UserSetting {
-  #speed: number = 15;
-
-  #control: ControlSetting = {
-    L: 'KeyA',
-    R: 'KeyD',
-    U: 'KeyW',
-    D: 'KeyS'
-  };
-
-  setControl(op: Partial<ControlSetting>) {
-    if (Object.keys(op).length === 0) return;
-    Object.keys(op).forEach(key => {
-      const k = key as keyof ControlSetting;
-      this.#control[k] = op[k]!;
-    });
-  }
-
-  get control() { return this.#control; }
-  get speed() { return this.#speed; }
-};
-
-export class GameManager {
-  #clock: THREE.Clock = new THREE.Clock;
-  #deltaTime: number = this.#clock.getDelta();
-
-  gameStatus: GameStatus = GameStatus.First;
-
-  #height: number = 28;
-  #width: number = this.#height / 5 * 4;
-
-  #ball!: THREE.Mesh;
-
-  #defBallSpeed = 25;
-  #ballSpeed: number = this.#defBallSpeed;
-  #ballVelocity: THREE.Vector3 = new THREE.Vector3(0.1, 0, 0.1).normalize().multiplyScalar(this.#ballSpeed);
-  #acceleration: number = 0.2;
-
-  #effect: boolean = true;
-
-  constructor() {}
-
-  accele() {
-    this.#ballSpeed += this.#acceleration;
-    this.#ballVelocity = this.#ballVelocity.clone().normalize().multiplyScalar(this.#ballSpeed);
-  }
-
-  get clock() { return this.#clock; }
-
-  get deltaTime(): number { return this.#deltaTime; }
-  set deltaTime(value: number) { this.#deltaTime = value; }
-
-  get width() { return this.#width; }
-
-  get height() { return this.#height; }
-
-  get ball() { return this.#ball; }
-  set ball(value: THREE.Mesh) { this.#ball = value; }
-
-  get speed() { return this.#ballSpeed }
-  set speed(value: number) {
-    if (value < 0) throw new Error('Don\'t set negative value');
-    this.#ballSpeed = value;
-  }
-
-  get velocity() { return this.#ballVelocity; }
-  set velocity(value: THREE.Vector3) { this.#ballVelocity = value.clone(); }
-
-  get effect() { return this.#effect; }
-  set effect(value: boolean) { this.#effect = value; }
-};
-
-export class ServiceManager {
-  serviceStatus: ServiceStatus = ServiceStatus.Pending;
-}
-
-export class UserManager {
-  // ユーザ名など　検討中
-  #name: string = 'Guest';
-  #id: string | null = null; // multi用
+  get PointManager() { return this.#pm; }
 }
 
 export class Stage {
@@ -190,9 +58,13 @@ export class Stage {
   #p1!: Paddle;
   #p2!: Paddle;
 
-  constructor(private manager: GameManager) {
+  private manager!: GameManager;
+
+  constructor(private context: GameContext) {
+    this.manager = this.context.GameManager;
     this.init();
   }
+
 
   init() {
     this.initWallMaterial();
@@ -239,10 +111,12 @@ export class Stage {
     const WA = new THREE.Mesh(goalWallGeo, this.#wallMaterial);
     WA.position.z = -h / 2;
     this.#wallAfter = new GoalWall(this.manager).init(WA);
+    this.#wallAfter.setting(true, this.context.PointManager);
 
     const WB = WA.clone();
     WB.position.z = h / 2;
     this.#wallBefore = new GoalWall(this.manager).init(WB);
+    this.#wallBefore.setting(false, this.context.PointManager);
   }
 
   private initHitObjects() {
@@ -274,16 +148,30 @@ export class Ball {
   constructor(private manager: GameManager) {}
 
   init(mat?: THREE.Material) {
-    this.manager.ball = this.#mesh = new THREE.Mesh(
+    this.#mesh = new THREE.Mesh(
       new THREE.BoxGeometry(this.#size, this.#size, this.#size),
       mat ?? defMat.clone()
     );
+    this.manager.initBall(this);
     return this;
   }
 
   add() {
     const frameVelocity = this.manager.velocity.clone().multiplyScalar(this.manager.deltaTime);
     this.#mesh.position.add(frameVelocity);
+  }
+
+  reset() {
+    this.manager.speed = this.manager.defSpeed;
+  }
+
+  accele() {
+    this.manager.speed += this.manager.acceleration;
+    this.manager.velocity = this.manager.velocity.clone().normalize().multiplyScalar(this.manager.speed);
+  }
+
+  stop() {
+    this.manager.velocity.set(0, 0, 0);
   }
 
   changeMat(mat: THREE.Material) {
@@ -370,7 +258,7 @@ export class Paddle extends HitObject{
       ? this.refectPaddle()
       : this.manager.velocity.reflect(hit.normal);
 
-    if (this.manager.gameStatus === GameStatus.Playing) this.manager.accele();
+    if (this.manager.gameStatus === GameStatus.Playing) this.manager.ball.accele();
 
     return hit;
   }
@@ -416,56 +304,35 @@ export class ObstacleWall extends HitObject {
 export class GoalWall extends HitObject {
   #mesh!: THREE.Mesh;
 
+  private pointManager!: PointManager;
+  #pointGet!: boolean;
+
   constructor(private manager: GameManager) {
     super();
   }
 
-  init(mesh: THREE.Mesh,) {
+  init(mesh: THREE.Mesh) {
     this.#mesh = mesh;
     return this;
   }
 
+  setting(pointGet: boolean, pointManager: PointManager) {
+    this.#pointGet = pointGet;
+    this.pointManager = pointManager;
+  }
+
   override onHit(ray: THREE.Raycaster) {
+    // if (!this.#pointGet || !this.pointManager) throw new Error('GoalWall setting unfinished.')
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
 
-    this.manager.velocity.reflect(hit.normal);
-    const offset = hit.normal.clone().multiplyScalar(0.5);
-    this.manager.ball.position.add(offset);
+    this.manager.ball.stop();
+    this.manager.gameStatus = GameStatus.GetPoint;
+    this.pointManager.pointGet(this.#pointGet);
+    console.log(this.pointManager.p1.point, this.pointManager.p2.point)
 
     return hit;
   }
 
   get mesh() { return this.#mesh; }
-};
-
-export class Controller {
-  #keyPress: Record<string, boolean> = {};
-
-  constructor(private context: GameContext) {
-    this.init();
-  }
-
-  init() {
-    document.addEventListener('keydown', e => this.#keyPress[e.code] = true);
-    document.addEventListener('keyup', e => this.#keyPress[e.code] = false);
-  }
-
-  control(paddle: Paddle) {
-    const max = this.context.GameManager.width / 2;
-    const min = -this.context.GameManager.width / 2;
-    const setting = this.context.UserSetting;
-    if (this.#keyPress[setting.control.L]) {
-      const speed = normalize(-setting.speed * this.context.GameManager.deltaTime, min, max);
-      paddle.move(speed);
-    }
-    if (this.#keyPress[setting.control.R]) {
-      const speed = normalize(setting.speed * this.context.GameManager.deltaTime, min, max);
-      paddle.move(speed);
-    }
-  }
-};
-
-export class Cpu {
-  
 };
