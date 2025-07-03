@@ -805,7 +805,7 @@ export class Game extends App{
       new THREE.Vector3(halfSize, 0, halfSize),
       new THREE.Vector3(-halfSize, 0, halfSize),
       new THREE.Vector3(halfSize, 0, -halfSize),
-      new THREE.Vector3(-halfSize, 0, -halfSize),
+      new THREE.Vector3(-halfSize, 0, -halfSize)
     ];
 
     for (const offset of offsets) {

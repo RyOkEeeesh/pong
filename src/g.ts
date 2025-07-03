@@ -58,50 +58,59 @@ function processingGameStatus() {
       // サービス権のランダム設定
       // 設定後サービスアニメーション
       first();
+      break;
     case GameStatus.Serving:
       // パドル移動とボール移動の処理
       // スペースまたは10秒でボール発射
       serving();
+      break;
     case GameStatus.Playing:
       // 壁やパドルの衝突処理
       playing();
+      break;
     case GameStatus.GetPoint:
       // サービス絵の移動
       getPoint();
+      break;
     case GameStatus.Pause:
       // 一時停止処理
       pause();
+      break;
     case GameStatus.End:
       // ゲームが終わった後の処理
       end();
+      break;
   }
 }
 
-function first() {
-
+async function first() {
+  await game.stage.ball.animateServePosition( game.context.PointManager.pointGetter ? game.stage.p1 : game.stage.p2 );
+  game.context.GameManager.gameStatus = GameStatus.Serving;
 }
 
 function serving() {
+  
+// async function waitForServeOrTimeout(timeout = 10000): Promise<void> {
+//   return new Promise(resolve => {
+//   const timer = setTimeout(() => {
+//   window.removeEventListener('keydown', onKeyDown);
+//   resolve();
+//   }, timeout);
+
+//   const onKeyDown = (e: KeyboardEvent) => {
+//   if (e.code === 'Space') {
+//   clearTimeout(timer);
+//   window.removeEventListener('keydown', onKeyDown);
+//   resolve();
+//   }
+//   };
+//   window.addEventListener('keydown', onKeyDown);
+//   });
+// }
 
 }
 
 function playing() {
-
-}
-
-function getPoint() {
-
-}
-
-function pause() {
-
-}
-
-function end() {
-
-}
-
-game.onBeforeRender(() => {
   game.stage.ball.add();
   controller.control(game.stage.p1);
   cpu.move();
@@ -130,7 +139,24 @@ game.onBeforeRender(() => {
       }
     }
   }
-  if (manager.gameStatus !== GameStatus.Playing) manager.gameStatus = GameStatus.Playing;
+}
+
+async function getPoint() {
+  // effect
+  await game.stage.ball.animateServePosition( game.context.PointManager.pointGetter ? game.stage.p1 : game.stage.p2 );7
+  game.context.GameManager.gameStatus = GameStatus.Serving;
+}
+
+function pause() {
+
+}
+
+function end() {
+
+}
+
+game.onBeforeRender(() => {
+  processingGameStatus();
 });
 
 game.start();

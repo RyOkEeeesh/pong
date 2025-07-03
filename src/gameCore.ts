@@ -144,6 +144,7 @@ export class Stage {
 export class Ball {
   #mesh!: THREE.Mesh;
   #size: number = 1;
+  #animation: boolean = false;
 
   constructor(private manager: GameManager) {}
 
@@ -172,6 +173,67 @@ export class Ball {
 
   stop() {
     this.manager.velocity.set(0, 0, 0);
+  }
+
+  setPosition(position: THREE.Vector3) {
+    this.#mesh.position.set(position.x, position.y, position.z);
+  }
+
+  async animateServePosition(paddle: Paddle) {
+    if (this.#animation) return;
+    this.#animation = true;
+
+    const paddlePosition = paddle.mesh.position;
+    const ballPosition = this.#mesh.position;
+    const speed = 20;
+
+    await new Promise(resolve => {
+      const direction = Math.sign(paddlePosition.z);
+      const targetZ = paddlePosition.z - direction * 1.2;
+      let time = performance.now();
+
+      const move = (now: number) => {
+        const deltaTime = (now - time) / 1000;
+        time = now;
+
+        const dz = targetZ - ballPosition.z;
+        const step = direction * speed * deltaTime;
+        console.log(step);
+
+        if (Math.abs(dz) <= Math.abs(step)) {
+          this.#mesh.position.z = targetZ;
+          resolve(null);
+        } else {
+          ballPosition.z += step;
+          requestAnimationFrame(move);
+        }
+      };
+      move(performance.now());
+    });
+
+    await new Promise(resolve => {
+      const targetX = paddlePosition.x;
+      let time = performance.now();
+
+      const move = (now: number) => {
+        const deltaTime = (now - time) / 1000;
+        time = now;
+
+        const dx = targetX - ballPosition.x;
+        const direction = Math.sign(dx);
+        const step = direction * speed * deltaTime;
+
+        if (Math.abs(dx) <= Math.abs(step)) {
+          ballPosition.x = targetX;
+          resolve(null);
+        } else {
+          this.#mesh.position.x += step;
+          requestAnimationFrame(move);
+        }
+      };
+      move(performance.now());
+    });
+    this.#animation = false;
   }
 
   changeMat(mat: THREE.Material) {
