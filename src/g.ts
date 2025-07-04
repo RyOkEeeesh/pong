@@ -70,7 +70,7 @@ function processingGameStatus() {
     case GameStatus.Serving:
       // パドル移動とボール移動の処理
       // スペースまたは10秒でボール発射
-      serveingControl();
+      servingControl();
       if (isProcessing) return;
       isProcessing = true;
       serving().finally(() => {isProcessing = false;});
@@ -105,13 +105,14 @@ async function toServing() {
 }
 
 // Serving
-function serveingControl() {
+function servingControl() {
   controller.control();
-  game.stage.ball.changeServePosition(game.hasService()); // バグ部分
+  game.stage.ball.changeServePosition(game.hasService());
 }
 
 async function serving() {
   await controller.serve();
+  game.stage.ball.resetServePosition(); // リセットでバグ回避
   game.context.GameManager.gameStatus = GameStatus.Playing;
 };
 

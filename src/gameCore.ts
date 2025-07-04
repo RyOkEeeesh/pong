@@ -190,12 +190,12 @@ export class Ball {
     this.#animation = true;
 
     const speed = 20;
-    const centar = new THREE.Vector3();
-    paddle.boundingBox.getCenter(centar);
-    centar.add(paddle.mesh.position);
+    const center = new THREE.Vector3();
+    paddle.boundingBox.getCenter(center);
+    center.add(paddle.mesh.position);
 
     await new Promise(resolve => {
-      const targetZ = centar.z - Math.sign(centar.z) * 1.2;
+      const targetZ = center.z - Math.sign(center.z) * 1.2;
       let time = performance.now();
 
       const move = (now: number) => {
@@ -218,7 +218,7 @@ export class Ball {
     });
 
     await new Promise(resolve => {
-      const targetX = centar.x;
+      const targetX = center.x;
       let time = performance.now();
 
       const move = (now: number) => {
@@ -229,12 +229,8 @@ export class Ball {
         const direction = Math.sign(dx);
         const step = direction * speed * deltaTime;
 
-        console.log(`de : ${dx}  step : ${step}`)
-        console.log(`boll : ${this.#mesh.position.x}  paddle : ${centar.x}`);
-
         if (Math.abs(dx) <= Math.abs(step)) {
           this.#mesh.position.x = targetX;
-          console.log(`boll : ${this.#mesh.position.x}  paddle : ${centar.x}`);
           resolve(null);
         } else {
           this.#mesh.position.x += step;
@@ -243,7 +239,6 @@ export class Ball {
       };
       move(performance.now());
     });
-
     this.#animation = false;
   }
 
@@ -260,8 +255,6 @@ export class Ball {
 
     const friction = 0.965;
 
-    console.log()
-
     if (this.#servePaddleVelocity.x !== this.#serveBallVelocity.x) {
       this.#serveBallVelocity.multiplyScalar(friction);
       if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0, 0);
@@ -271,7 +264,11 @@ export class Ball {
     const halfBall = this.#size / 2;
     const box = paddle.boundingBox;
     this.#mesh.position.x = THREE.MathUtils.clamp(this.#mesh.position.x, box.min.x + paddle.position.x + halfBall, box.max.x + paddle.position.x - halfBall);
+  }
 
+  resetServePosition() {
+    this.#serveBeforePaddlePosition = null;
+    this.#serveBeforeBallPosition = null;
   }
 
   changeMat(mat: THREE.Material) {
@@ -420,11 +417,11 @@ export class GoalWall extends HitObject {
   }
 
   override onHit(ray: THREE.Raycaster) {
-    // if (!this.#pointGet || !this.pointManager) throw new Error('GoalWall setting unfinished.')
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
 
     this.manager.ball.stop();
+    this.manager.ball.reset();
     this.manager.gameStatus = GameStatus.GetPoint;
     this.pointManager.pointGet(this.#pointGet);
     console.log(this.pointManager.p1.point, this.pointManager.p2.point)

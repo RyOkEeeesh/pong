@@ -2,3 +2,5 @@ changeServePosition
 
 移動条件
 パドルの移動する量と、ボールの移動する量が同じでないとき
+
+center
