@@ -1,7 +1,7 @@
 import { THREE, ThreeApp } from './ThreeModule';
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
-import { GameContext, Stage } from './gameCore';
-import { GameMode, GameStatus } from './manager';
+import { GameContext, Paddle, Stage } from './gameCore';
+import { GameMode, GameStatus, TaskStatus } from './manager';
 import { Controller } from './control';
 import { CPU, CPUMode } from './cpu';
 
@@ -43,34 +43,47 @@ class Game extends ThreeApp {
     this.#context.GameManager.gameStatus = status;
   }
 
+  hasService():Paddle {
+    return !this.#context.PointManager.pointGetter ? this.stage.p1 : this.stage.p2;
+  }
+
   get stage() { return this.#stage; }
   get context() { return this.#context; }
 };
 
 const game = new Game();
-const controller = new Controller(game.context);
+const controller = new Controller(game.context).init(game.stage.p1);
 const cpu = new CPU(game.context.GameManager).init(game.stage.p2);
 cpu.setMode(CPUMode.Easy);
+
+let isProcessing = false;
 
 function processingGameStatus() {
   switch (game.context.GameManager.gameStatus) {
     case GameStatus.First:
       // サービス権のランダム設定
       // 設定後サービスアニメーション
-      first();
+      if (isProcessing) return;
+      isProcessing = true;
+      toServing().finally(() => isProcessing = false);
       break;
     case GameStatus.Serving:
       // パドル移動とボール移動の処理
       // スペースまたは10秒でボール発射
-      serving();
+      serveingControl();
+      if (isProcessing) return;
+      isProcessing = true;
+      serving().finally(() => isProcessing = false);
       break;
     case GameStatus.Playing:
       // 壁やパドルの衝突処理
       playing();
       break;
     case GameStatus.GetPoint:
-      // サービス絵の移動
-      getPoint();
+      // サービスへの移動
+      if (isProcessing) return;
+      isProcessing = true;
+      toServing().finally(() => isProcessing = false);
       break;
     case GameStatus.Pause:
       // 一時停止処理
@@ -83,36 +96,30 @@ function processingGameStatus() {
   }
 }
 
-async function first() {
-  await game.stage.ball.animateServePosition( game.context.PointManager.pointGetter ? game.stage.p1 : game.stage.p2 );
+// GameStatus
+// First or GetPoint
+
+async function toServing() {
+  await game.stage.ball.animateServePosition(game.hasService());
   game.context.GameManager.gameStatus = GameStatus.Serving;
 }
 
-function serving() {
-  
-// async function waitForServeOrTimeout(timeout = 10000): Promise<void> {
-//   return new Promise(resolve => {
-//   const timer = setTimeout(() => {
-//   window.removeEventListener('keydown', onKeyDown);
-//   resolve();
-//   }, timeout);
-
-//   const onKeyDown = (e: KeyboardEvent) => {
-//   if (e.code === 'Space') {
-//   clearTimeout(timer);
-//   window.removeEventListener('keydown', onKeyDown);
-//   resolve();
-//   }
-//   };
-//   window.addEventListener('keydown', onKeyDown);
-//   });
-// }
-
+// Serving
+function serveingControl() {
+  controller.control();
+  game.stage.ball.changeServePosition(game.hasService());
 }
+
+async function serving() {
+  await controller.serve();
+  game.context.GameManager.gameStatus = GameStatus.Playing;
+};
+
+// Playing
 
 function playing() {
   game.stage.ball.add();
-  controller.control(game.stage.p1);
+  controller.control();
   cpu.move();
   const manager = game.context.GameManager;
   if (manager.gameStatus === GameStatus.Playing) {
@@ -141,11 +148,11 @@ function playing() {
   }
 }
 
-async function getPoint() {
-  // effect
-  await game.stage.ball.animateServePosition( game.context.PointManager.pointGetter ? game.stage.p1 : game.stage.p2 );7
-  game.context.GameManager.gameStatus = GameStatus.Serving;
-}
+// async function getPoint() {
+//   // effect
+//   await game.stage.ball.animateServePosition(game.hasService());
+//   game.context.GameManager.gameStatus = GameStatus.Serving;
+// }
 
 function pause() {
 

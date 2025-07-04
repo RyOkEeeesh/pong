@@ -108,17 +108,17 @@ export class Point {
   get point() { return this.#point; }
 }
 
-export enum ServiceStatus {
+export enum TaskStatus {
   Pending,
   Running,
   Done
 };
 
-export class ServiceManager {
-  #serviceStatus: ServiceStatus = ServiceStatus.Pending;
+export class TaskManager {
+  #status: TaskStatus = TaskStatus.Pending;
 
   constructor() {}
 
-  get serviceStatus() { return this.#serviceStatus; }
-  set serviceStatus(value: ServiceStatus) { this.#serviceStatus = value; }
+  get status() { return this.#status; }
+  set status(value: TaskStatus) { this.#status = value; }
 }

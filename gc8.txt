@@ -144,6 +144,12 @@ export class Stage {
 export class Ball {
   #mesh!: THREE.Mesh;
   #size: number = 1;
+  #animation: boolean = false;
+
+  #serveBeforePaddlePosition: THREE.Vector3 | null = null;
+  #serveBeforeBallPosition: THREE.Vector3 | null = null;
+  #servePaddleVelocity: THREE.Vector3 = new THREE.Vector3();
+  #serveBallVelocity: THREE.Vector3 = new THREE.Vector3();
 
   constructor(private manager: GameManager) {}
 
@@ -175,30 +181,36 @@ export class Ball {
   }
 
   setPosition(position: THREE.Vector3) {
-    this.#mesh.position.set(position.x, position.y, position.z);
+    this.#mesh.position.copy(position);
+    this.mesh.updateMatrixWorld(false);
   }
 
   async animateServePosition(paddle: Paddle) {
-    const position = paddle.mesh.position;
-    const speed = 1;
+    if (this.#animation) return;
+    this.#animation = true;
+
+    const paddlePosition = paddle.mesh.position;
+    const ballPosition = this.#mesh.position;
+    const speed = 20;
 
     await new Promise(resolve => {
-      const direction = Math.sign(position.z);
-      const targetZ = position.z - direction * 0.7;
+      const direction = Math.sign(paddlePosition.z);
+      const targetZ = paddlePosition.z - direction * 1.2;
       let time = performance.now();
 
       const move = (now: number) => {
         const deltaTime = (now - time) / 1000;
         time = now;
 
-        const dz = targetZ - position.z;
-        const step = -direction * speed * deltaTime;
+        const dz = targetZ - ballPosition.z;
+        const step = direction * speed * deltaTime;
+        console.log(step);
 
         if (Math.abs(dz) <= Math.abs(step)) {
           this.#mesh.position.z = targetZ;
           resolve(null);
         } else {
-          this.#mesh.position.z += step;
+          ballPosition.z += step;
           requestAnimationFrame(move);
         }
       };
@@ -206,19 +218,19 @@ export class Ball {
     });
 
     await new Promise(resolve => {
-      const targetX = position.x;
+      const targetX = paddlePosition.x;
       let time = performance.now();
 
       const move = (now: number) => {
         const deltaTime = (now - time) / 1000;
         time = now;
 
-        const dx = targetX - position.x;
+        const dx = targetX - ballPosition.x;
         const direction = Math.sign(dx);
-        const step = -direction * speed * deltaTime;
+        const step = direction * speed * deltaTime;
 
         if (Math.abs(dx) <= Math.abs(step)) {
-          this.#mesh.position.x = targetX;
+          ballPosition.x = targetX;
           resolve(null);
         } else {
           this.#mesh.position.x += step;
@@ -227,6 +239,32 @@ export class Ball {
       };
       move(performance.now());
     });
+    this.#animation = false;
+  }
+
+  changeServePosition(paddle: Paddle) {
+    if (this.#serveBeforePaddlePosition === null || this.#serveBeforeBallPosition === null) {
+      this.#serveBeforePaddlePosition = paddle.mesh.position.clone();
+      this.#serveBeforeBallPosition = this.#mesh.position.clone();
+      return;
+    }
+    this.#servePaddleVelocity.subVectors(paddle.mesh.position.clone(), this.#serveBeforePaddlePosition).divideScalar(this.manager.deltaTime);
+    this.#serveBallVelocity.subVectors(this.#mesh.position.clone(), this.#serveBeforeBallPosition).divideScalar(this.manager.deltaTime);
+    this.#serveBeforePaddlePosition.copy(paddle.mesh.position);
+    this.#serveBeforeBallPosition.copy(this.#mesh.position);
+
+    const friction = 0.95;
+
+    if(this.#servePaddleVelocity !== this.#serveBallVelocity) {
+      this.#serveBallVelocity.multiplyScalar(friction);
+      if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0, 0);
+      this.#mesh.position.addScaledVector(this.#serveBallVelocity, this.manager.deltaTime);
+    }
+
+    const halfBall = this.#size / 2;
+    const box = paddle.boundingBox;
+    this.#mesh.position.x = THREE.MathUtils.clamp(this.#mesh.position.x, box.min.x + paddle.position.x + halfBall, box.max.x + paddle.position.x - halfBall);
+
   }
 
   changeMat(mat: THREE.Material) {

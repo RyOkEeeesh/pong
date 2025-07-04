@@ -1,5 +1,5 @@
 import { ControlSetting, UserSetting } from './control';
-import { GameManager, GameMode, GameStatus, ModeManager, PointManager, ServiceManager, ServiceStatus } from './manager';
+import { GameManager, GameMode, GameStatus, ModeManager, PointManager, TaskManager } from './manager';
 import { THREE } from './ThreeModule';
 
 export function normalize(val: number, min: number, max: number) {
@@ -33,16 +33,16 @@ export class GameContext {
   #mm: ModeManager = new ModeManager();
   #us: UserSetting = new UserSetting();
   #gm: GameManager = new GameManager();
-  #sm: ServiceManager = new ServiceManager();
   #pm: PointManager = new PointManager();
+  #tm: TaskManager = new TaskManager();
 
   constructor() {}
 
   get ModeManager() { return this.#mm; }
   get UserSetting() { return this.#us; }
   get GameManager() { return this.#gm; }
-  get ServiceManager() { return this.#sm; }
   get PointManager() { return this.#pm; }
+  get TaskManager() { return this.#tm; }
 }
 
 export class Stage {
@@ -146,6 +146,11 @@ export class Ball {
   #size: number = 1;
   #animation: boolean = false;
 
+  #serveBeforePaddlePosition: THREE.Vector3 | null = null;
+  #serveBeforeBallPosition: THREE.Vector3 | null = null;
+  #servePaddleVelocity: THREE.Vector3 = new THREE.Vector3();
+  #serveBallVelocity: THREE.Vector3 = new THREE.Vector3();
+
   constructor(private manager: GameManager) {}
 
   init(mat?: THREE.Material) {
@@ -176,7 +181,8 @@ export class Ball {
   }
 
   setPosition(position: THREE.Vector3) {
-    this.#mesh.position.set(position.x, position.y, position.z);
+    this.#mesh.position.copy(position);
+    this.mesh.updateMatrixWorld(false);
   }
 
   async animateServePosition(paddle: Paddle) {
@@ -188,8 +194,7 @@ export class Ball {
     const speed = 20;
 
     await new Promise(resolve => {
-      const direction = Math.sign(paddlePosition.z);
-      const targetZ = paddlePosition.z - direction * 1.2;
+      const targetZ = paddlePosition.z - Math.sign(paddlePosition.z) * 1.2;
       let time = performance.now();
 
       const move = (now: number) => {
@@ -197,8 +202,8 @@ export class Ball {
         time = now;
 
         const dz = targetZ - ballPosition.z;
+        const direction = Math.sign(dz);
         const step = direction * speed * deltaTime;
-        console.log(step);
 
         if (Math.abs(dz) <= Math.abs(step)) {
           this.#mesh.position.z = targetZ;
@@ -234,6 +239,33 @@ export class Ball {
       move(performance.now());
     });
     this.#animation = false;
+  }
+
+  changeServePosition(paddle: Paddle) {
+    if (this.#serveBeforePaddlePosition === null || this.#serveBeforeBallPosition === null) {
+      this.#serveBeforePaddlePosition = paddle.mesh.position.clone();
+      this.#serveBeforeBallPosition = this.#mesh.position.clone();
+      return;
+    }
+    this.#servePaddleVelocity.subVectors(paddle.mesh.position.clone(), this.#serveBeforePaddlePosition).divideScalar(this.manager.deltaTime);
+    this.#serveBallVelocity.subVectors(this.#mesh.position.clone(), this.#serveBeforeBallPosition).divideScalar(this.manager.deltaTime);
+    this.#serveBeforePaddlePosition.copy(paddle.mesh.position);
+    this.#serveBeforeBallPosition.copy(this.#mesh.position);
+
+    const friction = 0.965;
+
+    console.log()
+
+    if (this.#servePaddleVelocity.x !== this.#serveBallVelocity.x) {
+      this.#serveBallVelocity.multiplyScalar(friction);
+      if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0, 0);
+      this.#mesh.position.x += this.#serveBallVelocity.x * this.manager.deltaTime;
+    }
+
+    const halfBall = this.#size / 2;
+    const box = paddle.boundingBox;
+    this.#mesh.position.x = THREE.MathUtils.clamp(this.#mesh.position.x, box.min.x + paddle.position.x + halfBall, box.max.x + paddle.position.x - halfBall);
+
   }
 
   changeMat(mat: THREE.Material) {
@@ -340,9 +372,7 @@ export class Paddle extends HitObject{
 export class ObstacleWall extends HitObject {
   #mesh!: THREE.Mesh;
 
-  constructor(private manager: GameManager) {
-    super();
-  }
+  constructor(private manager: GameManager) { super(); }
 
   init(mesh: THREE.Mesh,) {
     this.#mesh = mesh;
