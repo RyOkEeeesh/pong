@@ -189,19 +189,20 @@ export class Ball {
     if (this.#animation) return;
     this.#animation = true;
 
-    const paddlePosition = paddle.mesh.position;
-    const ballPosition = this.#mesh.position;
     const speed = 20;
+    const centar = new THREE.Vector3();
+    paddle.boundingBox.getCenter(centar);
+    centar.add(paddle.mesh.position);
 
     await new Promise(resolve => {
-      const targetZ = paddlePosition.z - Math.sign(paddlePosition.z) * 1.2;
+      const targetZ = centar.z - Math.sign(centar.z) * 1.2;
       let time = performance.now();
 
       const move = (now: number) => {
         const deltaTime = (now - time) / 1000;
         time = now;
 
-        const dz = targetZ - ballPosition.z;
+        const dz = targetZ - this.#mesh.position.z;
         const direction = Math.sign(dz);
         const step = direction * speed * deltaTime;
 
@@ -209,7 +210,7 @@ export class Ball {
           this.#mesh.position.z = targetZ;
           resolve(null);
         } else {
-          ballPosition.z += step;
+          this.#mesh.position.z += step;
           requestAnimationFrame(move);
         }
       };
@@ -217,19 +218,23 @@ export class Ball {
     });
 
     await new Promise(resolve => {
-      const targetX = paddlePosition.x;
+      const targetX = centar.x;
       let time = performance.now();
 
       const move = (now: number) => {
         const deltaTime = (now - time) / 1000;
         time = now;
 
-        const dx = targetX - ballPosition.x;
+        const dx = targetX - this.#mesh.position.x;
         const direction = Math.sign(dx);
         const step = direction * speed * deltaTime;
 
+        console.log(`de : ${dx}  step : ${step}`)
+        console.log(`boll : ${this.#mesh.position.x}  paddle : ${centar.x}`);
+
         if (Math.abs(dx) <= Math.abs(step)) {
-          ballPosition.x = targetX;
+          this.#mesh.position.x = targetX;
+          console.log(`boll : ${this.#mesh.position.x}  paddle : ${centar.x}`);
           resolve(null);
         } else {
           this.#mesh.position.x += step;
@@ -238,6 +243,7 @@ export class Ball {
       };
       move(performance.now());
     });
+
     this.#animation = false;
   }
 
@@ -330,7 +336,7 @@ export class Paddle extends HitObject{
     const normalized = THREE.MathUtils.clamp( (this.manager.ball.position.x - this.mesh.position.x) / this.halfX(), -1, 1 );
     const maxAngle = Math.PI / 3;
     const angle = normalized * maxAngle;
-    const dz = -Math.sign(this.manager.velocity.z);
+    const dz = this.mesh.position.z > 0 ? -1 : 1;
 
     this.manager.velocity.set(
       this.manager.speed * Math.sin(angle),

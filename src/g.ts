@@ -65,7 +65,7 @@ function processingGameStatus() {
       // 設定後サービスアニメーション
       if (isProcessing) return;
       isProcessing = true;
-      toServing().finally(() => isProcessing = false);
+      toServing().finally(() => {isProcessing = false;});
       break;
     case GameStatus.Serving:
       // パドル移動とボール移動の処理
@@ -73,7 +73,7 @@ function processingGameStatus() {
       serveingControl();
       if (isProcessing) return;
       isProcessing = true;
-      serving().finally(() => isProcessing = false);
+      serving().finally(() => {isProcessing = false;});
       break;
     case GameStatus.Playing:
       // 壁やパドルの衝突処理
@@ -107,7 +107,7 @@ async function toServing() {
 // Serving
 function serveingControl() {
   controller.control();
-  game.stage.ball.changeServePosition(game.hasService());
+  game.stage.ball.changeServePosition(game.hasService()); // バグ部分
 }
 
 async function serving() {

@@ -1,5 +1,5 @@
 import { ControlSetting, UserSetting } from './control';
-import { GameManager, GameMode, GameStatus, ModeManager, PointManager, ServiceManager, ServiceStatus } from './manager';
+import { GameManager, GameMode, GameStatus, ModeManager, PointManager, TaskManager } from './manager';
 import { THREE } from './ThreeModule';
 
 export function normalize(val: number, min: number, max: number) {
@@ -33,16 +33,16 @@ export class GameContext {
   #mm: ModeManager = new ModeManager();
   #us: UserSetting = new UserSetting();
   #gm: GameManager = new GameManager();
-  #sm: ServiceManager = new ServiceManager();
   #pm: PointManager = new PointManager();
+  #tm: TaskManager = new TaskManager();
 
   constructor() {}
 
   get ModeManager() { return this.#mm; }
   get UserSetting() { return this.#us; }
   get GameManager() { return this.#gm; }
-  get ServiceManager() { return this.#sm; }
   get PointManager() { return this.#pm; }
+  get TaskManager() { return this.#tm; }
 }
 
 export class Stage {
@@ -189,28 +189,28 @@ export class Ball {
     if (this.#animation) return;
     this.#animation = true;
 
-    const paddlePosition = paddle.mesh.position;
-    const ballPosition = this.#mesh.position;
     const speed = 20;
+    const centar = new THREE.Vector3();
+    paddle.boundingBox.getCenter(centar);
+    centar.add(paddle.mesh.position);
 
     await new Promise(resolve => {
-      const direction = Math.sign(paddlePosition.z);
-      const targetZ = paddlePosition.z - direction * 1.2;
+      const targetZ = centar.z - Math.sign(centar.z) * 1.2;
       let time = performance.now();
 
       const move = (now: number) => {
         const deltaTime = (now - time) / 1000;
         time = now;
 
-        const dz = targetZ - ballPosition.z;
+        const dz = targetZ - this.#mesh.position.z;
+        const direction = Math.sign(dz);
         const step = direction * speed * deltaTime;
-        console.log(step);
 
         if (Math.abs(dz) <= Math.abs(step)) {
           this.#mesh.position.z = targetZ;
           resolve(null);
         } else {
-          ballPosition.z += step;
+          this.#mesh.position.z += step;
           requestAnimationFrame(move);
         }
       };
@@ -218,19 +218,23 @@ export class Ball {
     });
 
     await new Promise(resolve => {
-      const targetX = paddlePosition.x;
+      const targetX = centar.x;
       let time = performance.now();
 
       const move = (now: number) => {
         const deltaTime = (now - time) / 1000;
         time = now;
 
-        const dx = targetX - ballPosition.x;
+        const dx = targetX - this.#mesh.position.x;
         const direction = Math.sign(dx);
         const step = direction * speed * deltaTime;
 
+        console.log(`de : ${dx}  step : ${step}`)
+        console.log(`boll : ${this.#mesh.position.x}  paddle : ${centar.x}`);
+
         if (Math.abs(dx) <= Math.abs(step)) {
-          ballPosition.x = targetX;
+          this.#mesh.position.x = targetX;
+          console.log(`boll : ${this.#mesh.position.x}  paddle : ${centar.x}`);
           resolve(null);
         } else {
           this.#mesh.position.x += step;
@@ -239,6 +243,7 @@ export class Ball {
       };
       move(performance.now());
     });
+
     this.#animation = false;
   }
 
@@ -253,12 +258,14 @@ export class Ball {
     this.#serveBeforePaddlePosition.copy(paddle.mesh.position);
     this.#serveBeforeBallPosition.copy(this.#mesh.position);
 
-    const friction = 0.95;
+    const friction = 0.965;
 
-    if(this.#servePaddleVelocity !== this.#serveBallVelocity) {
+    console.log()
+
+    if (this.#servePaddleVelocity.x !== this.#serveBallVelocity.x) {
       this.#serveBallVelocity.multiplyScalar(friction);
       if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0, 0);
-      this.#mesh.position.addScaledVector(this.#serveBallVelocity, this.manager.deltaTime);
+      this.#mesh.position.x += this.#serveBallVelocity.x * this.manager.deltaTime;
     }
 
     const halfBall = this.#size / 2;
@@ -329,7 +336,7 @@ export class Paddle extends HitObject{
     const normalized = THREE.MathUtils.clamp( (this.manager.ball.position.x - this.mesh.position.x) / this.halfX(), -1, 1 );
     const maxAngle = Math.PI / 3;
     const angle = normalized * maxAngle;
-    const dz = -Math.sign(this.manager.velocity.z);
+    const dz = this.mesh.position.z > 0 ? -1 : 1;
 
     this.manager.velocity.set(
       this.manager.speed * Math.sin(angle),
@@ -371,9 +378,7 @@ export class Paddle extends HitObject{
 export class ObstacleWall extends HitObject {
   #mesh!: THREE.Mesh;
 
-  constructor(private manager: GameManager) {
-    super();
-  }
+  constructor(private manager: GameManager) { super(); }
 
   init(mesh: THREE.Mesh,) {
     this.#mesh = mesh;
