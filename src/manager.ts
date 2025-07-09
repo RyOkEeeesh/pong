@@ -54,8 +54,8 @@ export class GameManager {
 
   get clock() { return this.#clock; }
 
-  get gameStatus() { return this.#gameStatus }
-  set gameStatus(value: GameStatus) { this.#gameStatus = value }
+  get gameStatus() { return this.#gameStatus; }
+  set gameStatus(value: GameStatus) { this.#gameStatus = value; }
 
   get deltaTime(): number { return this.#deltaTime; }
   set deltaTime(value: number) { this.#deltaTime = value; }

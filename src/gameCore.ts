@@ -1,5 +1,6 @@
-import { ControlSetting, UserSetting } from './control';
-import { GameManager, GameMode, GameStatus, ModeManager, PointManager, TaskManager } from './manager';
+import { UserSetting } from './control';
+import { Effect } from './effect';
+import { GameManager, GameStatus, ModeManager, PointManager, TaskManager } from './manager';
 import { THREE } from './ThreeModule';
 
 export function normalize(val: number, min: number, max: number) {
@@ -17,12 +18,17 @@ export const defMat = new THREE.MeshStandardMaterial({
   roughness: 0
 });
 
-export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
+export type Hit = {
+  normal: THREE.Vector3,
+  hitPoint: THREE.Vector3
+}
+
+export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh): Hit | undefined {
   const intersects = ray.intersectObject(obj, true);
   if (intersects.length > 0) {
     const normal = intersects[0].face?.normal.clone();
     if (normal) return {
-      normal: normal.transformDirection(obj.matrixWorld),
+      normal: normal.transformDirection(obj.matrixWorld).clone(),
       hitPoint: intersects[0].point.clone()
     };
   }
@@ -65,7 +71,6 @@ export class Stage {
     this.init();
   }
 
-
   init() {
     this.initWallMaterial();
     this.initBall();
@@ -95,26 +100,30 @@ export class Stage {
     const wallHeight = 1;
     const wallDepth = 0.1;
 
-    const obstacleWallGeo = new THREE.BoxGeometry(h - wallDepth, wallHeight, wallDepth);
-    const goalWallGeo = new THREE.BoxGeometry(w - wallDepth, wallHeight, wallDepth);
+    const obstacleWallGeo = new THREE.BoxGeometry(h + wallDepth, wallHeight, wallDepth);
+    const goalWallGeo = new THREE.BoxGeometry(w + wallDepth, wallHeight, wallDepth);
 
     const WL = new THREE.Mesh(obstacleWallGeo, this.#wallMaterial);
-    WL.position.x = -w / 2;
+    WL.position.x = -w / 2 - wallDepth;
     WL.rotation.y = THREE.MathUtils.degToRad(-90);
+    WL.geometry.computeBoundingBox();
     this.#wallLeft = new ObstacleWall(this.manager).init(WL);
 
     const WR = WL.clone();
-    WR.position.x = w / 2;
+    WR.position.x = w / 2 + wallDepth;
     WR.rotation.y = THREE.MathUtils.degToRad(90);
+    WR.geometry.computeBoundingBox();
     this.#wallRight = new ObstacleWall(this.manager).init(WR);
 
     const WA = new THREE.Mesh(goalWallGeo, this.#wallMaterial);
     WA.position.z = -h / 2;
+    WA.geometry.computeBoundingBox();
     this.#wallAfter = new GoalWall(this.manager).init(WA);
     this.#wallAfter.setting(true, this.context.PointManager);
 
     const WB = WA.clone();
     WB.position.z = h / 2;
+    WB.geometry.computeBoundingBox();
     this.#wallBefore = new GoalWall(this.manager).init(WB);
     this.#wallBefore.setting(false, this.context.PointManager);
   }
@@ -259,6 +268,7 @@ export class Ball {
       this.#serveBallVelocity.multiplyScalar(friction);
       if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0, 0);
       this.#mesh.position.x += this.#serveBallVelocity.x * this.manager.deltaTime;
+      this.#mesh.position.x = THREE.MathUtils.clamp(this.#mesh.position.x, -this.manager.width / 2 + 0.8, this.manager.width / 2 - 0.8); // 横に飛び出し防止
     }
 
     const halfBall = this.#size / 2;
@@ -291,8 +301,9 @@ export class Ball {
 }
 
 export abstract class HitObject {
-  abstract get mesh(): THREE.Mesh;
   abstract onHit(ray: THREE.Raycaster): void;
+  // abstract effect(hit: Hit): void;
+  abstract get mesh(): THREE.Mesh;
 }
 
 export class Paddle extends HitObject{
@@ -301,6 +312,10 @@ export class Paddle extends HitObject{
   #paddleSize: number = 1;
 
   #boundingBox!: THREE.Box3;
+
+  #forEffect!: THREE.Mesh;
+  #effect!: Effect;
+  #noEffect: boolean = false;
 
   constructor(private manager: GameManager) {
     super();
@@ -318,6 +333,11 @@ export class Paddle extends HitObject{
     this.#boundingBox = this.#mesh.geometry.boundingBox!;
 
     return this;
+  }
+
+  initEffect(effect: Effect, mesh: THREE.Mesh) {
+    this.#effect = effect;
+    this.#forEffect = mesh;
   }
 
   move(x: number) {
@@ -351,13 +371,26 @@ export class Paddle extends HitObject{
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
 
-    Math.abs(hit.normal.z) > 0.9
-      ? this.refectPaddle()
-      : this.manager.velocity.reflect(hit.normal);
+    if (Math.abs(hit.normal.z) > 0.9) {
+      this.refectPaddle();
+    } else {
+      this.#noEffect = true;
+      this.manager.velocity.reflect(hit.normal);
+    }
 
     if (this.manager.gameStatus === GameStatus.Playing) this.manager.ball.accele();
 
     return hit;
+  }
+
+  effect(hit: Hit): void {
+    if (this.#noEffect) {
+      this.#noEffect = false;
+      return;
+    }
+    const hitPoint = hit.hitPoint.clone();
+    hitPoint.z = this.#forEffect.position.z;
+    this.#effect.stretchEffect(hitPoint, hit.normal, this.#forEffect);
   }
 
   changeMat(mat: THREE.Material) {
@@ -375,11 +408,20 @@ export class Paddle extends HitObject{
 export class ObstacleWall extends HitObject {
   #mesh!: THREE.Mesh;
 
+  #forEffect!: THREE.Mesh;
+  #effect!: Effect;
+
+
   constructor(private manager: GameManager) { super(); }
 
-  init(mesh: THREE.Mesh,) {
+  init(mesh: THREE.Mesh) {
     this.#mesh = mesh;
     return this;
+  }
+
+  initEffect(effect: Effect, mesh: THREE.Mesh) {
+    this.#effect = effect;
+    this.#forEffect = mesh;
   }
 
   override onHit(ray: THREE.Raycaster) {
@@ -387,10 +429,14 @@ export class ObstacleWall extends HitObject {
     if (!hit) return;
 
     this.manager.velocity.reflect(hit.normal);
-    const offset = hit.normal.clone().multiplyScalar(0.5);
+    const offset = hit.normal.clone().multiplyScalar(0.25);
     this.manager.ball.position.add(offset);
 
     return hit;
+  }
+
+  effect(hit: Hit): void {
+    this.#effect.stretchEffect(hit.hitPoint, hit.normal, this.#forEffect);
   }
 
   get mesh() { return this.#mesh; }
@@ -424,7 +470,7 @@ export class GoalWall extends HitObject {
     this.manager.ball.reset();
     this.manager.gameStatus = GameStatus.GetPoint;
     this.pointManager.pointGet(this.#pointGet);
-    console.log(this.pointManager.p1.point, this.pointManager.p2.point)
+    // console.log(this.pointManager.p1.point, this.pointManager.p2.point)
 
     return hit;
   }

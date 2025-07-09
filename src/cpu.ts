@@ -23,13 +23,15 @@ export class CPU {
     missChance: number,
     precision: number,
     serviceToMoveCenter: boolean,
-    predictedTargetX: number | null
+    predictedTargetX: number | null,
+    waitMoving: number | null
   } = {
     speed: 0,
     missChance: 0,
     precision: 0,
     serviceToMoveCenter: false,
-    predictedTargetX: null
+    predictedTargetX: null,
+    waitMoving: null
   }
 
   constructor(private manager: GameManager) {}
@@ -56,7 +58,7 @@ export class CPU {
       
       case CPUMode.Hard:
         this.#CPUStatus.speed = this.manager.defSpeed - 5;
-        this.#CPUStatus.missChance = 0.1;
+        this.#CPUStatus.missChance = 0.2;
         this.#CPUStatus.precision = 4;
         break;
     }
@@ -68,7 +70,7 @@ export class CPU {
     const deltaTime = dt ?? this.manager.deltaTime;
     const dx = targetX - this.#paddle.position.x;
     const moveX = Math.sign(dx);
-    const speed = this.manager.gameStatus === GameStatus.Serving ? 20 : this.#CPUStatus.speed;
+    const speed = this.manager.gameStatus === GameStatus.Serving ? 15 : this.#CPUStatus.speed;
     const step = moveX * speed * deltaTime;
 
     if (Math.abs(dx) <= Math.abs(step)) {
@@ -87,12 +89,14 @@ export class CPU {
     const velocityZ = this.manager.velocity.z;
 
     if (velocityZ >= 0) {
-      this.#CPUStatus.predictedTargetX = null;
-      // ハードモードは真ん中に戻る処理追加
       if (this.#mode === CPUMode.Hard) {
-        this.centar();
+        const now = performance.now();
+        if (this.#CPUStatus.waitMoving === null) this.#CPUStatus.waitMoving = now;
+        else if (now - this.#CPUStatus.waitMoving >= 500 && this.centar()) this.#CPUStatus.waitMoving = null;
       }
       return;
+    } else {
+      this.#CPUStatus.waitMoving = null;
     }
 
     if (this.#CPUStatus.predictedTargetX === null) {
@@ -107,10 +111,9 @@ export class CPU {
     this.#paddle.move(normalize(clampMove, -this.manager.width / 2, this.manager.width / 2));
   }
 
-  async moveCentar() {
+  async moveCenter() { 
     this.#CPUStatus.serviceToMoveCenter = true;
     let time = performance.now();
-
     await new Promise(resolve => {
       const animate = (now: number) => {
         const deltaTime = (now - time) / 1000;
@@ -118,7 +121,13 @@ export class CPU {
         this.centar(deltaTime) ? resolve(null) : requestAnimationFrame(animate);
       };
       animate(performance.now());
-    });
+     });
+  }
+
+  async serve() {
+    await this.moveCenter();
+    await new Promise(resolve => setTimeout(() => resolve(null), Math.random() * 1000));
+    this.#paddle.refectPaddle();
   }
 
   resetPredict() { this.#CPUStatus.predictedTargetX = null; }

@@ -1,4 +1,3 @@
-// import { THREE } from './ThreeModule';
 import { GameContext, normalize, Paddle } from "./gameCore";
 
 export type ControlSetting = {
