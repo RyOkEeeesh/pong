@@ -121,7 +121,7 @@ export class CPU {
         this.centar(deltaTime) ? resolve(null) : requestAnimationFrame(animate);
       };
       animate(performance.now());
-     });
+    });
   }
 
   async serve() {
