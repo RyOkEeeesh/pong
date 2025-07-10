@@ -115,7 +115,7 @@ export class ThreeApp {
     position: Partial<Vector3Like>
   }> = {}) {
     const isCamera = (e: any): e is THREE.Camera => e instanceof THREE.PerspectiveCamera;
-    const position = Object.assign({}, { x: 0, y: 0, z: 5 }, op.position);
+    const position = Object.assign({}, { x: 0, y: 5, z: 5 }, op.position);
     this.#camera = isCamera(op.camera) ? op.camera : new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
     this.#camera.position.set(position.x, position.y, position.z);
     this.addScene(this.#camera);
