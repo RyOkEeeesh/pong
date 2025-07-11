@@ -160,9 +160,9 @@ export class ThreeApp {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(this.width, this.height),
-      1, // 強さ
+      0.8, // 強さ
       0.5, // 半径
-      0.6 // しきい値
+      0.65 // しきい値
     );
     this.#composer.addPass(bloomPass);
   }
