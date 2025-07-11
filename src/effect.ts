@@ -110,7 +110,7 @@ export class Effect {
   async blinkingEffect(mat: THREE.MeshStandardMaterial) {
     await new Promise(resolve => {
       const defEmissiveIntensity = mat.emissiveIntensity;
-      const endtime = 0.4;
+      const endtime = 0.3;
       const cycles = 1.75;
       const difference = 0.15;
       const totalRadians = cycles * 2 * Math.PI;
