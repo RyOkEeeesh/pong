@@ -64,6 +64,10 @@ export class Stage {
   #p1!: Paddle;
   #p2!: Paddle;
 
+  #floor!: THREE.Mesh;
+
+  #displays: THREE.Group = new THREE.Group();
+
   private manager!: GameManager;
 
   constructor(private context: GameContext) {
@@ -77,6 +81,8 @@ export class Stage {
     this.initPaddles();
     this.initWalls();
     this.initHitObjects();
+    this.initFloor();
+    this.initPointDisplay();
   }
 
   private initWallMaterial() {
@@ -135,8 +141,36 @@ export class Stage {
       this.#wallAfter,
       this.#wallBefore,
       this.#wallLeft,
-      this.#wallRight
+      this.#wallRight,
     ];
+  }
+
+  private initFloor() {
+    const texture = new THREE.TextureLoader().load('texture/floor.png');
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.repeat.set(1, 1);
+    const material = new THREE.MeshStandardMaterial({ map: texture });
+    const geometry = new THREE.PlaneGeometry(this.manager.width, this.manager.height);
+    this.#floor = new THREE.Mesh(geometry, material);
+    this.floor.position.y = -0.5;
+    this.#floor.rotation.x = -Math.PI / 2;
+  }
+
+  private initPointDisplay() {
+    const scale = 0.4;
+    const p1 = this.context.PointManager.p1.display;
+    const p2 = this.context.PointManager.p2.display;
+    p2.position.x = 14;
+    this.#displays.add(p1, p2);
+    this.#displays.rotation.x = -Math.PI / 2;
+    this.#displays.rotation.z = Math.PI / 2;
+    this.#displays.scale.set(scale, scale, scale);
+    const box = new THREE.Box3().setFromObject(this.#displays);
+    const center = box.getCenter(new THREE.Vector3());
+    this.#displays.position.sub(center);
+    this.#displays.position.y = -0.5;
+    this.#displays.position.x = -7.5;
   }
 
   get ball() { return this.#ball; }
@@ -148,6 +182,8 @@ export class Stage {
   get wallBefore() { return this.#wallBefore; }
   get wallMat() { return this.#wallMaterial; }
   get hitObjects() { return this.#hitObjects; }
+  get floor() { return this.#floor; }
+  get displays() { return this.#displays; }
 };
 
 export class Ball {
@@ -159,6 +195,14 @@ export class Ball {
   #serveBeforeBallPosition: THREE.Vector3 | null = null;
   #servePaddleVelocity: THREE.Vector3 = new THREE.Vector3();
   #serveBallVelocity: THREE.Vector3 = new THREE.Vector3();
+
+  #offsets = [
+    new THREE.Vector3(this.#size / 2, 0, this.#size / 2),
+    new THREE.Vector3(-this.#size / 2, 0, this.#size / 2),
+    new THREE.Vector3(this.#size / 2, 0, -this.#size / 2),
+    new THREE.Vector3(-this.#size / 2, 0, -this.#size / 2),
+    new THREE.Vector3()
+  ];
 
   constructor(private manager: GameManager) {}
 
@@ -286,23 +330,14 @@ export class Ball {
     this.#mesh.material.needsUpdate;
   }
 
-  getOffsets() {
-    const halfSize = this.#size / 2;
-    return [
-      new THREE.Vector3(halfSize, 0, halfSize),
-      new THREE.Vector3(-halfSize, 0, halfSize),
-      new THREE.Vector3(halfSize, 0, -halfSize),
-      new THREE.Vector3(-halfSize, 0, -halfSize),
-    ];
-  }
-
   get mesh() { return this.#mesh; }
   get position() { return this.#mesh.position; }
+  get offsets() { return this.#offsets; }
 }
 
 export abstract class HitObject {
-  abstract onHit(ray: THREE.Raycaster): void;
-  // abstract effect(hit: Hit): void;
+  abstract onHit(ray: THREE.Raycaster): Hit | undefined;
+  abstract effect(hit: Hit): void;
   abstract get mesh(): THREE.Mesh;
 }
 
@@ -383,7 +418,7 @@ export class Paddle extends HitObject{
     return hit;
   }
 
-  effect(hit: Hit): void {
+  override effect(hit: Hit): void {
     if (this.#noEffect) {
       this.#noEffect = false;
       return;
@@ -435,7 +470,7 @@ export class ObstacleWall extends HitObject {
     return hit;
   }
 
-  effect(hit: Hit): void {
+  override effect(hit: Hit): void {
     this.#effect.stretchEffect(hit.hitPoint, hit.normal, this.#forEffect);
   }
 
@@ -474,6 +509,8 @@ export class GoalWall extends HitObject {
 
     return hit;
   }
+
+  effect(hit: Hit): void {}
 
   get mesh() { return this.#mesh; }
 };

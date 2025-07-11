@@ -24,7 +24,7 @@ class Game extends ThreeApp {
   }
 
   init() {
-    super.addScene(this.#stage.ball.mesh, ...this.#stage.hitObjects.map(obj => obj.mesh));
+    super.addScene(this.#stage.ball.mesh, ...this.#stage.hitObjects.map(obj => obj.mesh), this.stage.floor, this.#stage.displays);
     this.setBVH(...this.#stage.hitObjects.map(obj => obj.mesh));
     super.onBeforeRender(() => this.#context.GameManager.deltaTime = Math.min(this.#context.GameManager.clock.getDelta(), 0.05));
     this.initEffect();
@@ -139,7 +139,7 @@ function playing() {
   cpu.move();
   const manager = game.context.GameManager;
 
-  for (const offset of game.stage.ball.getOffsets()) {
+  for (const offset of game.stage.ball.offsets) {
     const origin = game.stage.ball.position.clone().add(offset);
     const frameVelocity = game.context.GameManager.velocity.clone().multiplyScalar(game.context.GameManager.deltaTime).length();
     const raycaster = new THREE.Raycaster(
@@ -157,7 +157,7 @@ function playing() {
         // }
         if (manager.gameStatus !== GameStatus.Playing) return;
 
-        if ('effect' in obj) obj.effect?.(hit);
+        obj.effect?.(hit); // エフェクトfalseの時はやめるようにできたらいいね
 
         break;
       }

@@ -1,4 +1,5 @@
 import { Ball } from './gameCore';
+import { PointDisplay } from './point';
 import { THREE } from './ThreeModule';
 
 export class UserManager {
@@ -100,12 +101,16 @@ export class PointManager {
 
 export class Point {
   #point: number = 0;
+  #display: PointDisplay = new PointDisplay();
 
   constructor() {}
 
-  add() { this.#point++ }
+  add() {
+    this.#display.set(++this.#point);
+  }
 
   get point() { return this.#point; }
+  get display() { return this.#display.group; }
 }
 
 export enum TaskStatus {

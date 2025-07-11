@@ -1,7 +1,7 @@
-import { AppSetting, THREE, ThreeApp } from "./ThreeModule";
+import { AppSetting, THREE } from "./ThreeModule";
 
-
-type MeshMap = { [key in 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9]: THREE.MeshStandardMaterial[] };
+type Digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+type MeshMap = { [key in Digit]: THREE.MeshStandardMaterial[] };
 
 export class NumDispaly {
   #lt!: THREE.MeshStandardMaterial;
@@ -144,8 +144,9 @@ export class NumDispaly {
     };
   }
 
-  set(n: (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)) {
-    this.#numOfDis[n].forEach(m => m.emissiveIntensity = 2);
+  set(n: Digit) {
+    this.reset();
+    this.#numOfDis[n].forEach(m => m.emissiveIntensity = 1);
     this.#nowDis = this.#numOfDis[n];
   }
 
@@ -160,25 +161,28 @@ export class NumDispaly {
 
 export class PointDisplay {
   #digits: NumDispaly[] = [ new NumDispaly(), new NumDispaly() ];
-  // #tenDigits: NumDispaly = new NumDispaly();
+    #group: THREE.Group = new THREE.Group();
 
+  constructor() { this.init(); }
+
+  init() {
+    let i = 0;
+    this.#group.add(...this.#digits.map(digit => {
+      digit.group.position.x = 7.5 * i++;
+      digit.set(0);
+      return digit.group;
+    }));
+    const box = new THREE.Box3().setFromObject(this.#group);
+    const center = box.getCenter(new THREE.Vector3());
+    this.#group.position.sub(center);
+  }
+
+  set(n: number) {
+    const max = 2;
+    const num = n.toString().padStart(max, '0').split('').map(Number);
+    if (num.length > max) throw new Error('Put a number less than or equal to two digits.');
+    for (let i = 0; i < max; i++) this.#digits[i].set(num[i] as Digit);
+  }
+
+  get group() { return this.#group; }
 }
-
-const option: AppSetting = {
-  cameraPosition: { x: 0, y: 0, z: 10 },
-  controls: true,
-  composer: true
-};
-
-const app = new ThreeApp(option);
-app.start();
-
-const num1 = new NumDispaly();
-app.addScene(num1.group);
-num1.set(0);
-// num1.group.position.x = -10;
-
-const num2 = new NumDispaly();
-app.addScene(num2.group);
-num2.set(5);
-num2.group.position.x = 5;
