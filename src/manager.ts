@@ -44,7 +44,7 @@ export class GameManager {
 
   #ball!: Ball;
 
-  #defBallSpeed = 25;
+  #defBallSpeed = 28;
   #ballSpeed: number = this.#defBallSpeed;
   #ballVelocity: THREE.Vector3 = new THREE.Vector3(0.1, 0, 0.1).normalize().multiplyScalar(this.#ballSpeed);
   #acceleration: number = 0.2;
