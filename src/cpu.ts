@@ -64,7 +64,7 @@ export class CPU {
     }
   }
 
-  centar(dt?: number) {
+  center(dt?: number) {
     if (this.#paddle.position.x === 0) return true;
     const targetX = 0;
     const deltaTime = dt ?? this.manager.deltaTime;
@@ -83,6 +83,8 @@ export class CPU {
   }
 
   move() {
+    if (!this.#mode) throw new Error('CPU mode isn\'t set.');
+
     const speed = this.#CPUStatus.speed * this.manager.deltaTime;
     const paddleZ = this.#paddle.position.z;
     const ballZ = this.manager.ball.position.z;
@@ -92,7 +94,7 @@ export class CPU {
       if (this.#mode === CPUMode.Hard) {
         const now = performance.now();
         if (this.#CPUStatus.waitMoving === null) this.#CPUStatus.waitMoving = now;
-        else if (now - this.#CPUStatus.waitMoving >= 500 && this.centar()) this.#CPUStatus.waitMoving = null;
+        else if (now - this.#CPUStatus.waitMoving >= 500 && this.center()) this.#CPUStatus.waitMoving = null;
       }
       return;
     } else {
@@ -118,7 +120,7 @@ export class CPU {
       const animate = (now: number) => {
         const deltaTime = (now - time) / 1000;
         time = now;
-        this.centar(deltaTime) ? resolve(null) : requestAnimationFrame(animate);
+        this.center(deltaTime) ? resolve(null) : requestAnimationFrame(animate);
       };
       animate(performance.now());
     });
