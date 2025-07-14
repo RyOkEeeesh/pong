@@ -1,3 +1,4 @@
+import { Game, players } from "./g";
 import { GameContext, normalize, Paddle } from "./gameCore";
 
 export type ControlSetting = {
@@ -5,61 +6,80 @@ export type ControlSetting = {
   R: KeyboardEvent["code"],
   U: KeyboardEvent["code"],
   D: KeyboardEvent["code"],
-  S: KeyboardEvent["code"]
+  S: KeyboardEvent["code"],
+  P: KeyboardEvent["code"]
 };
 
 export class UserSetting {
-  #speed: number = 15;
-
-  #effect: boolean = true;
-
-  #control: ControlSetting = {
-    L: 'KeyA',
-    R: 'KeyD',
-    U: 'KeyW',
-    D: 'KeyS',
-    S: 'Space'
+  #control: {
+    speed: number,
+    effect: boolean,
+    p1: ControlSetting,
+    p2: ControlSetting
+  } = {
+    speed: 20,
+    effect: true,
+    p1: {
+      L: 'KeyA',
+      R: 'KeyD',
+      U: 'KeyW',
+      D: 'KeyS',
+      S: 'Space',
+      P: 'Escape'
+    },
+    p2: {
+      L: 'ArrowLeft',
+      R: 'ArrowRight',
+      U: 'ArrowUp',
+      D: 'ArrowDown',
+      S: 'Enter',
+      P: 'Escape'
+    }
   };
 
-  setControl(op: Partial<ControlSetting>) {
+  constructor() {
+    // cookieからの情報をがったい
+  }
+
+  setControl(op: { [key in players]: Partial<ControlSetting> }) {
     if (Object.keys(op).length === 0) return;
-    Object.keys(op).forEach(key => {
-      const k = key as keyof ControlSetting;
-      this.#control[k] = op[k]!;
-    });
+    for (const player in op) {
+      const settings = op[player as players];
+      for (const key in settings) {
+        const value = settings[key as keyof ControlSetting];
+        if (value !== undefined) this.#control[player as players][key as keyof ControlSetting] = value;
+      }
+    }
   }
 
   get control() { return this.#control; }
-  get speed() { return this.#speed; }
-
-  get effect() { return this.#effect; }
-  set effect(value: boolean) { this.#effect = value; }
 };
 
 export class Controller {
   #keyPress: Record<KeyboardEvent["code"], boolean> = {};
 
   #paddle!: Paddle;
+  #control!: ControlSetting;
 
-  constructor(private context: GameContext) {}
+  constructor(private game: Game) {}
 
-  init(paddle: Paddle) {
-    this.#paddle = paddle;
+  init(player: players) {
+    this.#paddle = player === 'p1' ? this.game.stage.p1 : this.game.stage.p2;
+    this.#control = this.game.context.UserSetting.control[player];
     document.addEventListener('keydown', e => this.#keyPress[e.code] = true);
     document.addEventListener('keyup', e => this.#keyPress[e.code] = false);
     return this;
   }
 
   control() {
-    const max = this.context.GameManager.width / 2;
-    const min = -this.context.GameManager.width / 2;
-    const setting = this.context.UserSetting;
-    if (this.#keyPress[setting.control.L]) {
-      const speed = normalize(-setting.speed * this.context.GameManager.deltaTime, min, max);
+    const max = this.game.context.GameManager.width / 2;
+    const min = -this.game.context.GameManager.width / 2;
+    if (this.#keyPress[this.#control.L]) {
+      const speed = normalize(-this.game.context.UserSetting.control.speed * this.game.context.GameManager.deltaTime, min, max);
       this.#paddle.move(speed);
     }
-    if (this.#keyPress[setting.control.R]) {
-      const speed = normalize(setting.speed * this.context.GameManager.deltaTime, min, max);
+    if (this.#keyPress[this.#control.R]) {
+      const speed = normalize(this.game.context.UserSetting.control.speed * this.game.context.GameManager.deltaTime, min, max);
       this.#paddle.move(speed);
     }
   }
@@ -67,7 +87,7 @@ export class Controller {
   async serve() {
     return new Promise(resolve => {
       const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === this.context.UserSetting.control.S) {
+      if (e.code === this.#control.S) {
         this.#paddle.refectPaddle();
         cleanup();
         resolve(null);
