@@ -5,13 +5,19 @@ import { GameMode, GameStatus } from './manager';
 import { Controller } from './control';
 import { CPU, CPUMode } from './cpu';
 import { Effect } from './effect';
+import { GameModeHandler, SingleMode } from './mode';
 
+export type players = 'p1' | 'p2';
 
-class Game extends ThreeApp {
+export class Game extends ThreeApp {
 
   #context: GameContext = new GameContext();
   #stage: Stage = new Stage(this.#context);
   #effect: Effect = new Effect(this.#context.GameManager).init(super.scene);
+  #controller = new Controller(this).init('p1');
+  #gameMode!: GameModeHandler;
+
+  #isProcessing: boolean = false;
 
   constructor() {
     super({
@@ -42,12 +48,18 @@ class Game extends ThreeApp {
 
   setMode(mode: GameMode) {
     this.#context.ModeManager.mode = mode;
-    // switch (mode) {
-    //   case GameMode.Selecting:
-    //   case GameMode.Single:
-    //   case GameMode.Duo:
-    //   case GameMode.Multi:
-    // }
+    switch (mode) {
+      case GameMode.Selecting:
+        break;
+      case GameMode.Single:
+        this.#gameMode = new SingleMode(this);
+        if (this.#gameMode instanceof SingleMode) this.#gameMode.initCPU(CPUMode.Hard);
+        break;
+      case GameMode.Duo:
+        break;
+      case GameMode.Multi:
+        break;
+    }
   }
 
   setStatus(status: GameStatus) {
@@ -58,130 +70,64 @@ class Game extends ThreeApp {
     return !this.#context.PointManager.pointGetter ? this.stage.p1 : this.stage.p2;
   }
 
+  processingGameStatus() {
+    switch (this.context.GameManager.gameStatus) {
+      case GameStatus.First:
+        // サービス権のランダム設定
+        // 設定後サービスアニメーション
+        if (this.#isProcessing) return;
+        this.#isProcessing = true;
+        setTimeout(() => this.#gameMode.toServing().finally(() => {
+          this.#isProcessing = false;
+          this.context.GameManager.gameStatus = GameStatus.Serving;
+        }), 1000);
+        break;
+      case GameStatus.Serving:
+        this.#gameMode.servingControl();
+        if (this.#isProcessing) return;
+        this.#isProcessing = true;
+        this.#gameMode.serving().finally(() => {
+          this.#isProcessing = false;
+          this.context.GameManager.gameStatus = GameStatus.Playing;
+        });
+        break;
+      case GameStatus.Playing:
+        this.#gameMode.playing();
+        break;
+      case GameStatus.GetPoint:
+        if (this.#isProcessing) return;
+        this.#isProcessing = true;
+        this.#gameMode.getPoint().finally(() => {
+          this.#isProcessing = false;
+          this.context.GameManager.gameStatus = GameStatus.Serving;
+        });
+        break;
+      case GameStatus.Pause:
+        if (this.#isProcessing) return;
+        this.#isProcessing = true;
+        this.#gameMode.pause().finally(() => {
+          this.#isProcessing = false;
+          // this.context.GameManager.gameStatus = GameStatus.Playing;
+        });
+        break;
+      case GameStatus.End:
+        this.#gameMode.end();
+        break;
+    }
+  }
+
   get stage() { return this.#stage; }
   get context() { return this.#context; }
   get effect() { return this.#effect; }
+  get controller() { return this.#controller;}
 };
 
 const game = new Game();
-const controller = new Controller(game.context).init(game.stage.p1);
-const cpu = new CPU(game.context.GameManager).init(game.stage.p2);
-cpu.setMode(CPUMode.Hard);
 
-let isProcessing = false;
-
-function processingGameStatus() {
-  switch (game.context.GameManager.gameStatus) {
-    case GameStatus.First:
-      // サービス権のランダム設定
-      // 設定後サービスアニメーション
-      if (isProcessing) return;
-      isProcessing = true;
-      toServing().finally(() => isProcessing = false);
-      // cpuが真ん中に戻る処理を追加する
-      break;
-    case GameStatus.Serving:
-      // パドル移動とボール移動の処理
-      // スペースまたは10秒でボール発射
-      servingControl();
-      if (isProcessing) return;
-      isProcessing = true;
-      serving().finally(() => {isProcessing = false;});
-      break;
-    case GameStatus.Playing:
-      // 壁やパドルの衝突処理
-      playing();
-      break;
-    case GameStatus.GetPoint:
-      // サービスへの移動
-      if (isProcessing) return;
-      isProcessing = true;
-      getPoint().finally(() => isProcessing = false);
-      break;
-    case GameStatus.Pause:
-      // 一時停止処理
-      pause();
-      break;
-    case GameStatus.End:
-      // ゲームが終わった後の処理
-      end();
-      break;
-  }
-}
-
-// GameStatus
-// First or GetPoint
-
-async function toServing() {
-  await game.stage.ball.animateServePosition(game.hasService());
-  game.context.GameManager.gameStatus = GameStatus.Serving;
-}
-
-// Serving
-function servingControl() {
-  controller.control();
-  game.stage.ball.changeServePosition(game.hasService());
-}
-
-async function serving() {
-  if ( game.context.PointManager.pointGetter ) await cpu.serve();
-  else await controller.serve();
-  // await controller.serve();
-  game.stage.ball.resetServePosition();
-  game.context.GameManager.gameStatus = GameStatus.Playing;
-};
-
-// Playing
-
-function playing() {
-  game.stage.ball.add();
-  controller.control();
-  cpu.move();
-  const manager = game.context.GameManager;
-
-  for (const offset of game.stage.ball.offsets) {
-    const origin = game.stage.ball.position.clone().add(offset);
-    const frameVelocity = game.context.GameManager.velocity.clone().multiplyScalar(game.context.GameManager.deltaTime).length();
-    const raycaster = new THREE.Raycaster(
-      origin,
-      game.context.GameManager.velocity.clone().normalize(),
-      0,
-      frameVelocity + 0.085
-    );
-    for (const obj of game.stage.hitObjects) {
-      const hit = obj.onHit(raycaster);
-      if ( hit ) {
-        // シングルの時だけ
-        // if (game.context.ModeManager.mode === GameMode.Single) {
-          cpu.resetPredict();
-        // }
-        if (manager.gameStatus !== GameStatus.Playing) return;
-
-        obj.effect?.(hit); // エフェクトfalseの時はやめるようにできたらいいね
-
-        break;
-      }
-    }
-  }
-}
-
-// GetPoint
-
-async function getPoint() {
-  await game.effect.blinkingEffect(game.stage.wallMat);
-  await toServing();
-}
-
-function pause() {
-
-}
-
-function end() {
-
-}
+game.setMode(GameMode.Single);
 
 game.onBeforeRender(() => {
-  processingGameStatus();
+  game.processingGameStatus();
 });
 
 game.start();
