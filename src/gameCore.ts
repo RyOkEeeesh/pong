@@ -336,6 +336,7 @@ export class Ball {
 }
 
 export abstract class HitObject {
+  constructor (protected manager: GameManager) {}
   abstract onHit(ray: THREE.Raycaster): Hit | undefined;
   abstract effect(hit: Hit): void;
   abstract get mesh(): THREE.Mesh;
@@ -352,9 +353,7 @@ export class Paddle extends HitObject{
   #effect!: Effect;
   #noEffect: boolean = false;
 
-  constructor(private manager: GameManager) {
-    super();
-  }
+  constructor(manager: GameManager) { super(manager); }
 
   init(paddleWidth: number, positionZ: number, mat?: THREE.Material) {
     this.#paddleWidth = paddleWidth;
@@ -447,7 +446,7 @@ export class ObstacleWall extends HitObject {
   #effect!: Effect;
 
 
-  constructor(private manager: GameManager) { super(); }
+  constructor(manager: GameManager) { super(manager); }
 
   init(mesh: THREE.Mesh) {
     this.#mesh = mesh;
@@ -483,9 +482,7 @@ export class GoalWall extends HitObject {
   private pointManager!: PointManager;
   #pointGet!: boolean;
 
-  constructor(private manager: GameManager) {
-    super();
-  }
+  constructor(manager: GameManager) { super(manager); }
 
   init(mesh: THREE.Mesh) {
     this.#mesh = mesh;
