@@ -4,6 +4,8 @@ import { THREE } from "./ThreeModule";
 export class Effect {
   #stretchEffectPool: THREE.Mesh[] = [];
   #scene!: THREE.Scene;
+
+  #isBlinkingEffect: boolean = false;
   
   constructor(private manager: GameManager ) {}
 
@@ -108,6 +110,8 @@ export class Effect {
   }
 
   async blinkingEffect(mat: THREE.MeshStandardMaterial) {
+    // if (this.#isBlinkingEffect) return;
+    this.#isBlinkingEffect = true;
     await new Promise(resolve => {
       const defEmissiveIntensity = mat.emissiveIntensity;
       const endtime = 0.3;
@@ -133,5 +137,6 @@ export class Effect {
 
       effect(performance.now());
     })
+    this.#isBlinkingEffect = false;
   }
 }

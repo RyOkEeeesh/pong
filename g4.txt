@@ -14,6 +14,7 @@ export class Game extends ThreeApp {
   #context: GameContext = new GameContext();
   #stage: Stage = new Stage(this.#context);
   #effect: Effect = new Effect(this.#context.GameManager).init(super.scene);
+  #controller = new Controller(this).init('p1');
   #gameMode!: GameModeHandler;
 
   #isProcessing: boolean = false;
@@ -69,64 +70,56 @@ export class Game extends ThreeApp {
     return !this.#context.PointManager.pointGetter ? this.stage.p1 : this.stage.p2;
   }
 
-  private handle(promise: Promise<any>, nextStatus?: GameStatus) {
-    // if (this.#isProcessing) return;
-    this.#isProcessing = true;
-    promise.finally(() => {
-        this.#isProcessing = false;
-        if (nextStatus) this.context.GameManager.gameStatus = nextStatus;
-      });
-  }
-
   processingGameStatus() {
-    this.#gameMode.update();
-    console.log(this.#context.GameManager.gameStatus);
-
     switch (this.context.GameManager.gameStatus) {
-
       case GameStatus.First:
-        this.#gameMode.first();
+        // サービス権のランダム設定
+        // 設定後サービスアニメーション
         if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asFirst(), GameStatus.Serving);
+        this.#isProcessing = true;
+        setTimeout(() => this.#gameMode.toServing().finally(() => {
+          this.#isProcessing = false;
+          this.context.GameManager.gameStatus = GameStatus.Serving;
+        }), 1000);
         break;
-
       case GameStatus.Serving:
-        this.#gameMode.serving();
+        this.#gameMode.servingControl();
         if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asServing(), GameStatus.Playing);
+        this.#isProcessing = true;
+        this.#gameMode.serving().finally(() => {
+          this.#isProcessing = false;
+          this.context.GameManager.gameStatus = GameStatus.Playing;
+        });
         break;
-
       case GameStatus.Playing:
         this.#gameMode.playing();
-        if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asPlaying());
         break;
-
       case GameStatus.GetPoint:
-        this.#gameMode.getPoint();
         if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asGetPoint(), GameStatus.Serving)
+        this.#isProcessing = true;
+        this.#gameMode.getPoint().finally(() => {
+          this.#isProcessing = false;
+          this.context.GameManager.gameStatus = GameStatus.Playing;
+        });
         break;
-
       case GameStatus.Pause:
-        this.#gameMode.pause();
         if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asPause());
+        this.#isProcessing = true;
+        this.#gameMode.pause().finally(() => {
+          this.#isProcessing = false;
+          // this.context.GameManager.gameStatus = GameStatus.Playing;
+        });
         break;
-
       case GameStatus.End:
         this.#gameMode.end();
-        if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asEnd());
         break;
     }
   }
 
-  isPause() { return this.#context.GameManager.gameStatus === GameStatus.Pause; }
-
   get stage() { return this.#stage; }
   get context() { return this.#context; }
   get effect() { return this.#effect; }
+  get controller() { return this.#controller;}
 };
 
 const game = new Game();

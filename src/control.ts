@@ -1,5 +1,6 @@
 import { Game, players } from "./g";
 import { GameContext, normalize, Paddle } from "./gameCore";
+import { GameStatus } from "./manager";
 
 export type ControlSetting = {
   L: KeyboardEvent["code"],
@@ -57,9 +58,13 @@ export class UserSetting {
 
 export class Controller {
   #keyPress: Record<KeyboardEvent["code"], boolean> = {};
+  #prevKeyPress: Record<KeyboardEvent["code"], boolean> = {};
+  #prevGameStatus: GameStatus = GameStatus.First;
 
   #paddle!: Paddle;
   #control!: ControlSetting;
+
+  #acceptMove: boolean = false;
 
   constructor(private game: Game) {}
 
@@ -72,13 +77,25 @@ export class Controller {
   }
 
   control() {
+    if (this.#prevKeyPress[this.#control.P] !== this.#keyPress[this.#control.P]) {
+      if (this.game.isPause()) {
+        this.game.context.GameManager.gameStatus = this.#prevGameStatus;
+      } else {
+        this.#prevGameStatus = this.game.context.GameManager.gameStatus;
+        this.game.context.GameManager.gameStatus = GameStatus.Pause;
+      }
+    }
+
+    this.#prevKeyPress = this.#keyPress;
+
+    if (!this.#acceptMove || this.game.isPause()) return;
     const max = this.game.context.GameManager.width / 2;
     const min = -this.game.context.GameManager.width / 2;
-    if (this.#keyPress[this.#control.L]) {
+    if (this.#keyPress[this.#control.L] || this.#keyPress[this.#control.U]) {
       const speed = normalize(-this.game.context.UserSetting.control.speed * this.game.context.GameManager.deltaTime, min, max);
       this.#paddle.move(speed);
     }
-    if (this.#keyPress[this.#control.R]) {
+    if (this.#keyPress[this.#control.R] || this.#keyPress[this.#control.D]) {
       const speed = normalize(this.game.context.UserSetting.control.speed * this.game.context.GameManager.deltaTime, min, max);
       this.#paddle.move(speed);
     }
@@ -109,4 +126,6 @@ export class Controller {
     });
   }
 
+  get acceptMove() { return this.#acceptMove; }
+  set acceptMove(value: boolean) { this.#acceptMove = value; }
 };

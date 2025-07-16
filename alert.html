@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ページ離脱アラート</title>
+<script defer>
+
+window.addEventListener('beforeunload', function (e) {
+  // カスタムメッセージは一部のブラウザでは表示されません
+  e.preventDefault(); // 標準の動作をキャンセル
+  e.returnValue = ''; // Chrome などではこれが必要
+});
+
+</script>
+</head>
+<body>
+<h1>ページ離脱時にアラートを表示します</h1>
+<p>このページから離れようとすると、確認ダイアログが表示されます。</p>
+</body>
+</html>
