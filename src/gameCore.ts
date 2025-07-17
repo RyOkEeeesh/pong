@@ -111,7 +111,7 @@ export class Stage {
 
     const WL = new THREE.Mesh(obstacleWallGeo, this.#wallMaterial);
     WL.position.x = -w / 2;
-    WL.rotation.y = THREE.MathUtils.degToRad(-90);
+    WL.rotation.y = -Math.PI / 2;
     WL.geometry.computeBoundingBox();
     this.#wallLeft = new ObstacleWall(this.manager).init(WL);
 
@@ -226,7 +226,7 @@ export class Ball {
 
   accele() {
     this.manager.speed += this.manager.acceleration;
-    this.manager.velocity = this.manager.velocity.clone().normalize().multiplyScalar(this.manager.speed);
+    this.manager.velocity = this.manager.velocity.clone().normalize().multiplyScalar(Math.min(this.manager.speed, 100));
   }
 
   stop() {
