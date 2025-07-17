@@ -1,5 +1,6 @@
 import { UserSetting } from './control';
 import { Effect } from './effect';
+import { Game } from './game';
 import { GameManager, GameStatus, ModeManager, PointManager, TaskManager } from './manager';
 import { THREE } from './ThreeModule';
 
@@ -66,14 +67,12 @@ export class Stage {
   #p1!: Paddle;
   #p2!: Paddle;
 
+  #loadingManager: THREE.LoadingManager = new THREE.LoadingManager();
   #floor!: THREE.Mesh;
 
   #displays: THREE.Group = new THREE.Group();
 
-  private manager!: GameManager;
-
-  constructor(private context: GameContext) {
-    this.manager = this.context.GameManager;
+  constructor(private game: Game) {
     this.init();
   }
 
@@ -92,19 +91,19 @@ export class Stage {
   }
 
   private initBall() {
-    this.#ball = new Ball(this.manager).init();
+    this.#ball = new Ball(this.game.context.GameManager).init();
   }
 
   private initPaddles() {
-    const w = this.manager.width;
-    const h = this.manager.height;
-    this.#p1 = new Paddle(this.manager).init(w / 6, h / 2 - 1);
-    this.#p2 = new Paddle(this.manager).init(w / 6, -h / 2 + 1);
+    const w = this.game.context.GameManager.width;
+    const h = this.game.context.GameManager.height;
+    this.#p1 = new Paddle(this.game.context.GameManager).init(w / 6, h / 2 - 1);
+    this.#p2 = new Paddle(this.game.context.GameManager).init(w / 6, -h / 2 + 1);
   }
 
   private initWalls() {
-    const w = this.manager.width;
-    const h = this.manager.height;
+    const w = this.game.context.GameManager.width;
+    const h = this.game.context.GameManager.height;
     const wallHeight = 1;
     const wallDepth = 0.1;
 
@@ -115,25 +114,25 @@ export class Stage {
     WL.position.x = -w / 2;
     WL.rotation.y = -Math.PI / 2;
     WL.geometry.computeBoundingBox();
-    this.#wallLeft = new ObstacleWall(this.manager).init(WL);
+    this.#wallLeft = new ObstacleWall(this.game.context.GameManager).init(WL);
 
     const WR = WL.clone();
     WR.position.x = w / 2;
     WR.rotation.y = THREE.MathUtils.degToRad(90);
     WR.geometry.computeBoundingBox();
-    this.#wallRight = new ObstacleWall(this.manager).init(WR);
+    this.#wallRight = new ObstacleWall(this.game.context.GameManager).init(WR);
 
     const WA = new THREE.Mesh(goalWallGeo, this.#wallMaterial);
     WA.position.z = -h / 2;
     WA.geometry.computeBoundingBox();
-    this.#wallAfter = new GoalWall(this.manager).init(WA);
-    this.#wallAfter.setting(true, this.context.PointManager);
+    this.#wallAfter = new GoalWall(this.game.context.GameManager).init(WA);
+    this.#wallAfter.setting(true, this.game.context.PointManager);
 
     const WB = WA.clone();
     WB.position.z = h / 2;
     WB.geometry.computeBoundingBox();
-    this.#wallBefore = new GoalWall(this.manager).init(WB);
-    this.#wallBefore.setting(false, this.context.PointManager);
+    this.#wallBefore = new GoalWall(this.game.context.GameManager).init(WB);
+    this.#wallBefore.setting(false, this.game.context.PointManager);
   }
 
   private initHitObjects() {
@@ -148,12 +147,12 @@ export class Stage {
   }
 
   private initFloor() {
-    const texture = new THREE.TextureLoader().load('texture/floor.png');
+    const texture = new THREE.TextureLoader(this.#loadingManager).load('texture/floor.png');
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.repeat.set(1, 1);
     const material = new THREE.MeshStandardMaterial({ map: texture });
-    const geometry = new THREE.PlaneGeometry(this.manager.width, this.manager.height);
+    const geometry = new THREE.PlaneGeometry(this.game.context.GameManager.width, this.game.context.GameManager.height);
     this.#floor = new THREE.Mesh(geometry, material);
     this.floor.position.y = -0.5;
     this.#floor.rotation.x = -Math.PI / 2;
@@ -161,8 +160,8 @@ export class Stage {
 
   private initPointDisplay() {
     const scale = 0.4;
-    const p1 = this.context.PointManager.p1.display;
-    const p2 = this.context.PointManager.p2.display;
+    const p1 = this.game.context.PointManager.p1.display;
+    const p2 = this.game.context.PointManager.p2.display;
     p2.position.x = 14;
     this.#displays.add(p1, p2);
     this.#displays.rotation.x = -Math.PI / 2;
@@ -174,6 +173,8 @@ export class Stage {
     this.#displays.position.y = -0.5;
     this.#displays.position.x = -7.5;
   }
+
+    isLoad() { return new Promise(resolve => this.#loadingManager.onLoad = () => resolve(null)); }
 
   get ball() { return this.#ball; }
   get p1() { return this.#p1; }

@@ -11,7 +11,7 @@ export type players = 'p1' | 'p2';
 export class Game extends ThreeApp {
 
   #context: GameContext = new GameContext();
-  #stage: Stage = new Stage(this.#context);
+  #stage: Stage = new Stage(this);
   #effect: Effect = new Effect(this.#context.GameManager).init(super.scene);
   #gameMode!: GameModeHandler;
 
@@ -36,11 +36,12 @@ export class Game extends ThreeApp {
     super.onBeforeRender(() => this.#context.GameManager.deltaTime = Math.min(this.#context.GameManager.clock.getDelta(), 0.05));
     this.initCameras();
     this.initObjectEffect();
+    super.onBeforeRender(() => this.processingGameStatus());
   }
 
   initCameras() {
     super.camera.position.set(0, 17, 10);
-    super.camera.rotateX(-1.2);
+    super.camera.lookAt(new THREE.Vector3(0, 0, 3.5));
     this.#cameras.push(super.camera.clone());
 
     const c1 = new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000);
@@ -73,7 +74,6 @@ export class Game extends ThreeApp {
         break;
       case GameMode.Single:
         this.#gameMode = new SingleMode(this);
-        if (this.#gameMode instanceof SingleMode) this.#gameMode.initCPU(CPUMode.Hard);
         break;
       case GameMode.Duo:
         this.#gameMode = new DuoMode(this);
@@ -147,15 +147,5 @@ export class Game extends ThreeApp {
   get stage() { return this.#stage; }
   get context() { return this.#context; }
   get effect() { return this.#effect; }
+  get gameMode() { return this.#gameMode; }
 };
-
-const game = new Game();
-
-game.setMode(GameMode.Duo);
-
-
-game.onBeforeRender(() => {
-  game.processingGameStatus();
-});
-
-game.start();
