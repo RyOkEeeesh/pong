@@ -89,8 +89,9 @@ export class CPU {
     const paddleZ = this.#paddle.position.z;
     const ballZ = this.manager.ball.position.z;
     const velocityZ = this.manager.velocity.z;
+    const isBallMovingAway = (ballZ - paddleZ) * velocityZ > 0;
 
-    if (velocityZ >= 0) {
+    if (isBallMovingAway) {
       if (this.#mode === CPUMode.Hard) {
         const now = performance.now();
         if (this.#CPUStatus.waitMoving === null) this.#CPUStatus.waitMoving = now;

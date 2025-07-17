@@ -1,4 +1,4 @@
-import { AppSetting, THREE } from "./ThreeModule";
+import { THREE } from "./ThreeModule";
 
 type Digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 type MeshMap = { [key in Digit]: THREE.MeshStandardMaterial[] };

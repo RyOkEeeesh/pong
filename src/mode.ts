@@ -1,5 +1,5 @@
 import { GameStatus } from "./manager";
-import { Game } from "./g";
+import { Game } from "./game";
 import { CPU, CPUMode } from "./cpu";
 import { THREE } from "./ThreeModule";
 import { Controller } from "./control";
@@ -20,6 +20,72 @@ export abstract class GameModeHandler {
   abstract asEnd(): Promise<void>;
 }
 
+export class SelectingMode extends GameModeHandler {
+  #cpus: [CPU, CPU] = [new CPU(this.game.context.GameManager).init(this.game.stage.p1), new CPU(this.game.context.GameManager).init(this.game.stage.p2)]; 
+
+  constructor(game: Game ) { 
+    super(game);
+    this.init();
+  }
+
+  init() {
+    this.#cpus.forEach(cpu => cpu.setMode(CPUMode.Normal));
+  }
+
+  override update(): void {}
+
+  override first(): void {}
+
+  override async asFirst(): Promise<void> {
+    await new Promise(resolve => setTimeout(() => resolve(null), 1000));
+    await this.toServing();
+  }
+
+  override serving(): void { this.game.stage.ball.changeServePosition(this.game.hasService());}
+
+  override async asServing(): Promise<void> {
+    await this.#cpus[Number(this.game.context.PointManager.pointGetter)].serve()
+    this.game.stage.ball.resetServePosition();
+  }
+
+  override playing() {
+    this.game.stage.ball.add();
+    this.#cpus.forEach(cpu => cpu.move());
+    const manager = this.game.context.GameManager;
+    for (const offset of this.game.stage.ball.offsets) {
+      const origin = this.game.stage.ball.position.clone().add(offset);
+      const frameVelocity = manager.velocity.clone().multiplyScalar(this.game.context.GameManager.deltaTime).length();
+      const raycaster = new THREE.Raycaster(
+        origin,
+        manager.velocity.clone().normalize(),
+        0,
+        frameVelocity + 0.085
+      );
+      for (const obj of this.game.stage.hitObjects) {
+        const hit = obj.onHit(raycaster);
+        if ( hit ) {
+            this.#cpus.forEach(cpu => cpu.resetPredict());
+            if (manager.gameStatus !== GameStatus.Playing) return;
+            obj.effect?.(hit); // エフェクトfalseの時はやめるようにできたらいいね
+          break;
+        }
+      }
+    }
+  }
+
+  override async asPlaying(): Promise<void> {}
+
+  override getPoint(): void {}
+
+  override async asGetPoint() {
+    await this.game.effect.blinkingEffect(this.game.stage.wallMat);
+    await this.toServing();
+  }
+
+  override end(): void {}
+
+  override async asEnd(): Promise<void> {}
+}
 
 export class SingleMode extends GameModeHandler {
   #controller!: Controller;
@@ -30,11 +96,7 @@ export class SingleMode extends GameModeHandler {
     this.init();
   }
 
-  init() {
-    this.#controller = new Controller(this.game).init('p1');
-    // パドル初期化
-    // p1 自分 p2 cpu に変更
-  }
+  init() { this.#controller = new Controller(this.game).init('p1'); }
 
   initCPU(m: CPUMode) { this.#cpu.setMode(m); }
 

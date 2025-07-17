@@ -4,7 +4,7 @@ import { GameContext, mod, Paddle, Stage } from './gameCore';
 import { GameMode, GameStatus } from './manager';
 import { CPUMode } from './cpu';
 import { Effect } from './effect';
-import { DuoMode, GameModeHandler, SingleMode } from './mode';
+import { DuoMode, GameModeHandler, SelectingMode, SingleMode } from './mode';
 
 export type players = 'p1' | 'p2';
 
@@ -35,7 +35,7 @@ export class Game extends ThreeApp {
     this.setBVH(...this.#stage.hitObjects.map(obj => obj.mesh));
     super.onBeforeRender(() => this.#context.GameManager.deltaTime = Math.min(this.#context.GameManager.clock.getDelta(), 0.05));
     this.initCameras();
-    this.initEffect();
+    this.initObjectEffect();
   }
 
   initCameras() {
@@ -55,7 +55,7 @@ export class Game extends ThreeApp {
     this.#cameras.push(c2);
   }
 
-  initEffect() {
+  initObjectEffect() {
     const effect = this.#effect;
     this.stage.p1.initEffect(effect, this.stage.wallBefore.mesh);
     this.stage.p2.initEffect(effect, this.stage.wallAfter.mesh);
@@ -69,6 +69,7 @@ export class Game extends ThreeApp {
     this.#context.ModeManager.mode = mode;
     switch (mode) {
       case GameMode.Selecting:
+        this.#gameMode = new SelectingMode(this);
         break;
       case GameMode.Single:
         this.#gameMode = new SingleMode(this);
@@ -150,16 +151,7 @@ export class Game extends ThreeApp {
 
 const game = new Game();
 
-game.setMode(GameMode.Single);
-
-
-window.addEventListener('keydown', e => {
-  if (e.key === 'p') {
-    console.log('Camera Position:', game.camera.position);
-    console.log('Camera Rotation:', game.camera.rotation);
-    console.log('Camera Quaternion:', game.camera.quaternion);
-  }
-});
+game.setMode(GameMode.Duo);
 
 
 game.onBeforeRender(() => {

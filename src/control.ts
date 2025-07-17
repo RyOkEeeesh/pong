@@ -1,4 +1,4 @@
-import { Game, players } from "./g";
+import { Game, players } from "./game";
 import { GameContext, normalize, Paddle } from "./gameCore";
 // import { GameStatus } from "./manager";
 
