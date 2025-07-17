@@ -1,5 +1,5 @@
 import { Game, players } from "./game";
-import { GameContext, normalize, Paddle } from "./gameCore";
+import { normalize, Paddle } from "./gameCore";
 // import { GameStatus } from "./manager";
 
 export type ControlSetting = {

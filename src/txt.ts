@@ -1,6 +1,4 @@
-import { Font, FontLoader } from "three/examples/jsm/loaders/FontLoader";
-import { TextGeometry, THREE } from "./ThreeModule";
-import { MeshStandardMaterialParameters } from "three";
+import { THREE, MeshStandardMaterialParameters, TextGeometry, Font, FontLoader } from "./ThreeModule";
 
 type GeoOp = {
   font: Font; // 必須
