@@ -89,7 +89,7 @@ export class Effect {
 
           const localOffset = effectPos.clone().sub(wallStart);
           const projectedLength = localOffset.dot(wallDirection);
-          const halfEffectWidth = 0.5;
+          const halfEffectWidth = 0.75;
 
           if (projectedLength < halfEffectWidth) {
             effectPos = wallStart.clone().add(wallDirection.clone().multiplyScalar(halfEffectWidth));
@@ -110,7 +110,7 @@ export class Effect {
   }
 
   async blinkingEffect(mat: THREE.MeshStandardMaterial) {
-    // if (this.#isBlinkingEffect) return;
+    if (this.#isBlinkingEffect) return;
     this.#isBlinkingEffect = true;
     await new Promise(resolve => {
       const defEmissiveIntensity = mat.emissiveIntensity;
