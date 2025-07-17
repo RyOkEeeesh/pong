@@ -1,11 +1,10 @@
-import { THREE, ThreeApp } from './ThreeModule';
+import { THREE, ThreeApp, RenderPass } from './ThreeModule';
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
-import { GameContext, Paddle, Stage } from './gameCore';
+import { GameContext, mod, Paddle, Stage } from './gameCore';
 import { GameMode, GameStatus } from './manager';
-import { Controller } from './control';
-import { CPU, CPUMode } from './cpu';
+import { CPUMode } from './cpu';
 import { Effect } from './effect';
-import { GameModeHandler, SingleMode } from './mode';
+import { DuoMode, GameModeHandler, SingleMode } from './mode';
 
 export type players = 'p1' | 'p2';
 
@@ -16,12 +15,15 @@ export class Game extends ThreeApp {
   #effect: Effect = new Effect(this.#context.GameManager).init(super.scene);
   #gameMode!: GameModeHandler;
 
+  #cameras: THREE.PerspectiveCamera[] = []
+  #camNo: number = 0;
+
   #isProcessing: boolean = false;
 
   constructor() {
     super({
-      cameraPosition: { y: 20, z: 16 },
-      controls: true,
+      cameraPosition: { y: 30, z: 10 },
+      controls: false,
       composer: true
     });
     THREE.Mesh.prototype.raycast = acceleratedRaycast;
@@ -32,7 +34,25 @@ export class Game extends ThreeApp {
     super.addScene(this.#stage.ball.mesh, ...this.#stage.hitObjects.map(obj => obj.mesh), this.stage.floor, this.#stage.displays);
     this.setBVH(...this.#stage.hitObjects.map(obj => obj.mesh));
     super.onBeforeRender(() => this.#context.GameManager.deltaTime = Math.min(this.#context.GameManager.clock.getDelta(), 0.05));
+    this.initCameras();
     this.initEffect();
+  }
+
+  initCameras() {
+    super.camera.position.set(0, 17, 10);
+    super.camera.rotateX(-1.2);
+    this.#cameras.push(super.camera.clone());
+
+    const c1 = new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000);
+    c1.position.y = 37;
+    c1.lookAt(new THREE.Vector3());
+    this.#cameras.push(c1);
+
+    const c2 = c1.clone();
+    c2.position.y = 30;
+    c2.up.set(-1, 0, 0);
+    c2.lookAt(new THREE.Vector3());
+    this.#cameras.push(c2);
   }
 
   initEffect() {
@@ -55,14 +75,23 @@ export class Game extends ThreeApp {
         if (this.#gameMode instanceof SingleMode) this.#gameMode.initCPU(CPUMode.Hard);
         break;
       case GameMode.Duo:
+        this.#gameMode = new DuoMode(this);
         break;
       case GameMode.Multi:
         break;
     }
   }
 
-  setStatus(status: GameStatus) {
-    this.#context.GameManager.gameStatus = status;
+  setStatus(status: GameStatus) { this.#context.GameManager.gameStatus = status; }
+
+  setCamera(n: number) {
+    this.#camNo += n;
+    const i = mod(this.#camNo, this.#cameras.length);
+    this.camera = this.#cameras[i];
+    if (this.composer) {
+      const renderPass = this.composer.passes.find(pass => pass instanceof RenderPass) as RenderPass;
+      if (renderPass) renderPass.camera = this.camera;
+    }
   }
 
   hasService():Paddle {
@@ -72,14 +101,13 @@ export class Game extends ThreeApp {
   private handle(promise: Promise<any>, nextStatus?: GameStatus) {
     this.#isProcessing = true;
     promise
-      .then(() => {if (nextStatus) this.context.GameManager.gameStatus = nextStatus;})
-      .catch(err => console.error(err))
+      .then(() => { if (nextStatus) this.setStatus(nextStatus); })
+      // .catch(err => console.error(err))
       .finally(() => this.#isProcessing = false);
   }
 
   processingGameStatus() {
     this.#gameMode.update();
-    console.log(this.#context.GameManager.gameStatus);
 
     switch (this.context.GameManager.gameStatus) {
 
@@ -123,6 +151,16 @@ export class Game extends ThreeApp {
 const game = new Game();
 
 game.setMode(GameMode.Single);
+
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'p') {
+    console.log('Camera Position:', game.camera.position);
+    console.log('Camera Rotation:', game.camera.rotation);
+    console.log('Camera Quaternion:', game.camera.quaternion);
+  }
+});
+
 
 game.onBeforeRender(() => {
   game.processingGameStatus();

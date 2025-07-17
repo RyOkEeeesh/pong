@@ -1,6 +1,6 @@
 import { Game, players } from "./g";
 import { GameContext, normalize, Paddle } from "./gameCore";
-import { GameStatus } from "./manager";
+// import { GameStatus } from "./manager";
 
 export type ControlSetting = {
   L: KeyboardEvent["code"],
@@ -8,7 +8,6 @@ export type ControlSetting = {
   U: KeyboardEvent["code"],
   D: KeyboardEvent["code"],
   S: KeyboardEvent["code"],
-  Q: KeyboardEvent["code"]
 };
 
 export class UserSetting {
@@ -16,7 +15,10 @@ export class UserSetting {
     speed: number,
     effect: boolean,
     p1: ControlSetting,
-    p2: ControlSetting
+    p2: ControlSetting,
+    Q: KeyboardEvent["code"],
+    prevCamera: KeyboardEvent["code"],
+    nextCamera: KeyboardEvent["code"]
   } = {
     speed: 20,
     effect: true,
@@ -26,7 +28,6 @@ export class UserSetting {
       U: 'KeyW',
       D: 'KeyS',
       S: 'Space',
-      Q: 'Escape'
     },
     p2: {
       L: 'ArrowLeft',
@@ -34,8 +35,10 @@ export class UserSetting {
       U: 'ArrowUp',
       D: 'ArrowDown',
       S: 'Enter',
-      Q: 'Escape'
-    }
+    },
+    Q: 'Escape',
+    prevCamera: 'KeyQ',
+    nextCamera: 'KeyE',
   };
 
   constructor() {
@@ -65,10 +68,17 @@ export class Controller {
 
   #acceptMove: boolean = false;
 
+  #isP1: boolean = false;
+  camChange: boolean = true;
+
   constructor(private game: Game) {}
 
   init(player: players) {
-    this.#paddle = player === 'p1' ? this.game.stage.p1 : this.game.stage.p2;
+    if (player === 'p1') {
+      this.#isP1 = true;
+      this.#paddle = this.game.stage.p1;
+    } else this.#paddle = this.game.stage.p2;
+
     this.#control = this.game.context.UserSetting.control[player];
     document.addEventListener('keydown', e => this.#keyPress[e.code] = true);
     document.addEventListener('keyup', e => this.#keyPress[e.code] = false);
@@ -76,12 +86,8 @@ export class Controller {
   }
 
   control() {
-    if (this.#keyPress[this.#control.Q] && this.#prevKeyPress[this.#control.Q] !== this.#keyPress[this.#control.Q]) { // ゲーム離脱機能に変更
-      
-    }
-
-    this.#prevKeyPress = { ...this.#keyPress };
-
+    if (this.#isP1) this.p1Control();
+    if (!this.#acceptMove) return;
     const max = this.game.context.GameManager.width / 2;
     const min = -this.game.context.GameManager.width / 2;
     if (this.#keyPress[this.#control.L] || this.#keyPress[this.#control.U]) {
@@ -92,6 +98,22 @@ export class Controller {
       const speed = normalize(this.game.context.UserSetting.control.speed * this.game.context.GameManager.deltaTime, min, max);
       this.#paddle.move(speed);
     }
+  }
+
+  private p1Control() {
+    if (!this.#isP1) return;
+    const control = this.game.context.UserSetting.control;
+    if (this.#keyPress[control.Q] && this.#prevKeyPress[control.Q] !== this.#keyPress[control.Q]) { // ゲーム離脱機能に変更
+      return;
+    }
+    if (!this.camChange) return;
+    if (this.#keyPress[control.prevCamera] && this.#prevKeyPress[control.prevCamera] !== this.#keyPress[control.prevCamera]) { // ゲーム離脱機能に変更
+      this.game.setCamera(-1);
+    }
+    if (this.#keyPress[control.nextCamera] && this.#prevKeyPress[control.nextCamera] !== this.#keyPress[control.nextCamera]) { // ゲーム離脱機能に変更
+      this.game.setCamera(1);
+    }
+    this.#prevKeyPress = { ...this.#keyPress };
   }
 
   async serve() {
