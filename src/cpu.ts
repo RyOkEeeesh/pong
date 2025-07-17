@@ -128,7 +128,7 @@ export class CPU {
 
   async serve() {
     await this.moveCenter();
-    await new Promise(resolve => setTimeout(() => resolve(null), Math.random() * 1000));
+    await new Promise(resolve => setTimeout(() => resolve(null), Math.random() * 1200));
     this.#paddle.refectPaddle();
   }
 

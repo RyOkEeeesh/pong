@@ -16,8 +16,6 @@ export abstract class GameModeHandler {
   abstract asPlaying(): Promise<void>;
   abstract getPoint(): void;
   abstract asGetPoint(): Promise<void>;
-  abstract pause(): void;
-  abstract asPause(): Promise<void>;
   abstract end(): void;
   abstract asEnd(): Promise<void>;
 }
@@ -45,7 +43,7 @@ export class SingleMode extends GameModeHandler {
   }
 
   first(): void {
-    this.#controller.acceptMove = false;
+    if (this.#controller.acceptMove) this.#controller.acceptMove = false;
   }
 
   async asFirst(): Promise<void> {
@@ -54,7 +52,7 @@ export class SingleMode extends GameModeHandler {
   }
 
   serving(): void {
-    this.#controller.acceptMove = true;
+    if (!this.#controller.acceptMove) this.#controller.acceptMove = true;
     this.game.stage.ball.changeServePosition(this.game.hasService());
   }
 
@@ -66,8 +64,8 @@ export class SingleMode extends GameModeHandler {
   }
 
   playing() {
+    if (!this.#controller.acceptMove) this.#controller.acceptMove = true;
     this.game.stage.ball.add();
-    this.#controller.acceptMove = true;
     this.#cpu.move();
     const manager = this.game.context.GameManager;
 
@@ -104,16 +102,6 @@ export class SingleMode extends GameModeHandler {
     await this.game.effect.blinkingEffect(this.game.stage.wallMat);
     await this.toServing();
   }
-
-  pause(): void {
-    this.#controller.acceptMove = false;
-  }
-
-
-  async asPause(): Promise<void> {
-    console.log('ポーズ中');
-  }
-
 
   end(): void {
     this.#controller.acceptMove = false;

@@ -110,13 +110,13 @@ export class Stage {
     const goalWallGeo = new THREE.BoxGeometry(w + wallDepth, wallHeight, wallDepth);
 
     const WL = new THREE.Mesh(obstacleWallGeo, this.#wallMaterial);
-    WL.position.x = -w / 2 - wallDepth;
+    WL.position.x = -w / 2;
     WL.rotation.y = THREE.MathUtils.degToRad(-90);
     WL.geometry.computeBoundingBox();
     this.#wallLeft = new ObstacleWall(this.manager).init(WL);
 
     const WR = WL.clone();
-    WR.position.x = w / 2 + wallDepth;
+    WR.position.x = w / 2;
     WR.rotation.y = THREE.MathUtils.degToRad(90);
     WR.geometry.computeBoundingBox();
     this.#wallRight = new ObstacleWall(this.manager).init(WR);

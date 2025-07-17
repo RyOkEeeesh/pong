@@ -8,7 +8,7 @@ export type ControlSetting = {
   U: KeyboardEvent["code"],
   D: KeyboardEvent["code"],
   S: KeyboardEvent["code"],
-  P: KeyboardEvent["code"]
+  Q: KeyboardEvent["code"]
 };
 
 export class UserSetting {
@@ -26,7 +26,7 @@ export class UserSetting {
       U: 'KeyW',
       D: 'KeyS',
       S: 'Space',
-      P: 'Escape'
+      Q: 'Escape'
     },
     p2: {
       L: 'ArrowLeft',
@@ -34,7 +34,7 @@ export class UserSetting {
       U: 'ArrowUp',
       D: 'ArrowDown',
       S: 'Enter',
-      P: 'Escape'
+      Q: 'Escape'
     }
   };
 
@@ -59,7 +59,6 @@ export class UserSetting {
 export class Controller {
   #keyPress: Record<KeyboardEvent["code"], boolean> = {};
   #prevKeyPress: Record<KeyboardEvent["code"], boolean> = {};
-  #prevGameStatus: GameStatus = GameStatus.First;
 
   #paddle!: Paddle;
   #control!: ControlSetting;
@@ -77,18 +76,12 @@ export class Controller {
   }
 
   control() {
-    if (this.#prevKeyPress[this.#control.P] !== this.#keyPress[this.#control.P]) {
-      if (this.game.isPause()) {
-        this.game.context.GameManager.gameStatus = this.#prevGameStatus;
-      } else {
-        this.#prevGameStatus = this.game.context.GameManager.gameStatus;
-        this.game.context.GameManager.gameStatus = GameStatus.Pause;
-      }
+    if (this.#keyPress[this.#control.Q] && this.#prevKeyPress[this.#control.Q] !== this.#keyPress[this.#control.Q]) { // ゲーム離脱機能に変更
+      
     }
 
-    this.#prevKeyPress = this.#keyPress;
+    this.#prevKeyPress = { ...this.#keyPress };
 
-    if (!this.#acceptMove || this.game.isPause()) return;
     const max = this.game.context.GameManager.width / 2;
     const min = -this.game.context.GameManager.width / 2;
     if (this.#keyPress[this.#control.L] || this.#keyPress[this.#control.U]) {

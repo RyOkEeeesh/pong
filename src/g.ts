@@ -70,12 +70,11 @@ export class Game extends ThreeApp {
   }
 
   private handle(promise: Promise<any>, nextStatus?: GameStatus) {
-    // if (this.#isProcessing) return;
     this.#isProcessing = true;
-    promise.finally(() => {
-        this.#isProcessing = false;
-        if (nextStatus) this.context.GameManager.gameStatus = nextStatus;
-      });
+    promise
+      .then(() => {if (nextStatus) this.context.GameManager.gameStatus = nextStatus;})
+      .catch(err => console.error(err))
+      .finally(() => this.#isProcessing = false);
   }
 
   processingGameStatus() {
@@ -108,12 +107,6 @@ export class Game extends ThreeApp {
         this.handle(this.#gameMode.asGetPoint(), GameStatus.Serving)
         break;
 
-      case GameStatus.Pause:
-        this.#gameMode.pause();
-        if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asPause());
-        break;
-
       case GameStatus.End:
         this.#gameMode.end();
         if (this.#isProcessing) return;
@@ -121,8 +114,6 @@ export class Game extends ThreeApp {
         break;
     }
   }
-
-  isPause() { return this.#context.GameManager.gameStatus === GameStatus.Pause; }
 
   get stage() { return this.#stage; }
   get context() { return this.#context; }

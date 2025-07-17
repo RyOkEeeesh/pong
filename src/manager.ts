@@ -29,7 +29,6 @@ export enum GameStatus {
   Serving,
   Playing,
   GetPoint,
-  Pause,
   End
 };
 
@@ -46,7 +45,7 @@ export class GameManager {
 
   #defBallSpeed = 28;
   #ballSpeed: number = this.#defBallSpeed;
-  #ballVelocity: THREE.Vector3 = new THREE.Vector3(0.1, 0, 0.1).normalize().multiplyScalar(this.#ballSpeed);
+  #ballVelocity: THREE.Vector3 = new THREE.Vector3();
   #acceleration: number = 0.2;
 
   constructor() {}
