@@ -42,28 +42,28 @@ export class SingleMode extends GameModeHandler {
     this.#controller.control();
   }
 
-  first(): void {
+  override first(): void {
     if (this.#controller.acceptMove) this.#controller.acceptMove = false;
   }
 
-  async asFirst(): Promise<void> {
+  override async asFirst(): Promise<void> {
     await new Promise(resolve => setTimeout(() => resolve(null), 1000));
     await this.toServing();
   }
 
-  serving(): void {
+  override serving(): void {
     if (!this.#controller.acceptMove) this.#controller.acceptMove = true;
     this.game.stage.ball.changeServePosition(this.game.hasService());
   }
 
-  async asServing(): Promise<void> {
+  override async asServing(): Promise<void> {
     this.game.context.PointManager.pointGetter ? 
       await this.#cpu.serve():
       await this.#controller.serve();
     this.game.stage.ball.resetServePosition();
   }
 
-  playing() {
+  override playing() {
     if (!this.#controller.acceptMove) this.#controller.acceptMove = true;
     this.game.stage.ball.add();
     this.#cpu.move();
@@ -92,22 +92,106 @@ export class SingleMode extends GameModeHandler {
     }
   }
   
-  async asPlaying(): Promise<void> {}
+  override async asPlaying(): Promise<void> {}
 
-  getPoint(): void {
-    this.#controller.acceptMove = false;
+  override getPoint(): void {
+    if (this.#controller.acceptMove) this.#controller.acceptMove = false;
   }
 
-  async asGetPoint() {
+  override async asGetPoint() {
     await this.game.effect.blinkingEffect(this.game.stage.wallMat);
     await this.toServing();
   }
 
-  end(): void {
+  override end(): void {
     this.#controller.acceptMove = false;
   }
 
-  async asEnd(): Promise<void> {
+  override async asEnd(): Promise<void> {
+    
+  }
+}
+
+export class DuoMode extends GameModeHandler {
+  #players!: [Controller, Controller]
+
+  constructor(game: Game ) { 
+    super(game);
+    this.init();
+  }
+
+  init() {
+    this.#players = [new Controller(this.game).init('p1'), new Controller(this.game).init('p2')];
+    this.#players[0].camChange = false;
+    this.game.setCamera(2)
+  }
+
+  override update(): void {
+    this.#players.forEach(p => p.control());
+  }
+
+  override first(): void {
+    this.#players.forEach(p => { if (p.acceptMove) p.acceptMove = false; });
+  }
+
+  override async asFirst(): Promise<void> {
+    await new Promise(resolve => setTimeout(() => resolve(null), 1000));
+    await this.toServing();
+  }
+
+  override serving(): void {
+    this.#players.forEach(p => { if (!p.acceptMove) p.acceptMove = true; });
+    this.game.stage.ball.changeServePosition(this.game.hasService());
+  }
+
+  override async asServing(): Promise<void> {
+    await this.#players[Number(this.game.context.PointManager.pointGetter)].serve()
+    this.game.stage.ball.resetServePosition();
+  }
+
+  override playing() {
+    this.#players.forEach(p => { if (!p.acceptMove) p.acceptMove = true; });
+    this.game.stage.ball.add();
+    const manager = this.game.context.GameManager;
+
+    for (const offset of this.game.stage.ball.offsets) {
+      const origin = this.game.stage.ball.position.clone().add(offset);
+      const frameVelocity = manager.velocity.clone().multiplyScalar(this.game.context.GameManager.deltaTime).length();
+      const raycaster = new THREE.Raycaster(
+        origin,
+        manager.velocity.clone().normalize(),
+        0,
+        frameVelocity + 0.085
+      );
+      for (const obj of this.game.stage.hitObjects) {
+        const hit = obj.onHit(raycaster);
+        if ( hit ) {
+            if (manager.gameStatus !== GameStatus.Playing) return;
+
+            obj.effect?.(hit); // エフェクトfalseの時はやめるようにできたらいいね
+
+          break;
+        }
+      }
+    }
+  }
+
+  override async asPlaying(): Promise<void> {}
+
+  override getPoint(): void {
+    this.#players.forEach(p => { if (p.acceptMove) p.acceptMove = false; });
+  }
+
+  override async asGetPoint() {
+    await this.game.effect.blinkingEffect(this.game.stage.wallMat);
+    await this.toServing();
+  }
+
+  override end(): void {
+    this.#players.forEach(p => { if (p.acceptMove) p.acceptMove = false; });
+  }
+
+  override async asEnd(): Promise<void> {
     
   }
 }
