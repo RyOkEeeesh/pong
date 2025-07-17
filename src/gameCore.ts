@@ -10,6 +10,8 @@ export function normalize(val: number, min: number, max: number) {
 
 export function denormalize(val: number, min: number, max: number) { return val * (max - min) + min; };
 
+export function mod(n: number, m: number): number { return ((n % m) + m) % m; };
+
 export const defMat = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   emissive: 0xffffff,
