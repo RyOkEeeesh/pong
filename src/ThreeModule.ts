@@ -235,30 +235,15 @@ export class ThreeApp {
     }
   }
 
-  get camera(): THREE.PerspectiveCamera {
-    return this.#camera;
-  }
+  get camera(): THREE.PerspectiveCamera { return this.#camera; }
+  set camera(value: THREE.PerspectiveCamera) { this.#camera = value }
 
-  get scene(): THREE.Scene {
-    return this.#scene;
-  }
-
-  get renderer(): THREE.WebGLRenderer {
-    return this.#renderer;
-  }
-
-  get composer(): EffectComposer | undefined {
-    return this.#composer;
-  }
-
-  get controls(): OrbitControls | null {
-    return this.#controls;
-  }
-
-  get animationId(): number | null {
-    return this.#animationId;
-  }
+  get scene(): THREE.Scene { return this.#scene; }
+  get renderer(): THREE.WebGLRenderer { return this.#renderer; }
+  get composer(): EffectComposer | undefined { return this.#composer; }
+  get controls(): OrbitControls | null { return this.#controls; }
+  get animationId(): number | null { return this.#animationId; }
 
 }
 
-export {THREE, OrbitControls, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
+export {THREE, MeshStandardMaterialParameters, OrbitControls, Font, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};
