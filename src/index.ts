@@ -7,7 +7,7 @@ const game = new Game();
 
 (async() => {
   getParam();
-  await game.stage.isLoad()
+  await game.stage.isLoad();
   game.start();
 })();
 
