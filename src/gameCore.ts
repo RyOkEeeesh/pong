@@ -145,7 +145,7 @@ export class Stage {
   }
 
   private initFloor() {
-    const texture = new THREE.TextureLoader(this.#loadingManager).load('/texture/floor.png');
+    const texture = new THREE.TextureLoader(this.#loadingManager).load('./texture/floor.png');
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.repeat.set(1, 1);
