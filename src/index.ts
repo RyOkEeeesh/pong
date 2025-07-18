@@ -3,6 +3,10 @@ import { Game } from "./game";
 import { GameMode } from "./manager";
 import { SingleMode } from "./mode";
 
+declare const __APP_VERSION__: string;
+
+console.log('App Version:', __APP_VERSION__);
+
 const game = new Game();
 
 (async() => {
