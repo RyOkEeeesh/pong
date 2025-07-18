@@ -15,6 +15,13 @@ export abstract class GameModeHandler {
       times: 2
     });
   }
+  isEnd() {
+    if (this.game.context.PointManager.isEnd) {
+      this.game.setStatus(GameStatus.End);
+      return true;
+    }
+    return false;
+  }
   abstract update(): void;
   abstract first(): void;
   abstract asFirst(): Promise<void>;
@@ -57,6 +64,7 @@ export class SelectingMode extends GameModeHandler {
   }
 
   override playing() {
+    if (this.isEnd()) return;
     this.game.stage.ball.add();
     this.#cpus.forEach(cpu => cpu.move());
     const manager = this.game.context.GameManager;
@@ -90,7 +98,9 @@ export class SelectingMode extends GameModeHandler {
     await this.toServing();
   }
 
-  override end(): void {}
+  override end(): void {
+    console.log('end');
+  }
 
   override async asEnd(): Promise<void> {}
 }
@@ -134,6 +144,11 @@ export class SingleMode extends GameModeHandler {
   }
 
   override playing() {
+    if (this.game.context.PointManager.isEnd) {
+      this.game.setStatus(GameStatus.End);
+      return;
+    }
+
     if (!this.#controller.acceptMove) this.#controller.acceptMove = true;
     this.game.stage.ball.add();
     this.#cpu.move();
@@ -165,6 +180,10 @@ export class SingleMode extends GameModeHandler {
   override async asPlaying(): Promise<void> {}
 
   override getPoint(): void {
+    if (this.game.context.PointManager.isEnd) {
+      this.game.setStatus(GameStatus.End);
+      return;
+    }
     if (this.#controller.acceptMove) this.#controller.acceptMove = false;
   }
 
@@ -174,6 +193,7 @@ export class SingleMode extends GameModeHandler {
   }
 
   override end(): void {
+    console.log('end');
     this.#controller.acceptMove = false;
   }
 
@@ -220,6 +240,11 @@ export class DuoMode extends GameModeHandler {
   }
 
   override playing() {
+    if (this.game.context.PointManager.isEnd) {
+      this.game.setStatus(GameStatus.End);
+      return;
+    }
+
     this.#players.forEach(p => { if (!p.acceptMove) p.acceptMove = true; });
     this.game.stage.ball.add();
     const manager = this.game.context.GameManager;
@@ -258,6 +283,7 @@ export class DuoMode extends GameModeHandler {
   }
 
   override end(): void {
+    console.log('end');
     this.#players.forEach(p => { if (p.acceptMove) p.acceptMove = false; });
   }
 

@@ -1,3 +1,4 @@
+import { blinkingEffect } from './effect';
 import { Ball } from './gameCore';
 import { PointDisplay } from './point';
 import { THREE } from './ThreeModule';
@@ -84,18 +85,55 @@ export class GameManager {
 export class PointManager {
   #p1: Point = new Point();
   #p2: Point = new Point();
-  #pointGetter: boolean = Boolean(Math.round(Math.random()))
+  #pointGetter: boolean = Boolean(Math.round(Math.random()));
+
+  #pointMax: number = 20;
+  #pointMatch: number = 11;
+  #isEnd: boolean = false;
 
   constructor() {}
+
+  async matchPointEffect() {
+    const mat = this.#pointGetter ? this.#p1.display.dis() : this.#p2.display.dis() ;
+    if (mat.length === 0) return;
+    await blinkingEffect(
+      mat, {
+      endtime: 0.8,
+      difference: -0.8,
+      times: 4
+    });
+  }
+
+  async endPointEffect() {
+    const mat = this.#pointGetter ? this.#p1.display.dis() : this.#p2.display.dis() ;
+    if (mat.length === 0) return;
+    await blinkingEffect(
+      mat, {
+      endtime: 3,
+      difference: -0.8,
+      times: 12
+    });
+  }
 
   pointGet(player: boolean) { 
     this.#pointGetter = player;
     this.#pointGetter ? this.#p1.add() : this.#p2.add() ;
+    if ( this.#pointMatch - Math.max(this.p1.point, this.p2.point) === 1 ) {
+      if ( this.p1.point === this.p2.point && !( this.#pointMax - Math.max(this.p1.point, this.p2.point) === 1 ) ) {
+        this.#pointMatch = Math.min(this.#pointMatch + 1, this.#pointMax)
+      } else if ( Math.max(this.p1.point, this.p2.point) === (this.#pointGetter ? this.p1.point : this.p2.point)) {
+        this.matchPointEffect();
+      }
+    } else if (this.#pointMatch === Math.max(this.p1.point, this.p2.point)) {
+      this.#isEnd = true;
+      this.endPointEffect();
+    }
   }
 
   get p1() { return this.#p1; }
   get p2() { return this.#p2; }
   get pointGetter() { return this.#pointGetter; }
+  get isEnd() { return this.#isEnd; }
 }
 
 export class Point {
@@ -109,20 +147,5 @@ export class Point {
   }
 
   get point() { return this.#point; }
-  get display() { return this.#display.group; }
-}
-
-export enum TaskStatus {
-  Pending,
-  Running,
-  Done
-};
-
-export class TaskManager {
-  #status: TaskStatus = TaskStatus.Pending;
-
-  constructor() {}
-
-  get status() { return this.#status; }
-  set status(value: TaskStatus) { this.#status = value; }
+  get display() { return this.#display; }
 }

@@ -1,7 +1,7 @@
 import { UserSetting } from './control';
 import { Effect } from './effect';
 import { Game } from './game';
-import { GameManager, GameStatus, ModeManager, PointManager, TaskManager } from './manager';
+import { GameManager, GameStatus, ModeManager, PointManager } from './manager';
 import { THREE } from './ThreeModule';
 
 export function normalize(val: number, min: number, max: number) {
@@ -43,7 +43,6 @@ export class GameContext {
   #us: UserSetting = new UserSetting();
   #gm: GameManager = new GameManager();
   #pm: PointManager = new PointManager();
-  #tm: TaskManager = new TaskManager();
 
   constructor() {}
 
@@ -51,7 +50,6 @@ export class GameContext {
   get UserSetting() { return this.#us; }
   get GameManager() { return this.#gm; }
   get PointManager() { return this.#pm; }
-  get TaskManager() { return this.#tm; }
 }
 
 export class Stage {
@@ -160,8 +158,8 @@ export class Stage {
 
   private initPointDisplay() {
     const scale = 0.4;
-    const p1 = this.game.context.PointManager.p1.display;
-    const p2 = this.game.context.PointManager.p2.display;
+    const p1 = this.game.context.PointManager.p1.display.group;
+    const p2 = this.game.context.PointManager.p2.display.group;
     p2.position.x = 14;
     this.#displays.add(p1, p2);
     this.#displays.rotation.x = -Math.PI / 2;
@@ -505,7 +503,6 @@ export class GoalWall extends HitObject {
     this.manager.ball.reset();
     this.manager.gameStatus = GameStatus.GetPoint;
     this.pointManager.pointGet(this.#pointGet);
-    // console.log(this.pointManager.p1.point, this.pointManager.p2.point)
 
     return hit;
   }

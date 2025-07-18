@@ -161,7 +161,7 @@ export class NumDispaly {
 
 export class PointDisplay {
   #digits: NumDispaly[] = [ new NumDispaly(), new NumDispaly() ];
-    #group: THREE.Group = new THREE.Group();
+  #group: THREE.Group = new THREE.Group();
 
   constructor() { this.init(); }
 
@@ -183,6 +183,8 @@ export class PointDisplay {
     if (num.length > max) throw new Error('Put a number less than or equal to two digits.');
     for (let i = 0; i < max; i++) this.#digits[i].set(num[i] as Digit);
   }
+
+  dis() { return this.#digits.flatMap(d => d.nowDis ?? []); }
 
   get group() { return this.#group; }
 }

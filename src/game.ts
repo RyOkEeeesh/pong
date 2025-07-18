@@ -133,7 +133,7 @@ export class Game extends ThreeApp {
       case GameStatus.GetPoint:
         this.#gameMode.getPoint();
         if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asGetPoint(), GameStatus.Serving)
+        this.handle(this.#gameMode.asGetPoint(), this.#gameMode.isEnd() ? GameStatus.End : GameStatus.Serving);
         break;
 
       case GameStatus.End:
