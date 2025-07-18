@@ -3,10 +3,18 @@ import { Game } from "./game";
 import { CPU, CPUMode } from "./cpu";
 import { THREE } from "./ThreeModule";
 import { Controller } from "./control";
+import { blinkingEffect } from "./effect";
 
 export abstract class GameModeHandler {
   constructor(protected game: Game) {}
   async toServing() { await this.game.stage.ball.animateServePosition(this.game.hasService()); }
+  async WallBlinkingEffect() { await blinkingEffect(
+    [ this.game.stage.wallMat ],{
+      endtime: 0.25,
+      difference: 0.15,
+      times: 2
+    });
+  }
   abstract update(): void;
   abstract first(): void;
   abstract asFirst(): Promise<void>;
@@ -78,7 +86,7 @@ export class SelectingMode extends GameModeHandler {
   override getPoint(): void {}
 
   override async asGetPoint() {
-    await this.game.effect.blinkingEffect(this.game.stage.wallMat);
+    await this.WallBlinkingEffect();
     await this.toServing();
   }
 
@@ -161,7 +169,7 @@ export class SingleMode extends GameModeHandler {
   }
 
   override async asGetPoint() {
-    await this.game.effect.blinkingEffect(this.game.stage.wallMat);
+    await this.WallBlinkingEffect();
     await this.toServing();
   }
 
@@ -245,7 +253,7 @@ export class DuoMode extends GameModeHandler {
   }
 
   override async asGetPoint() {
-    await this.game.effect.blinkingEffect(this.game.stage.wallMat);
+    await this.WallBlinkingEffect();
     await this.toServing();
   }
 

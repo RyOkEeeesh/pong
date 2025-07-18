@@ -1,12 +1,53 @@
 import { GameManager, GameStatus } from "./manager";
 import { THREE } from "./ThreeModule";
 
+export async function blinkingEffect(
+  mat: THREE.MeshStandardMaterial[],
+  op: {
+    notEffect?: boolean;
+    endtime: number;
+    difference: number;
+    times: number;
+  }
+) {
+  if (op.notEffect) {
+    await new Promise(resolve => setTimeout(() => resolve(null), op.endtime * 1000));
+    return;
+  }
+  function effect(m: THREE.MeshStandardMaterial) {
+    return new Promise(resolve => {
+      const defEmissiveIntensity = m.emissiveIntensity;
+      const endtime = op.endtime;
+      const cycles = 1.75;
+      const difference = op.difference;
+      const totalRadians = cycles * op.times * Math.PI;
+      const startTime = performance.now();
+
+      const effect = (now: number) => {
+        const deltaTime = (now - startTime) / 1000;
+        if (deltaTime >= endtime) {
+          m.emissiveIntensity = defEmissiveIntensity;
+          return resolve(null);
+        }
+        const angle = deltaTime * totalRadians / endtime;
+        const value = Math.sin(angle);
+        const step = difference * ((value + 1) / 2);
+        m.emissiveIntensity = defEmissiveIntensity + step;
+        m.needsUpdate = true;
+
+        requestAnimationFrame(effect);
+      };
+
+      effect(performance.now());
+    });
+  }
+  await Promise.all([...mat.map(effect)]);
+};
+
 export class Effect {
   #stretchEffectPool: THREE.Mesh[] = [];
   #scene!: THREE.Scene;
 
-  #isBlinkingEffect: boolean = false;
-  
   constructor(private manager: GameManager ) {}
 
   init(scene: THREE.Scene) {
@@ -107,36 +148,5 @@ export class Effect {
       });
 
     await Promise.all([animateStretch(-1), animateStretch(1)]);
-  }
-
-  async blinkingEffect(mat: THREE.MeshStandardMaterial) {
-    if (this.#isBlinkingEffect) return;
-    this.#isBlinkingEffect = true;
-    await new Promise(resolve => {
-      const defEmissiveIntensity = mat.emissiveIntensity;
-      const endtime = 0.3;
-      const cycles = 1.75;
-      const difference = 0.15;
-      const totalRadians = cycles * 2 * Math.PI;
-      const startTime = performance.now();
-
-      const effect = (now: number) => {
-        const deltaTime = (now - startTime) / 1000;
-        if (deltaTime >= endtime) {
-          mat.emissiveIntensity = defEmissiveIntensity;
-          return resolve(null);
-        }
-        const angle = deltaTime * totalRadians / endtime;
-        const value = Math.sin(angle);
-        const step = difference * ((value + 1) / 2);
-        mat.emissiveIntensity = defEmissiveIntensity + step;
-        mat.needsUpdate = true;
-
-        requestAnimationFrame(effect);
-      };
-
-      effect(performance.now());
-    })
-    this.#isBlinkingEffect = false;
   }
 }
