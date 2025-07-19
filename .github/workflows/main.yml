@@ -1,25 +1,31 @@
 name: Tag Build & Deploy
+
 on:
   push:
     tags:
       - 'v*' # 例: v1.2.3
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ github.ref_name }} # e.g., v1.2.3
+      VERSION: ${{ github.ref_name }}               # v1.2.3
       VERSION_NUMBER: ${{ github.ref_name }}
-      VERSION_BRANCH: release/${{ github.ref_name }}
+      VERSION_BRANCH: release/${{ github.ref_name }} # release/v1.2.3
+
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v3
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
+
       - name: Install dependencies
         run: npm ci
+
       - name: Update package.json version and push to main
         run: |
           VERSION_NUM=${VERSION_NUMBER#v}
@@ -29,25 +35,40 @@ jobs:
           git add package.json
           git commit -m "chore: bump version to $VERSION_NUM"
           git push origin HEAD:main
+
+      - name: Update version in README.md
+        run: |
+          sed -i "s/<!--THIS_VERSION-->.*<!--\/THIS_VERSION-->/<!--THIS_VERSION-->$VERSION<!--\/THIS_VERSION-->/" README.md
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add README.md
+          git commit -m "docs: update README version to $VERSION"
+          git push origin HEAD:main
+
+
       - name: Create and push release branch
         run: |
           git checkout -b $VERSION_BRANCH
           git push origin $VERSION_BRANCH
+
       - name: Build the project
         run: npm run build
+
       - name: Add .nojekyll for GitHub Pages
         run: touch dist/.nojekyll
+
       - name: Deploy built files to gh-pages (latest release)
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: ./dist
-          
+
       - name: Zip dist/ folder
         run: |
           cd dist
           zip -r ../dist.zip .
+
       - name: Upload dist.zip to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -58,3 +79,14 @@ jobs:
           files: dist.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update version in README.md on release branch
+        run: |
+          git fetch origin $VERSION_BRANCH
+          git switch $VERSION_BRANCH
+          sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add README.md
+          git commit -m "docs: update README version to ${VERSION}"
+          git push origin $VERSION_BRANCH

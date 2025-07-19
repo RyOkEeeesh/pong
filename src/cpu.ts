@@ -43,7 +43,6 @@ export class CPU {
 
   setMode(mode: CPUMode) {
     this.#mode = mode;
-    console.log(mode);
     switch (mode) {
       case CPUMode.Easy:
         this.#CPUStatus.speed = this.manager.defSpeed - 10;
