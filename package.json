@@ -1,6 +1,6 @@
 {
   "name": "pong",
-  "version": "1.0.82",
+  "version": "1.0.01",
   "main": "index.js",
   "scripts": {
     "vite": "npx vite",
