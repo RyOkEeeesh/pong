@@ -85,10 +85,15 @@ jobs:
         run: |
           git fetch origin $VERSION_BRANCH
           git switch $VERSION_BRANCH
-          git restore .  # 変更を全リセット（README.mdの変更だけ保持するなら後述）
           sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
+
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add README.md
-          git commit -m "docs: update README version to ${VERSION}"
-          git push origin $VERSION_BRANCH
+
+          if ! git diff --quiet; then
+            git add README.md
+            git commit -m "docs: update README version to ${VERSION}"
+            git push origin $VERSION_BRANCH
+          else
+            echo "No changes to commit"
+          fi
