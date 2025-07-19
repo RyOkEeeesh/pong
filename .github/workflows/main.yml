@@ -1,9 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy to Version Branch and GitHub Pages
 
 on:
   push:
     tags:
-      - 'v*' # v1.2.3 のようなタグが push されたときに実行
+      - 'v*' # タグ形式 v1.2.3 のときに実行
 
 jobs:
   build-and-deploy:
@@ -22,25 +22,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set version from tag
+      - name: Extract version from tag
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          echo "Setting version to $VERSION"
-          jq ".version = \"$VERSION\"" package.json > tmp.json && mv tmp.json package.json
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add package.json
-          git commit -m "chore: version bumped to $VERSION"
-          git push origin HEAD:main
+          echo "Extracted version: $VERSION"
 
       - name: Build project
         run: npm run build
 
-      - name: Add .nojekyll
+      - name: Add .nojekyll to dist
         run: touch dist/.nojekyll
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to version branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: v${{ github.ref_name }}
           publish_dir: ./dist
+
+      - name: Update GitHub Pages branch
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git fetch origin
+          git checkout -b gh-pages
+          cp -r dist/* .
+          git add .
+          git commit -m "Update GitHub Pages to v${GITHUB_REF#refs/tags/v}"
+          git push origin gh-pages --force
