@@ -43,6 +43,7 @@ export class CPU {
 
   setMode(mode: CPUMode) {
     this.#mode = mode;
+    console.log(mode);
     switch (mode) {
       case CPUMode.Easy:
         this.#CPUStatus.speed = this.manager.defSpeed - 10;
@@ -83,7 +84,7 @@ export class CPU {
   }
 
   move() {
-    if (!this.#mode) throw new Error('CPU mode isn\'t set.');
+    if (this.#mode === null) throw new Error('CPU mode isn\'t set.');
 
     const speed = this.#CPUStatus.speed * this.manager.deltaTime;
     const paddleZ = this.#paddle.position.z;
