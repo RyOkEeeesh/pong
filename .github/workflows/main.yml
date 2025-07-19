@@ -38,7 +38,8 @@ jobs:
 
       - name: Update version in README.md
         run: |
-          sed -i "s/<!--THIS_VERSION-->.*<!--\/THIS_VERSION-->/<!--THIS_VERSION-->$VERSION<!--\/THIS_VERSION-->/" README.md
+          sed -i "s/<!--THIS_VERSION-->.*<!--\/THIS_VERSION-->/$VERSION/" README.md
+          sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add README.md
