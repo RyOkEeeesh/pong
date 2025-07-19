@@ -85,6 +85,11 @@ jobs:
         run: |
           git fetch origin $VERSION_BRANCH
           git switch $VERSION_BRANCH
+
+          # すべての変更を破棄（README.md以外の差分をクリア）
+          git restore .
+
+          # バージョン書き換え
           sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
 
           git config user.name "github-actions"
