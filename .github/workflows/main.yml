@@ -33,6 +33,12 @@ jobs:
           git commit -m "chore: bump version to $VERSION"
           git push origin HEAD:main
 
+      - name: Create and push version branch
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          git checkout -b v${VERSION}
+          git push origin v${VERSION}
+
       - name: Build project
         run: npm run build
 
