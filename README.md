@@ -73,7 +73,7 @@ Latest release: [<!--LATEST_VERSION-->v1.0.03<!--/LATEST_VERSION-->](https://git
 
 - メニュー画面制作
 
-  ゲームのモードを選択できるメニューを作成します
+  ゲームのモードを選択できるメニューを作成する。
 
 - スマホでの操作
 
@@ -81,9 +81,11 @@ Latest release: [<!--LATEST_VERSION-->v1.0.03<!--/LATEST_VERSION-->](https://git
 
 - カメラの位置調整
 
-  いまのままだと、画面の幅が変わるとステージが見切れてしまうので画面の花に応じて調整できるようにする。
+  いまのままだと、画面の幅が変わるとステージが見切れてしまうので画面の幅に応じて調整できるようにする。
 
 - 衝突時の効果音
+
+  壁やパドルの衝突時、[THREE.Audio](https://threejs.org/docs/#api/en/audio/Audio)を用いて効果音を鳴らす。
 
 - マルチモード
 
