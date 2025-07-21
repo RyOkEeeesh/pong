@@ -239,17 +239,20 @@ export class Ball {
     this.mesh.updateMatrixWorld(false);
   }
 
-  async animateServePosition(paddle: Paddle) {
+  async animatePosition(paddle?: Paddle) {
     if (this.#animation) return;
     this.#animation = true;
 
     const speed = 20;
     const center = new THREE.Vector3();
-    paddle.boundingBox.getCenter(center);
-    center.add(paddle.mesh.position);
+    if (paddle) {
+      paddle.boundingBox.getCenter(center);
+      center.add(paddle.mesh.position);
+    }
 
     await new Promise(resolve => {
-      const targetZ = center.z - Math.sign(center.z) * 1.2;
+      const difference = paddle ? Math.sign(center.z) * 1.2 : 0;
+      const targetZ = center.z - difference;
       let time = performance.now();
 
       const move = (now: number) => {

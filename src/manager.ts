@@ -88,7 +88,7 @@ export class PointManager {
   #pointGetter: boolean = Boolean(Math.round(Math.random()));
 
   #pointMax: number = 20;
-  #pointMatch: number = 11;
+  #pointMatch: number = 2;
   #isEnd: boolean = false;
 
   constructor() {}

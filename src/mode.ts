@@ -7,7 +7,7 @@ import { blinkingEffect } from "./effect";
 
 export abstract class GameModeHandler {
   constructor(protected game: Game) {}
-  async toServing() { await this.game.stage.ball.animateServePosition(this.game.hasService()); }
+  async toServing() { await this.game.stage.ball.animatePosition(this.game.hasService()); }
   async WallBlinkingEffect() { await blinkingEffect(
     [ this.game.stage.wallMat ],{
       endtime: 0.25,
@@ -102,7 +102,9 @@ export class SelectingMode extends GameModeHandler {
     console.log('end');
   }
 
-  override async asEnd(): Promise<void> {}
+  override async asEnd(): Promise<void> {
+    this.game.stage.ball.animatePosition();
+  }
 }
 
 export class SingleMode extends GameModeHandler {
@@ -198,7 +200,7 @@ export class SingleMode extends GameModeHandler {
   }
 
   override async asEnd(): Promise<void> {
-    
+    this.game.stage.ball.animatePosition();
   }
 }
 
@@ -288,6 +290,6 @@ export class DuoMode extends GameModeHandler {
   }
 
   override async asEnd(): Promise<void> {
-    
+    this.game.stage.ball.animatePosition();
   }
 }
