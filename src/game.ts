@@ -108,8 +108,15 @@ export class Game extends ThreeApp {
 
   processingGameStatus() {
     this.#gameMode.update();
+    console.log(this.context.GameManager.gameStatus);
 
     switch (this.context.GameManager.gameStatus) {
+
+      case GameStatus.Wainting:
+        this.#gameMode.waiting();
+        if (this.#isProcessing) return;
+        this.handle(this.#gameMode.asWainting(), GameStatus.First);
+        break;
 
       case GameStatus.First:
         this.#gameMode.first();
@@ -138,7 +145,7 @@ export class Game extends ThreeApp {
       case GameStatus.End:
         this.#gameMode.end();
         if (this.#isProcessing) return;
-        this.handle(this.#gameMode.asEnd());
+        this.handle(this.#gameMode.asEnd(), GameStatus.Wainting);
         break;
     }
   }

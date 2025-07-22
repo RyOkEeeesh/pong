@@ -88,7 +88,7 @@ export class PointManager {
   #pointGetter: boolean = Boolean(Math.round(Math.random()));
 
   #pointMax: number = 20;
-  #pointMatch: number = 2;
+  #pointMatch: number = 2; // 11
   #isEnd: boolean = false;
 
   #acceptResetPoints: boolean = false;
@@ -121,22 +121,24 @@ export class PointManager {
 
   pointGet(player: boolean) {
     this.#pointGetter = player;
-    this.#points[Number(this.#pointGetter)].add() ;
-    if ( this.#pointMatch - Math.max( ...this.#points.map(p => p.point) ) === 1 ) {
-      if ( this.#points[0] === this.#points[1] && !( this.#pointMax - Math.max( ...this.#points.map(p => p.point) ) === 1 ) ) {
-        this.#pointMatch = Math.min(this.#pointMatch + 1, this.#pointMax)
-      } else if ( Math.max( ...this.#points.map(p => p.point) ) === (this.#points[Number(this.#pointGetter)].point) ) {
+    this.#points[Number(this.#pointGetter)].add();
+    const max = Math.max( this.#points[0].point, this.#points[1].point );
+    if ( this.#pointMatch - max === 1 ) {
+      if ( this.#points[0].point === this.#points[1].point && !( this.#pointMax - max === 1 ) ) { // デュース 
+        this.#pointMatch = Math.min(this.#pointMatch + 1, this.#pointMax);
+      } else if ( max === (this.#points[Number(this.#pointGetter)].point) ) { // マッチポイント
         this.matchPointEffect();
       }
-    } else if (this.#pointMatch === Math.max( ...this.#points.map(p => p.point) )) {
+    } else if (this.#pointMatch === max) { // ゲーム終了
       this.#isEnd = true;
       this.endPointEffect();
     }
   }
 
   reset() {
-    if (this.#acceptResetPoints) throw new Error('ポイントリセットが許可されていません');
+    if (!this.#acceptResetPoints) throw new Error('ポイントリセットが許可されていません');
     this.#points.forEach(p => p.reset());
+    this.#isEnd = false;
   }
 
   startTime() {

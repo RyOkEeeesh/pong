@@ -244,7 +244,10 @@ export class DuoMode extends GameModeHandler {
   }
 
   override async asWainting(): Promise<void> {
-    
+    this.game.context.PointManager.acceptResetPoints = true;
+    this.game.context.PointManager.startTime();
+    await this.#players[0].anyKeyDown();
+    this.game.context.PointManager.stopTime();
   }
 
   override first(): void {
@@ -252,6 +255,7 @@ export class DuoMode extends GameModeHandler {
   }
 
   override async asFirst(): Promise<void> {
+    this.game.context.PointManager.acceptResetPoints = true;
     await new Promise(resolve => setTimeout(() => resolve(null), 1000));
     await this.toServing();
   }
@@ -262,7 +266,7 @@ export class DuoMode extends GameModeHandler {
   }
 
   override async asServing(): Promise<void> {
-    await this.#players[Number(this.game.context.PointManager.pointGetter)].serve()
+    await this.#players[Number(this.game.context.PointManager.pointGetter)].serve();
     this.game.stage.ball.resetServePosition();
   }
 
@@ -309,10 +313,10 @@ export class DuoMode extends GameModeHandler {
     await this.toServing();
   }
 
-  override end(): void {
-    console.log('end');
+  override end(): void {}
+
+  override async asEnd(): Promise<void> {
+    console.log('called')
     this.#players.forEach(p => { if (p.acceptMove) p.acceptMove = false; });
   }
-
-  override async asEnd(): Promise<void> {}
 }

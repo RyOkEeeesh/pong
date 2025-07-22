@@ -1,3 +1,4 @@
+import { resolve } from "path";
 import { Game, players } from "./game";
 import { normalize, Paddle } from "./gameCore";
 // import { GameStatus } from "./manager";
@@ -119,11 +120,16 @@ export class Controller {
   async serve() {
     return new Promise(resolve => {
       const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === this.#control.S) {
-        this.#paddle.refectPaddle();
-        cleanup();
-        resolve(null);
+        if (e.code === this.#control.S) {
+          this.#paddle.refectPaddle();
+          cleanup();
+          resolve(null);
         }
+      };
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', onKeyDown);
       };
 
       const timer = setTimeout(() => {
@@ -132,12 +138,24 @@ export class Controller {
         resolve(null);
       }, 10000);
 
-      const cleanup = () => {
-        clearTimeout(timer);
-        document.removeEventListener('keydown', onKeyDown);
-      };
-
       document.addEventListener('keydown', onKeyDown);
+    });
+  }
+
+  async anyKeyDown() {
+    return new Promise(resolve => {
+      const cleanup = () => {
+        document.removeEventListener('keydown', onKeyDown );
+        document.removeEventListener('mousedown', onKeyDown );
+      }
+
+      const onKeyDown = () => {
+        cleanup();
+        resolve(null);
+      }
+
+      document.addEventListener('keydown', onKeyDown );
+      document.addEventListener('mousedown', onKeyDown );
     });
   }
 
