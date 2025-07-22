@@ -131,7 +131,7 @@ export class PointManager {
       }
     } else if (this.#pointMatch === max) { // ゲーム終了
       this.#isEnd = true;
-      this.endPointEffect();
+      // this.endPointEffect();
     }
   }
 

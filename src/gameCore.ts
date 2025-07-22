@@ -171,7 +171,7 @@ export class Stage {
     this.#displays.position.x = -7.5;
   }
 
-    isLoad() { return new Promise(resolve => this.#loadingManager.onLoad = () => resolve(null)); }
+  isLoad() { return new Promise(resolve => this.#loadingManager.onLoad = () => resolve(null)); }
 
   get ball() { return this.#ball; }
   get p1() { return this.#p1; }

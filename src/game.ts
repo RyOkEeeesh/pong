@@ -101,14 +101,13 @@ export class Game extends ThreeApp {
   private handle(promise: Promise<any>, nextStatus?: GameStatus) {
     this.#isProcessing = true;
     promise
-      .then(() => { if (nextStatus) this.setStatus(nextStatus); })
+      .then(() => { if (nextStatus !== undefined) this.setStatus(nextStatus); })
       // .catch(err => console.error(err))
       .finally(() => this.#isProcessing = false);
   }
 
   processingGameStatus() {
     this.#gameMode.update();
-    console.log(this.context.GameManager.gameStatus);
 
     switch (this.context.GameManager.gameStatus) {
 
