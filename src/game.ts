@@ -2,7 +2,6 @@ import { THREE, ThreeApp, RenderPass } from './ThreeModule';
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import { GameContext, mod, Paddle, Stage } from './gameCore';
 import { GameMode, GameStatus } from './manager';
-import { CPUMode } from './cpu';
 import { Effect } from './effect';
 import { DuoMode, GameModeHandler, SelectingMode, SingleMode } from './mode';
 

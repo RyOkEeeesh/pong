@@ -26,6 +26,7 @@ export class ModeManager {
 };
 
 export enum GameStatus {
+  Wainting,
   First,
   Serving,
   Playing,
@@ -83,18 +84,21 @@ export class GameManager {
 };
 
 export class PointManager {
-  #p1: Point = new Point();
-  #p2: Point = new Point();
+  #points: Point[] = [ new Point(), new Point() ]; // [ p2, p1 ]
   #pointGetter: boolean = Boolean(Math.round(Math.random()));
 
   #pointMax: number = 20;
   #pointMatch: number = 2;
   #isEnd: boolean = false;
 
+  #acceptResetPoints: boolean = false;
+
+  #times!: NodeJS.Timeout;
+
   constructor() {}
 
   async matchPointEffect() {
-    const mat = this.#pointGetter ? this.#p1.display.dis() : this.#p2.display.dis() ;
+    const mat = this.#points[Number(this.#pointGetter)].display.dis() ;
     if (mat.length === 0) return;
     await blinkingEffect(
       mat, {
@@ -105,35 +109,57 @@ export class PointManager {
   }
 
   async endPointEffect() {
-    const mat = this.#pointGetter ? this.#p1.display.dis() : this.#p2.display.dis() ;
+    const mat = this.#points[Number(this.#pointGetter)].display.dis() ;
     if (mat.length === 0) return;
     await blinkingEffect(
       mat, {
-      endtime: 3,
+      endtime: 4,
       difference: -0.8,
-      times: 12
+      times: 16
     });
   }
 
-  pointGet(player: boolean) { 
+  pointGet(player: boolean) {
     this.#pointGetter = player;
-    this.#pointGetter ? this.#p1.add() : this.#p2.add() ;
-    if ( this.#pointMatch - Math.max(this.p1.point, this.p2.point) === 1 ) {
-      if ( this.p1.point === this.p2.point && !( this.#pointMax - Math.max(this.p1.point, this.p2.point) === 1 ) ) {
+    this.#points[Number(this.#pointGetter)].add() ;
+    if ( this.#pointMatch - Math.max( ...this.#points.map(p => p.point) ) === 1 ) {
+      if ( this.#points[0] === this.#points[1] && !( this.#pointMax - Math.max( ...this.#points.map(p => p.point) ) === 1 ) ) {
         this.#pointMatch = Math.min(this.#pointMatch + 1, this.#pointMax)
-      } else if ( Math.max(this.p1.point, this.p2.point) === (this.#pointGetter ? this.p1.point : this.p2.point)) {
+      } else if ( Math.max( ...this.#points.map(p => p.point) ) === (this.#points[Number(this.#pointGetter)].point) ) {
         this.matchPointEffect();
       }
-    } else if (this.#pointMatch === Math.max(this.p1.point, this.p2.point)) {
+    } else if (this.#pointMatch === Math.max( ...this.#points.map(p => p.point) )) {
       this.#isEnd = true;
       this.endPointEffect();
     }
   }
 
-  get p1() { return this.#p1; }
-  get p2() { return this.#p2; }
+  reset() {
+    if (this.#acceptResetPoints) throw new Error('ポイントリセットが許可されていません');
+    this.#points.forEach(p => p.reset());
+  }
+
+  startTime() {
+    this.reset();
+
+    // 時刻表示処理
+    this.#times = setInterval(() => {
+      const time = new Date();
+      this.#points[0].set(time.getMinutes());
+      this.#points[1].set(time.getHours());
+    }, 500);
+  }
+
+  stopTime() {
+    this.reset();
+    clearInterval(this.#times);
+  }
+
+  get points() { return this.#points; }
   get pointGetter() { return this.#pointGetter; }
   get isEnd() { return this.#isEnd; }
+  get acceptResetPoints() { return this.#acceptResetPoints; }
+  set acceptResetPoints( value: boolean ) { this.#acceptResetPoints = value; }
 }
 
 export class Point {
@@ -144,6 +170,14 @@ export class Point {
 
   add() {
     this.#display.set(++this.#point);
+  }
+
+  reset() {
+    this.#display.set(this.#point = 0);
+  }
+
+  set(num: number) {
+    this.#display.set(this.#point = num);
   }
 
   get point() { return this.#point; }

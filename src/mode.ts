@@ -7,9 +7,11 @@ import { blinkingEffect } from "./effect";
 
 export abstract class GameModeHandler {
   constructor(protected game: Game) {}
-  async toServing() { await this.game.stage.ball.animatePosition(this.game.hasService()); }
-  async WallBlinkingEffect() { await blinkingEffect(
-    [ this.game.stage.wallMat ],{
+  async toServing() { await this.game.stage.ball.animatePosition( this.isEnd() ? null :this.game.hasService()  ); }
+  async WallBlinkingEffect() {
+    await blinkingEffect([ 
+      this.game.stage.wallMat
+    ],{
       endtime: 0.25,
       difference: 0.15,
       times: 2
@@ -22,7 +24,10 @@ export abstract class GameModeHandler {
     }
     return false;
   }
+
   abstract update(): void;
+  abstract waiting(): void;
+  abstract asWainting(): Promise<void>;
   abstract first(): void;
   abstract asFirst(): Promise<void>;
   abstract serving(): void;
@@ -48,6 +53,14 @@ export class SelectingMode extends GameModeHandler {
   }
 
   override update(): void {}
+
+  override waiting(): void {
+    
+  }
+
+  override async asWainting(): Promise<void> {
+    
+  }
 
   override first(): void {}
 
@@ -102,9 +115,7 @@ export class SelectingMode extends GameModeHandler {
     console.log('end');
   }
 
-  override async asEnd(): Promise<void> {
-    this.game.stage.ball.animatePosition();
-  }
+  override async asEnd(): Promise<void> {}
 }
 
 export class SingleMode extends GameModeHandler {
@@ -122,6 +133,14 @@ export class SingleMode extends GameModeHandler {
 
   override update(): void {
     this.#controller.control();
+  }
+
+  override waiting(): void {
+    
+  }
+
+  override async asWainting(): Promise<void> {
+    
   }
 
   override first(): void {
@@ -199,9 +218,7 @@ export class SingleMode extends GameModeHandler {
     this.#controller.acceptMove = false;
   }
 
-  override async asEnd(): Promise<void> {
-    this.game.stage.ball.animatePosition();
-  }
+  override async asEnd(): Promise<void> {}
 }
 
 export class DuoMode extends GameModeHandler {
@@ -220,6 +237,14 @@ export class DuoMode extends GameModeHandler {
 
   override update(): void {
     this.#players.forEach(p => p.control());
+  }
+
+  override waiting(): void {
+    
+  }
+
+  override async asWainting(): Promise<void> {
+    
   }
 
   override first(): void {
@@ -289,7 +314,5 @@ export class DuoMode extends GameModeHandler {
     this.#players.forEach(p => { if (p.acceptMove) p.acceptMove = false; });
   }
 
-  override async asEnd(): Promise<void> {
-    this.game.stage.ball.animatePosition();
-  }
+  override async asEnd(): Promise<void> {}
 }

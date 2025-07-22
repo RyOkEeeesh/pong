@@ -158,8 +158,7 @@ export class Stage {
 
   private initPointDisplay() {
     const scale = 0.4;
-    const p1 = this.game.context.PointManager.p1.display.group;
-    const p2 = this.game.context.PointManager.p2.display.group;
+    const [ p2,  p1 ] = [ ...this.game.context.PointManager.points.map(p => p.display.group) ];
     p2.position.x = 14;
     this.#displays.add(p1, p2);
     this.#displays.rotation.x = -Math.PI / 2;
@@ -239,7 +238,7 @@ export class Ball {
     this.mesh.updateMatrixWorld(false);
   }
 
-  async animatePosition(paddle?: Paddle) {
+  async animatePosition(paddle: Paddle | null) {
     if (this.#animation) return;
     this.#animation = true;
 
