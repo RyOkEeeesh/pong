@@ -1,7 +1,7 @@
-![Release version](https://img.shields.io/badge/version-v1.0.2-blue)
+![Release version](https://img.shields.io/badge/version-v1.0.31-blue)
 Latest release: [<!--LATEST_VERSION-->v1.0.31<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
 
-# PONG v1.0.2
+# PONG v1.0.31
 
 ##  PONGについて
 誰もが一度はやったことがあると思うピンポンゲームを、Threejsを使って作りました。
@@ -96,7 +96,7 @@ Latest release: [<!--LATEST_VERSION-->v1.0.31<!--/LATEST_VERSION-->](https://git
 
 ## 質問について
 質問は[こちら](https://github.com/RyOkEeeesh/pong/issues)から、`question`のラベルを付け、issueを作成してください。
-また、デバック情報などがあるが相も[こちら](https://github.com/RyOkEeeesh/pong/issues)からお願いします。
+また、デバック情報などがある場合も[こちら](https://github.com/RyOkEeeesh/pong/issues)からお願いします。
 
 ## 参考
 - [ヒカキンさんの動画](https://youtu.be/sQFQPH5IL2Y?si=HVLRD1YNcXh95-Y8)
