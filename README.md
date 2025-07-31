@@ -1,7 +1,8 @@
-![Release version](https://img.shields.io/badge/version-v1.0.03-blue)
-Latest release: [<!--LATEST_VERSION-->v1.0.03<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
+![Release version](https://img.shields.io/badge/version-<!--THIS_VERSION-->v0.0.0<!--\/THIS_VERSION-->-blue)
+Latest release: [<!--LATEST_VERSION-->v0.0.0<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
 
-# PONG v1.0.03
+# PONG <!--THIS_VERSION-->v0.0.0<!--\/THIS_VERSION-->
+
 ##  PONGについて
 誰もが一度はやったことがあると思うピンポンゲームを、Threejsを使って作りました。
 今はベータ版ですが、9月末までには全体を完成させたいです。
@@ -28,6 +29,10 @@ Latest release: [<!--LATEST_VERSION-->v1.0.03<!--/LATEST_VERSION-->](https://git
 
   11点マッチ、20点までデュースありです。
 
+  マッチポイント時、点数が点滅するエフェクトがかかります。
+
+  ゲーム終了時、勝者のポイントが点滅するエフェクトがかかります。
+
 - サーブ権
 
   サーブ兼保有者は自分の好きな場所とタイミングで、ボールを発射することができます。 
@@ -39,18 +44,16 @@ Latest release: [<!--LATEST_VERSION-->v1.0.03<!--/LATEST_VERSION-->](https://git
   パドルにボールが当たると、加速していきます。
   どちらかが得点を取ると、初期速度に戻ります。
 
-- **注意**
+- ゲーム終了後
 
-  現バージョンで、ゲーム終了後の操作はできません。
-
-  **ゲーム終了後は、ページをリロード** してから再度プレイしてください
+  シングル、デュオモードはゲーム終了後、現在時刻が表示されます。キーを何か押すとゲームがリスタートされます。
 
 
 ## 操作方法
-- ```A``` ```W``` ```←```* ```↑```* : 左または上に移動 ( * : デュオモードのみ )
-- ```D``` ```S``` ```→```* ```↓```* : 右または下に移動 ( * : デュオモードのみ )
-- ```Space``` ```Enter```*　: サーブ発射 ( * : デュオモードのみ )
-- ```Q``` ```E``` : カメラ切り替え ( シングルモードのみ )
+- `A` `W` `←`* `↑`* : 左または上に移動 ( * : デュオモードのみ )
+- `D` `S` `→`* `↓`* : 右または下に移動 ( * : デュオモードのみ )
+- `Space` `Enter`*　: サーブ発射 ( * : デュオモードのみ )
+- `Q` `E` : カメラ切り替え ( シングルモードのみ )
 
 ## DEMO
 - メニュー
@@ -65,7 +68,7 @@ Latest release: [<!--LATEST_VERSION-->v1.0.03<!--/LATEST_VERSION-->](https://git
   - [Player vs Player](https://ryokeeeesh.github.io/pong/?mode=2)
 
 ## 今後の展開
-- ゲーム終了後の状態遷移
+- ~~ゲーム終了後の状態遷移~~ (2025/07/31完了)
 
 - 個人設定の追加
 
@@ -92,7 +95,7 @@ Latest release: [<!--LATEST_VERSION-->v1.0.03<!--/LATEST_VERSION-->](https://git
   Node.jsでWebSocketを使用し、リアルタイム通信を可能とするとともに、ユーザに楽しい体験を提供できるようにしたいと思う。また、複数人は入れるようにし、観戦や観戦者がプレイヤーに邪魔できる機能などを追加したい。
 
 ## 質問について
-質問は[こちら](https://github.com/RyOkEeeesh/pong/issues)から、```question```のラベルを付け、issueを作成してください。
+質問は[こちら](https://github.com/RyOkEeeesh/pong/issues)から、`question`のラベルを付け、issueを作成してください。
 また、デバック情報などがあるが相も[こちら](https://github.com/RyOkEeeesh/pong/issues)からお願いします。
 
 ## 参考
