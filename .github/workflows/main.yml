@@ -3,15 +3,15 @@ name: Tag Build & Deploy
 on:
   push:
     tags:
-      - 'v*' # 例: v1.2.3
+      - 'v*'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ github.ref_name }}               # v1.2.3
+      VERSION: ${{ github.ref_name }}
       VERSION_NUMBER: ${{ github.ref_name }}
-      VERSION_BRANCH: release/${{ github.ref_name }} # release/v1.2.3
+      VERSION_BRANCH: release/${{ github.ref_name }}
 
     steps:
       - name: Checkout main branch
@@ -81,24 +81,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update version in README.md on release branch
+      - name: Update version in README.md for all branches
         run: |
-          git fetch origin $VERSION_BRANCH
-          git switch $VERSION_BRANCH
+          git fetch origin
 
-          # すべての変更を破棄（README.md以外の差分をクリア）
-          git restore .
+          # リモートブランチリストを取得
+          for branch in $(git branch -r | grep -v '\->'); do
+              branch_name=${branch#origin/}
 
-          # バージョン書き換え
-          sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
+              # ブランチ切り替え
+              git switch $branch_name
 
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+              # すべての変更を破棄（README.md以外の差分をクリア）
+              git restore .
 
-          if ! git diff --quiet; then
-            git add README.md
-            git commit -m "docs: update README version to ${VERSION}"
-            git push origin $VERSION_BRANCH
-          else
-            echo "No changes to commit"
-          fi
+              # バージョン書き換え
+              sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
+
+              # Git設定
+              git config user.name "github-actions"
+              git config user.email "actions@github.com"
+
+              # 変更があればコミット＆プッシュ
+              if ! git diff --quiet; then
+                  git add README.md
+                  git commit -m "docs: update README version to ${VERSION}"
+                  git push origin $branch_name
+              else
+                  echo "No changes to commit for branch $branch_name"
+              fi
+          done
