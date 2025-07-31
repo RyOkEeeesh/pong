@@ -7,7 +7,7 @@ import { blinkingEffect } from "./effect";
 
 export abstract class GameModeHandler {
   constructor(protected game: Game) {}
-  async toServing() { await this.game.stage.ball.animatePosition( this.isEnd() ? null :this.game.hasService()  ); }
+  async toServing() { await this.game.stage.ball.animatePosition( this.isEnd() ? null : this.game.hasService() ); }
   async WallBlinkingEffect() {
     await blinkingEffect([ 
       this.game.stage.wallMat
@@ -54,7 +54,8 @@ export class SelectingMode extends GameModeHandler {
   }
 
   init() {
-    this.#cpus.forEach(cpu => cpu.setMode(CPUMode.Normal));
+    this.#cpus[0].setMode(CPUMode.Normal);
+    this.#cpus[1].setMode(CPUMode.Normal);
   }
 
   override update(): void {}
@@ -64,8 +65,7 @@ export class SelectingMode extends GameModeHandler {
   override async asWainting(): Promise<void> {
     this.game.context.PointManager.acceptResetPoints = true;
     this.game.context.PointManager.reset();
-    // await this.#player.anyKeyDown();
-    // TODO
+    await new Promise(resolve => setTimeout(() => resolve(null), 1500));
   }
 
   override first(): void { this.game.context.PointManager.acceptResetPoints = false; }
@@ -75,10 +75,10 @@ export class SelectingMode extends GameModeHandler {
     await this.toServing();
   }
 
-  override serving(): void { this.game.stage.ball.changeServePosition(this.game.hasService());}
+  override serving(): void { this.game.stage.ball.changeServePosition(this.game.hasService()); }
 
   override async asServing(): Promise<void> {
-    await this.#cpus[Number(this.game.context.PointManager.pointGetter)].serve()
+    await this.#cpus[Number(this.game.context.PointManager.pointGetter)].serve();
     this.game.stage.ball.resetServePosition();
   }
 
