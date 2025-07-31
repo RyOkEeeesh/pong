@@ -31,3 +31,6 @@ tmp.md
 # index.hmtl 以外
 *.html
 !index.html
+
+# js
+*.js
