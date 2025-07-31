@@ -85,24 +85,24 @@ jobs:
         run: |
           git fetch origin
 
-          # リモートブランチリストを取得
           for branch in $(git branch -r | grep -v '\->'); do
               branch_name=${branch#origin/}
 
-              # ブランチ切り替え
-              git switch $branch_name
+              echo "Checking out $branch_name"
+              git switch $branch_name || continue
 
-              # すべての変更を破棄（README.md以外の差分をクリア）
-              git restore .
+              # README.md が存在しないブランチはスキップ
+              if [ ! -f README.md ]; then
+                  echo "README.md not found in $branch_name, skipping..."
+                  continue
+              fi
 
               # バージョン書き換え
               sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
 
-              # Git設定
               git config user.name "github-actions"
               git config user.email "actions@github.com"
 
-              # 変更があればコミット＆プッシュ
               if ! git diff --quiet; then
                   git add README.md
                   git commit -m "docs: update README version to ${VERSION}"
