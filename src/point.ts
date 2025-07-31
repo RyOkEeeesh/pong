@@ -130,18 +130,18 @@ export class NumDispaly {
     const center = box.getCenter(new THREE.Vector3());
     this.#group.position.sub(center);
 
-    this.#numOfDis = {
-      0: [ this.#lt, this.#t, this.#rt, this.#r1, this.#r2, this.#rc, this.#lc, this.#l1, this.#l2, this.#lb, this.#b, this.#rb ],
-      1: [ this.#rt, this.#r1, this.#rc, this.#r2, this.#rb ],
-      2: [ this.#lt, this.#t, this.#rt, this.#r1, this.#rc, this.#c, this.#lc, this.#l2, this.#lb, this.#b, this.#rb ],
-      3: [ this.#lt, this.#t, this.#rt, this.#r1, this.#rc, this.#c, this.#lc, this.#r2, this.#lb, this.#b, this.#rb ],
-      4: [ this.#lt, this.#l1, this.#lc, this.#c, this.#rt, this.#r1, this.#rc, this.#r2, this.#rb ],
-      5: [ this.#lt, this.#t, this.#rt, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#lb, this.#b, this.#rb ],
-      6: [ this.#lt, this.#t, this.#rt, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#l2, this.#lb, this.#b, this.#rb ],
-      7: [ this.#lt, this.#t, this.#rt, this.#r1, this.#rc, this.#r2, this.#rb ],
-      8: [ this.#lt, this.#t, this.#rt, this.#r1, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#l2, this.#lb, this.#b, this.#rb ],
-      9: [ this.#lt, this.#t, this.#rt, this.#r1, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#rb ]
-    };
+    this.#numOfDis = [
+      [ this.#lt, this.#t, this.#rt, this.#r1, this.#r2, this.#rc, this.#lc, this.#l1, this.#l2, this.#lb, this.#b, this.#rb ],
+      [ this.#rt, this.#r1, this.#rc, this.#r2, this.#rb ],
+      [ this.#lt, this.#t, this.#rt, this.#r1, this.#rc, this.#c, this.#lc, this.#l2, this.#lb, this.#b, this.#rb ],
+      [ this.#lt, this.#t, this.#rt, this.#r1, this.#rc, this.#c, this.#lc, this.#r2, this.#lb, this.#b, this.#rb ],
+      [ this.#lt, this.#l1, this.#lc, this.#c, this.#rt, this.#r1, this.#rc, this.#r2, this.#rb ],
+      [ this.#lt, this.#t, this.#rt, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#lb, this.#b, this.#rb ],
+      [ this.#lt, this.#t, this.#rt, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#l2, this.#lb, this.#b, this.#rb ],
+      [ this.#lt, this.#t, this.#rt, this.#r1, this.#rc, this.#r2, this.#rb ],
+      [ this.#lt, this.#t, this.#rt, this.#r1, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#l2, this.#lb, this.#b, this.#rb ],
+      [ this.#lt, this.#t, this.#rt, this.#r1, this.#r2, this.#rc, this.#c, this.#lc, this.#l1, this.#rb ]
+    ];
   }
 
   set(n: Digit) {
