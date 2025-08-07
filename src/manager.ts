@@ -3,12 +3,6 @@ import { Ball } from './gameCore';
 import { PointDisplay } from './point';
 import { THREE } from './ThreeModule';
 
-export class UserManager {
-  // ユーザ名など　検討中
-  #name: string = 'Guest';
-  #id: string | null = null; // multi用
-}
-
 export enum GameMode {
   Selecting,
   Single,
@@ -123,7 +117,6 @@ export class PointManager {
   pointGet(player: boolean) {
     this.#pointGetter = player;
     this.#points[Number(this.#pointGetter)].add();
-    console.log(`p1 : ${this.#points[1].point}, p2 : ${this.#points[0].point}`);
     const max = Math.max( this.#points[0].point, this.#points[1].point );
     if ( this.#pointMatch - max === 1 ) {
       if ( this.#points[0].point === this.#points[1].point && !( this.#pointMax - max === 1 ) ) { // デュース 

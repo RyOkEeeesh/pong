@@ -1,4 +1,7 @@
 import { deflate, inflate } from 'pako';
+import CryptoJS from 'crypto-js';
+
+const SECRET_KEY = 'key'; // envに設定
 
 export function compress<T extends object>(data: T): string {
   const json = JSON.stringify(data);
@@ -8,11 +11,11 @@ export function compress<T extends object>(data: T): string {
   for (let i = 0; i < binary.length; i += chunkSize) {
     str += String.fromCharCode(...binary.subarray(i, i + chunkSize));
   }
-  return btoa(str);
+  return CryptoJS.AES.encrypt(btoa(str), SECRET_KEY).toString()
 }
 
 export function decompress<T extends object>(base64: string): T {
-  const binaryString = atob(base64);
+  const binaryString = atob(CryptoJS.AES.decrypt(base64, SECRET_KEY).toString(CryptoJS.enc.Utf8));
   const len = binaryString.length;
   const binary = new Uint8Array(len);
   for (let i = 0; i < len; i++) {
@@ -21,3 +24,7 @@ export function decompress<T extends object>(base64: string): T {
   const json = inflate(binary, { to: 'string' });
   return JSON.parse(json) as T;
 }
+
+const text = compress({name: '加地'});
+console.log(text);
+console.log(decompress(text));
