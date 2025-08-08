@@ -24,7 +24,5 @@ export const cookies = {
     return value ? decompress<T>(value) : null;
   },
 
-  remove(key: string) {
-    Cookies.remove(key);
-  }
+  remove(key: string) { Cookies.remove(key); }
 };

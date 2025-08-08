@@ -1,9 +1,30 @@
-import { resolve } from "path";
+import { cookies } from "./cookie";
 import { Game, players } from "./game";
 import { normalize, Paddle } from "./gameCore";
-// import { GameStatus } from "./manager";
+
+export function deepAssignWithoutUndefined<T extends object>(target: T, source: Partial<T>): T {
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue;
+
+    const targetValue = (target as any)[key];
+
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      typeof targetValue === 'object' &&
+      targetValue !== null
+    ) {
+      deepAssignWithoutUndefined(targetValue, value as any);
+    } else {
+      (target as any)[key] = value;
+    }
+  }
+  return target;
+}
 
 export type ControlSetting = {
+  speed: number,
   L: KeyboardEvent["code"],
   R: KeyboardEvent["code"],
   U: KeyboardEvent["code"],
@@ -11,19 +32,20 @@ export type ControlSetting = {
   S: KeyboardEvent["code"],
 };
 
-export class UserSetting {
-  #control: {
-    speed: number,
+export type UserControlSetting = {
     effect: boolean,
     p1: ControlSetting,
     p2: ControlSetting,
     Q: KeyboardEvent["code"],
     prevCamera: KeyboardEvent["code"],
     nextCamera: KeyboardEvent["code"]
-  } = {
-    speed: 20,
+  }
+
+export class UserSetting {
+  #control: UserControlSetting = {
     effect: true,
     p1: {
+      speed: 20,
       L: 'KeyA',
       R: 'KeyD',
       U: 'KeyW',
@@ -31,6 +53,7 @@ export class UserSetting {
       S: 'Space',
     },
     p2: {
+      speed: 20,
       L: 'ArrowLeft',
       R: 'ArrowRight',
       U: 'ArrowUp',
@@ -44,17 +67,12 @@ export class UserSetting {
 
   constructor() {
     // cookieからの情報をがったい
+    this.setControl(cookies.get('control') ?? {});
   }
 
-  setControl(op: { [key in players]: Partial<ControlSetting> }) {
+  setControl(op: Partial<UserControlSetting>) {
     if (Object.keys(op).length === 0) return;
-    for (const player in op) {
-      const settings = op[player as players];
-      for (const key in settings) {
-        const value = settings[key as keyof ControlSetting];
-        if (value !== undefined) this.#control[player as players][key as keyof ControlSetting] = value;
-      }
-    }
+    deepAssignWithoutUndefined(this.#control, op);
   }
 
   get control() { return this.#control; }
@@ -78,7 +96,8 @@ export class Controller {
     if (player === 'p1') {
       this.#isP1 = true;
       this.#paddle = this.game.stage.p1;
-    } else this.#paddle = this.game.stage.p2;
+    } else
+      this.#paddle = this.game.stage.p2;
 
     this.#control = this.game.context.UserSetting.control[player];
     document.addEventListener('keydown', e => this.#keyPress[e.code] = true);
@@ -92,11 +111,11 @@ export class Controller {
     const max = this.game.context.GameManager.width / 2;
     const min = -this.game.context.GameManager.width / 2;
     if (this.#keyPress[this.#control.L] || this.#keyPress[this.#control.U]) {
-      const speed = normalize(-this.game.context.UserSetting.control.speed * this.game.context.GameManager.deltaTime, min, max);
+      const speed = normalize(-this.#control.speed * this.game.context.GameManager.deltaTime, min, max);
       this.#paddle.move(speed);
     }
     if (this.#keyPress[this.#control.R] || this.#keyPress[this.#control.D]) {
-      const speed = normalize(this.game.context.UserSetting.control.speed * this.game.context.GameManager.deltaTime, min, max);
+      const speed = normalize(this.#control.speed * this.game.context.GameManager.deltaTime, min, max);
       this.#paddle.move(speed);
     }
   }
@@ -108,10 +127,10 @@ export class Controller {
       return;
     }
     if (!this.camChange) return;
-    if (this.#keyPress[control.prevCamera] && this.#prevKeyPress[control.prevCamera] !== this.#keyPress[control.prevCamera]) { // ゲーム離脱機能に変更
+    if (this.#keyPress[control.prevCamera] && this.#prevKeyPress[control.prevCamera] !== this.#keyPress[control.prevCamera]) {
       this.game.setCamera(-1);
     }
-    if (this.#keyPress[control.nextCamera] && this.#prevKeyPress[control.nextCamera] !== this.#keyPress[control.nextCamera]) { // ゲーム離脱機能に変更
+    if (this.#keyPress[control.nextCamera] && this.#prevKeyPress[control.nextCamera] !== this.#keyPress[control.nextCamera]) {
       this.game.setCamera(1);
     }
     this.#prevKeyPress = { ...this.#keyPress };
