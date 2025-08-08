@@ -1,7 +1,14 @@
 import { deflate, inflate } from 'pako';
 import CryptoJS from 'crypto-js';
+import dotenv from 'dotenv';
 
-const SECRET_KEY = 'key'; // envに設定
+// Node.js 実行時だけ dotenv を読み込む
+const isVite = typeof import.meta !== 'undefined' && 'env' in import.meta;
+if (!isVite) dotenv.config();
+
+const SECRET_KEY = isVite
+  ? import.meta.env.VITE_SECRET_KEY
+  : process.env.VITE_SECRET_KEY;
 
 export function compress<T extends object>(data: T): string {
   const json = JSON.stringify(data);
