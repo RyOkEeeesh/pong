@@ -1,4 +1,4 @@
-import { cookies } from "./cookie";
+import { cookieDefOption, cookies } from "./cookie";
 import { Game, players } from "./game";
 import { normalize, Paddle } from "./gameCore";
 
@@ -67,12 +67,20 @@ export class UserSetting {
 
   constructor() {
     // cookieからの情報をがったい
-    this.setControl(cookies.get('control') ?? {});
+    this.init();
+  }
+
+  async init() {
+    const json = await fetch('./cookie/cookie.json').then(res => res.json());
+    const control = json.control;
+    cookies.set('control', this.setControl(control)!, cookieDefOption);
   }
 
   setControl(op: Partial<UserControlSetting>) {
     if (Object.keys(op).length === 0) return;
-    deepAssignWithoutUndefined(this.#control, op);
+    const assigned = deepAssignWithoutUndefined(this.#control, op);
+    console.log(assigned);
+    return assigned;
   }
 
   get control() { return this.#control; }

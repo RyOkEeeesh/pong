@@ -1,10 +1,14 @@
 {
-  "LOCALHOST_PONG_accept": true,
-  "LOCALHOST_PONG_name": "kaji",
-  "LOCALHOST_PONG_p1": {
-    
-  },
-  "LOCALHOST_PONG_p2": {
-    
+  "accept": true,
+  "name": "kaji",
+  "control": {
+    "p2": {
+      "speed": 25,
+      "L": "Numpad4",
+      "R": "Numpad6",
+      "U": "Numpad8",
+      "D": "Numpad5",
+      "S": "NumpadEnter"
+    }
   }
 }

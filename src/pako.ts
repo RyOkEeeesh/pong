@@ -34,4 +34,4 @@ export function decompress<T extends object>(base64: string): T {
 
 const text = compress({name: '加地'});
 console.log(text);
-console.log(decompress(text));
+console.log(decompress('U2FsdGVkX1/iLBPDAX+UGm5I9Pe5a5J51ZT1OEQBzlHxr+ai1up2bLK7TfqHAx1aFVKmdXgegr1ATfp8ztb93laALh8fNCdBXMR1IU3mmvXVaFAb1udC1FDt5kPPifujvO+DB0Wf6pwmE9S1YuVrcaSqUOceJdN23FVhpsV7BKHcgJBxiesh1qJ46x1/ZyO89nNJDVWnmvhGx2HuoTHRD6aA/qAJXeTj0ZdXKEHMJySCNj0OnRgXqmfp6sTWMZMvlGMc83eckShon/s8telo+myDpaAXZ07VGGVByK5UxS4='));

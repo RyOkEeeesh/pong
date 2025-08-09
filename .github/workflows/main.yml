@@ -13,6 +13,12 @@ jobs:
       VERSION_NUMBER: ${{ github.ref_name }}
       VERSION_BRANCH: release/${{ github.ref_name }}
 
+      # vite
+      VITE_COOKIE_DOMAIN: ${{ secrets.VITE_COOKIE_DOMAIN }}
+      VITE_COOKIE_PATH: ${{ secrets.VITE_COOKIE_PATH }}
+      VITE_COOKIE_SECURE: ${{ secrets.VITE_COOKIE_SECURE }}
+      VITE_SECRET_KEY: ${{ secrets.VITE_SECRET_KEY }}
+
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v3

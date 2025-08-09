@@ -3,14 +3,18 @@ import { compress, decompress } from "./pako";
 
 export type cookieDef = {
   domain: string,
+  path: string
   secure: boolean,
   expires: number
+  samesite?: null | 'Strict' | 'Lax' | 'None',
 }
 
 export const cookieDefOption: cookieDef = {
   domain: import.meta.env.VITE_COOKIE_DOMAIN,
+  path: import.meta.env.VITE_COOKIE_PATH,
   secure: import.meta.env.VITE_COOKIE_SECURE === 'true',
-  expires: 365
+  expires: 365,
+  samesite: 'Lax'
 }
 
 export const cookies = {
