@@ -42,7 +42,7 @@ export type UserControlSetting = {
   }
 
 export class UserSetting {
-  #control: UserControlSetting = {
+  #defControl: UserControlSetting = {
     effect: true,
     p1: {
       speed: 20,
@@ -64,16 +64,20 @@ export class UserSetting {
     prevCamera: 'KeyQ',
     nextCamera: 'KeyE',
   };
+  #control: UserControlSetting = this.#defControl;
 
   constructor() {
-    // cookieからの情報をがったい
     this.init();
   }
 
-  async init() {
-    const json = await fetch('./cookie/cookie.json').then(res => res.json());
-    const control = json.control;
-    cookies.set('control', this.setControl(control)!, cookieDefOption);
+  // async init() {
+  //   const json = await fetch('./cookie/cookie.json').then(res => res.json());
+  //   const control = json.control;
+  //   cookies.set('control', this.setControl(control)!, cookieDefOption);
+  // }
+
+  init() {
+    this.setControl(cookies.get('control') ?? {});
   }
 
   setControl(op: Partial<UserControlSetting>) {

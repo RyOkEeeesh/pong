@@ -20,7 +20,8 @@ export const cookieDefOption: cookieDef = {
 export const cookies = {
   set<T extends object>(key: string, data: T, options?: Cookies.CookieAttributes) {
     const compressed = compress(data);
-    Cookies.set(key, compressed, options);
+    Cookies.set(key, compressed, options ?? cookieDefOption);
+    console.log('cookie set');
   },
 
   get<T extends object>(key: string): T | null {
