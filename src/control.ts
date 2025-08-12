@@ -1,4 +1,4 @@
-import { cookieDefOption, cookies } from "./cookie";
+import { Cookie } from "./cookie";
 import { Game, players } from "./game";
 import { normalize, Paddle } from "./gameCore";
 
@@ -77,7 +77,7 @@ export class UserSetting {
   // }
 
   init() {
-    this.setControl(cookies.get('control') ?? {});
+    this.setControl(Cookie.get('control') ?? {});
   }
 
   setControl(op: Partial<UserControlSetting>) {
