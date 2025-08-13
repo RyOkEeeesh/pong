@@ -1,4 +1,4 @@
-import { THREE, ThreeApp, RenderPass } from './ThreeModule';
+import { THREE, ThreeApp, RenderPass, fitObject } from './ThreeModule';
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import { GameContext, mod, Paddle, Stage } from './gameCore';
 import { GameMode, GameStatus } from './manager';
@@ -30,7 +30,7 @@ export class Game extends ThreeApp {
   }
 
   init() {
-    super.addScene(this.#stage.ball.mesh, ...this.#stage.hitObjects.map(obj => obj.mesh), this.stage.floor, this.#stage.displays);
+    super.addScene(this.#stage.ball.mesh, this.#stage.mesh, this.#stage.p1.mesh, this.#stage.p2.mesh, this.#stage.floor, this.#stage.displays);
     this.setBVH(...this.#stage.hitObjects.map(obj => obj.mesh));
     super.onBeforeRender(() => this.#context.GameManager.deltaTime = Math.min(this.#context.GameManager.clock.getDelta(), 0.05));
     this.initCameras();
@@ -41,6 +41,7 @@ export class Game extends ThreeApp {
   initCameras() {
     super.camera.position.set(0, 17, 10);
     super.camera.lookAt(new THREE.Vector3(0, 0, 3.5));
+    fitObject(super.camera, this.#stage.mesh, 1.1);
     this.#cameras.push(super.camera.clone());
 
     const c1 = new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000);
@@ -153,4 +154,4 @@ export class Game extends ThreeApp {
   get context() { return this.#context; }
   get effect() { return this.#effect; }
   get gameMode() { return this.#gameMode; }
-};
+}

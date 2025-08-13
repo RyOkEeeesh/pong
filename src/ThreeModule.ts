@@ -246,4 +246,29 @@ export class ThreeApp {
 
 }
 
+export function fitObject(camera: THREE.PerspectiveCamera, object: THREE.Object3D, offset = 1.2) {
+  // オブジェクトの中心とサイズを取得
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+
+  // 最大寸法と距離計算
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const aspect = camera.aspect;
+
+  const distForHeight = maxDim / (2 * Math.tan(fov / 2));
+  const distForWidth = distForHeight / aspect;
+  const requiredDist = Math.max(distForHeight, distForWidth) * offset;
+
+  // 現在の方向ベクトル（注視点方向）
+  const direction = new THREE.Vector3()
+    .subVectors(camera.position, center) // center → camera
+    .normalize();
+
+  // 中心から direction 方向に requiredDist だけ離れた位置へ移動
+  camera.position.copy(center).add(direction.multiplyScalar(requiredDist));
+}
+
+
 export {THREE, MeshStandardMaterialParameters, OrbitControls, Font, FontLoader, TextGeometry, EffectComposer, RenderPass, UnrealBloomPass};

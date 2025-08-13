@@ -68,6 +68,7 @@ export class Stage {
   #loadingManager: THREE.LoadingManager = new THREE.LoadingManager();
   #floor!: THREE.Mesh;
 
+  #mesh: THREE.Group = new THREE.Group();
   #displays: THREE.Group = new THREE.Group();
 
   constructor(private game: Game) {
@@ -131,6 +132,8 @@ export class Stage {
     WB.geometry.computeBoundingBox();
     this.#wallBefore = new GoalWall(this.game.context.GameManager).init(WB);
     this.#wallBefore.setting(false, this.game.context.PointManager);
+
+    this.#mesh.add(WA, WB, WL, WR);
   }
 
   private initHitObjects() {
@@ -183,6 +186,7 @@ export class Stage {
   get wallMat() { return this.#wallMaterial; }
   get hitObjects() { return this.#hitObjects; }
   get floor() { return this.#floor; }
+  get mesh() { return this.#mesh; }
   get displays() { return this.#displays; }
 };
 
