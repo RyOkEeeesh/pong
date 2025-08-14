@@ -1,0 +1,14 @@
+{
+  "accept": true,
+  "name": "kaji",
+  "control": {
+    "p2": {
+      "speed": 25,
+      "L": "Numpad4",
+      "R": "Numpad6",
+      "U": "Numpad8",
+      "D": "Numpad5",
+      "S": "NumpadEnter"
+    }
+  }
+}
