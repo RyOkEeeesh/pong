@@ -3,6 +3,7 @@
 Latest release: [<!--LATEST_VERSION-->v1.0.41<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
 
 # PONG v1.0.4
+<!--/HEADER-->
 
 ##  PONGについて
 誰もが一度はやったことがあると思うピンポンゲームを、Threejsを使って作りました。
