@@ -1,11 +1,9 @@
-import { THREE, ThreeApp, RenderPass, fitObject, trackingLookAt } from './ThreeModule';
+import { THREE, ThreeApp, RenderPass, fitObject, trackingLookAt, fitObjectFast } from './ThreeModule';
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import { GameContext, mod, Paddle, Stage } from './gameCore';
 import { GameMode, GameStatus } from './manager';
 import { Effect } from './effect';
 import { DuoMode, GameModeHandler, SelectingMode, SingleMode } from './mode';
-
-export type players = 'p1' | 'p2';
 
 export class Game extends ThreeApp {
 
@@ -18,6 +16,8 @@ export class Game extends ThreeApp {
   #camNo: number = 0;
 
   #isProcessing: boolean = false;
+
+  #resizeTimeout: number | null = null;
 
   constructor() {
     super({
@@ -41,21 +41,39 @@ export class Game extends ThreeApp {
   initCameras() {
     super.camera.position.set(0, 17, 10);
     super.camera.lookAt(new THREE.Vector3(0, 0, 3.5));
-    fitObject(super.camera, this.#stage.mesh, 1.1);
-    this.#cameras.push(super.camera.clone());
+    this.#cameras.push(super.camera);
 
     const c1 = trackingLookAt(new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000));
     c1.position.y = 37;
     c1.lookAt(new THREE.Vector3());
-    fitObject(c1, this.#stage.mesh, 1.1);
     this.#cameras.push(c1);
 
     const c2 = trackingLookAt(c1.clone());
     c2.position.y = 30;
     c2.up.set(-1, 0, 0);
     c2.lookAt(new THREE.Vector3());
-    fitObject(c2, this.#stage.mesh, 1.1);
     this.#cameras.push(c2);
+
+    this.update();
+  }
+
+  override update(): void {
+    super.update();
+
+    this.#cameras
+      .filter(c => c !== super.camera)
+      .forEach(c => {
+        c.aspect = this.width / this.height;
+        c.updateProjectionMatrix();
+      });
+
+    this.#cameras.forEach(c => fitObjectFast(c, this.#stage.mesh));
+
+    if (this.#resizeTimeout) clearTimeout(this.#resizeTimeout);
+    this.#resizeTimeout = window.setTimeout(() => {
+      this.#cameras.forEach(c => fitObject(c, this.#stage.mesh));
+      this.#resizeTimeout = null;
+    }, 200);
   }
 
   initObjectEffect() {
