@@ -44,22 +44,21 @@ jobs:
 
       - name: Update version in README.md
         run: |
-          sed -i '/<!--HEADER-->/,<!--\/HEADER-->/c\
-          $(cat <<-'EOF'
-          <!--HEADER-->
-          ![Release version](https://img.shields.io/badge/version-<!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->-blue) Latest release: [<!--LATEST_VERSION-->v0.0.0<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
+          sed -i '/<!--HEADER-->/,/<!--\/HEADER-->/d' README.md
 
-          # PONG <!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->
-          <!--/HEADER-->
-          EOF
-          )' README.md
+          awk -v ver="${{ env.VERSION }}" 'BEGIN {
+            print "<!--HEADER-->"
+            print "![Release version](https://img.shields.io/badge/version-" ver "-blue) Latest release: [<!--LATEST_VERSION-->" ver "<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)"
+            print ""
+            print "# PONG " ver
+            print "<!--/HEADER-->"
+            print ""
+          } { print }' README.md > tmp.md && mv tmp.md README.md
 
-          sed -i "s/<!--THIS_VERSION-->.*<!--\/THIS_VERSION-->/$VERSION/" README.md
-          sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${VERSION}<!--\/LATEST_VERSION-->/" README.md
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add README.md
-          git commit -m "docs: update README version to $VERSION"
+          git commit -m "docs: update README version to ${{ env.VERSION }}"
           git push origin HEAD:main
 
 
