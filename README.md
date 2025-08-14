@@ -1,7 +1,7 @@
-![Release version](https://img.shields.io/badge/version-v1.0.4-blue)
+![Release version](https://img.shields.io/badge/version-v1.0.41-blue)
 Latest release: [<!--LATEST_VERSION-->v1.0.41<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
 
-# PONG v1.0.4
+# PONG v1.0.41
 
 ##  PONGについて
 誰もが一度はやったことがあると思うピンポンゲームを、Threejsを使って作りました。
