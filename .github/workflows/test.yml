@@ -7,7 +7,7 @@ jobs:
   update-readme:
     runs-on: ubuntu-latest
     env:
-      VERSION: v1.0.0 # 必要に応じて変更
+      VERSION: v1.0.41 # 必要に応じて変更
 
     steps:
       - name: Checkout main branch
@@ -15,6 +15,16 @@ jobs:
 
       - name: Update version in README.md
         run: |
+          sed -i '/<!--HEADER-->/,<!--\/HEADER-->/c\
+          $(cat <<-'EOF'
+          <!--HEADER-->
+          ![Release version](https://img.shields.io/badge/version-<!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->-blue) Latest release: [<!--LATEST_VERSION-->v0.0.0<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
+
+          # PONG <!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->
+          <!--/HEADER-->
+          EOF
+          )' README.md
+
           sed -i "s/<!--THIS_VERSION-->.*<!--\/THIS_VERSION-->/${{ env.VERSION }}/" README.md
           sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${{ env.VERSION }}<!--\/LATEST_VERSION-->/" README.md
           git config user.name "github-actions"

@@ -1,8 +1,8 @@
 <!--HEADER-->
-![Release version](https://img.shields.io/badge/version-v1.0.41-blue)
-Latest release: [<!--LATEST_VERSION-->v1.0.41<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
+![Release version](https://img.shields.io/badge/version-v0.0.0-blue)
+Latest release: [<!--LATEST_VERSION-->v0.0.0<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
 
-# PONG v1.0.4
+# PONG v0.0.0
 <!--/HEADER-->
 
 ##  PONGについて
