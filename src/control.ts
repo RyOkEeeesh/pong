@@ -1,6 +1,8 @@
 import { Cookie } from "./cookie";
-import { Game, players } from "./game";
+import { Game } from "./game";
 import { normalize, Paddle } from "./gameCore";
+
+export type Players = 'p1' | 'p2';
 
 export function deepAssignWithoutUndefined<T extends object>(target: T, source: Partial<T>): T {
   for (const [key, value] of Object.entries(source)) {
@@ -104,7 +106,7 @@ export class Controller {
 
   constructor(private game: Game) {}
 
-  init(player: players) {
+  init(player: Players) {
     if (player === 'p1') {
       this.#isP1 = true;
       this.#paddle = this.game.stage.p1;
