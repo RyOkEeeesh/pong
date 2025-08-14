@@ -15,18 +15,26 @@ jobs:
 
       - name: Update version in README.md
         run: |
-          HEADER_CONTENT="$(cat <<'EOF'
+          cat > header.txt <<'EOF'
           <!--HEADER-->
           ![Release version](https://img.shields.io/badge/version-<!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->-blue) Latest release: [<!--LATEST_VERSION-->v0.0.0<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
 
           # PONG <!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->
           <!--/HEADER-->
           EOF
-          )"
-          sed -i "/<!--HEADER-->/,/<!--\/HEADER-->/c\\$HEADER_CONTENT" README.md
 
+          # sed で安全に置換
+          sed -i "/<!--HEADER-->/,/<!--\/HEADER-->/{
+            r header.txt
+            d
+          }" README.md
+
+          rm header.txt
+
+          # バージョン番号を更新
           sed -i "s/<!--THIS_VERSION-->.*<!--\/THIS_VERSION-->/${{ env.VERSION }}/" README.md
           sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${{ env.VERSION }}<!--\/LATEST_VERSION-->/" README.md
+
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add README.md
