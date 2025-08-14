@@ -1,4 +1,4 @@
-import { THREE, ThreeApp, RenderPass, fitObject } from './ThreeModule';
+import { THREE, ThreeApp, RenderPass, fitObject, trackingLookAt } from './ThreeModule';
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import { GameContext, mod, Paddle, Stage } from './gameCore';
 import { GameMode, GameStatus } from './manager';
@@ -44,15 +44,17 @@ export class Game extends ThreeApp {
     fitObject(super.camera, this.#stage.mesh, 1.1);
     this.#cameras.push(super.camera.clone());
 
-    const c1 = new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000);
+    const c1 = trackingLookAt(new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000));
     c1.position.y = 37;
     c1.lookAt(new THREE.Vector3());
+    fitObject(c1, this.#stage.mesh, 1.1);
     this.#cameras.push(c1);
 
-    const c2 = c1.clone();
+    const c2 = trackingLookAt(c1.clone());
     c2.position.y = 30;
     c2.up.set(-1, 0, 0);
     c2.lookAt(new THREE.Vector3());
+    fitObject(c2, this.#stage.mesh, 1.1);
     this.#cameras.push(c2);
   }
 

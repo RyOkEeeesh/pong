@@ -116,7 +116,7 @@ export class ThreeApp {
   }> = {}) {
     const isCamera = (e: any): e is THREE.Camera => e instanceof THREE.PerspectiveCamera;
     const position = Object.assign({}, { x: 0, y: 5, z: 5 }, op.position);
-    this.#camera = isCamera(op.camera) ? op.camera : new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
+    this.#camera = trackingLookAt(isCamera(op.camera) ? op.camera : new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000));
     this.#camera.position.set(position.x, position.y, position.z);
     this.addScene(this.#camera);
   }
@@ -246,11 +246,25 @@ export class ThreeApp {
 
 }
 
+export function trackingLookAt(camera: THREE.PerspectiveCamera): THREE.PerspectiveCamera {
+  const originalLookAt = camera.lookAt.bind(camera);
+
+  camera.lookAt = function (x: number | THREE.Vector3, y?: number, z?: number) {
+    const target: THREE.Vector3 = x instanceof THREE.Vector3 ? x.clone() : new THREE.Vector3(x, y as number, z as number) ;
+    camera.userData.lookAt = target;
+    originalLookAt(target);
+  };
+
+  return camera;
+}
+
 export function fitObject(camera: THREE.PerspectiveCamera, object: THREE.Object3D, offset = 1.2) {
+  object.updateMatrixWorld(true);
+
   // オブジェクトの中心とサイズを取得
   const box = new THREE.Box3().setFromObject(object);
   const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
+  const center = camera.userData.lookAt instanceof THREE.Vector3 ? camera.userData.lookAt.clone() : box.getCenter(new THREE.Vector3()) ;
 
   // 最大寸法と距離計算
   const maxDim = Math.max(size.x, size.y, size.z);
@@ -268,6 +282,8 @@ export function fitObject(camera: THREE.PerspectiveCamera, object: THREE.Object3
 
   // 中心から direction 方向に requiredDist だけ離れた位置へ移動
   camera.position.copy(center).add(direction.multiplyScalar(requiredDist));
+
+  camera.lookAt(center);
 }
 
 
