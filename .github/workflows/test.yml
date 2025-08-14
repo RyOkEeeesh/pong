@@ -1,7 +1,7 @@
 name: Update README Version
 
 on:
-  workflow_dispatch: # 手動でトリガー
+  workflow_dispatch: # 手動トリガー
 
 jobs:
   update-readme:
@@ -13,28 +13,22 @@ jobs:
       - name: Checkout main branch
         uses: actions/checkout@v3
 
-      - name: Update version in README.md
+      - name: Update README version
         run: |
-          cat > header.txt <<'EOF'
-          <!--HEADER-->
-          ![Release version](https://img.shields.io/badge/version-<!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->-blue) Latest release: [<!--LATEST_VERSION-->v0.0.0<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)
+          # 古い HEADER ブロックをすべて削除
+          sed -i '/<!--HEADER-->/,/<!--\/HEADER-->/d' README.md
 
-          # PONG <!--THIS_VERSION-->v0.0.0<!--/THIS_VERSION-->
-          <!--/HEADER-->
-          EOF
+          # 新しい HEADER ブロックを先頭に直接追加（変数展開も可能）
+          awk -v ver="${{ env.VERSION }}" 'BEGIN {
+            print "<!--HEADER-->"
+            print "![Release version](https://img.shields.io/badge/version-" ver "-blue) Latest release: [<!--LATEST_VERSION-->" ver "<!--/LATEST_VERSION-->](https://github.com/RyOkEeeesh/pong/releases/latest)"
+            print ""
+            print "# PONG " ver
+            print "<!--/HEADER-->"
+            print ""
+          } { print }' README.md > tmp.md && mv tmp.md README.md
 
-          # sed で安全に置換
-          sed -i "/<!--HEADER-->/,/<!--\/HEADER-->/{
-            r header.txt
-            d
-          }" README.md
-
-          rm header.txt
-
-          # バージョン番号を更新
-          sed -i "s/<!--THIS_VERSION-->.*<!--\/THIS_VERSION-->/${{ env.VERSION }}/" README.md
-          sed -i "s/<!--LATEST_VERSION-->.*<!--\/LATEST_VERSION-->/<!--LATEST_VERSION-->${{ env.VERSION }}<!--\/LATEST_VERSION-->/" README.md
-
+          # Git の設定・コミット・プッシュ
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add README.md
