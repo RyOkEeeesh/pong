@@ -12,7 +12,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   server: {
-    open: true,
+    open: false,
     port: 3000,
   },
   build: {

@@ -51,6 +51,7 @@ export default function Stage() {
       <SideWall position={[-STAGE_WIDTH / 2, 0 , 0]} material={wallMat} />
       <SideWall position={[STAGE_WIDTH / 2, 0 , 0]} material={wallMat} />
       <GoalWall position={[0, 0, STAGE_HEIGHT / 2]} material={wallMat} />
+      <GoalWall position={[0, 0, -STAGE_HEIGHT / 2]} material={wallMat} />
 
     </>
   )

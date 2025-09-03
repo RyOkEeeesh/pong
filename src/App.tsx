@@ -6,13 +6,13 @@ import Stage from "./stage"
 
 function CameraSetup() {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null!);
-  const { set } = useThree();
+  // const { set } = useThree();
 
   useEffect(() => {
     if (cameraRef.current) {
       cameraRef.current.lookAt(new THREE.Vector3(0, 0, 3.5))
       cameraRef.current.updateProjectionMatrix()
-      set({ camera: cameraRef.current }) // makeDefault の代わり
+      // set({ camera: cameraRef.current }) // makeDefault の代わり
     }
   }, [])
 
