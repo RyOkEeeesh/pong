@@ -6,7 +6,9 @@
     "moduleResolution": "Node",
     "ignoreDeprecations": "6.0",
     "strict": true,
-    "jsx": "preserve",
+
+    "jsx": "react-jsx",
+
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
@@ -14,8 +16,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "lib": ["DOM", "ESNext"],
-    "types": ["node", "vite/client"],
-    "allowImportingTsExtensions": true,
+
+    "types": ["react", "react-dom", "node", "vite/client"],
+
+    "allowImportingTsExtensions": true
   },
   "ts-node": {
     "esm": true

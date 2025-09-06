@@ -5,6 +5,7 @@ export const WALL_HEIGHT = 1;
 export const WALL_DEPTH = 0.1;
 
 export const PADDLE_WIDTH = STAGE_WIDTH / 6;
+export const PADDLE_HALF_X = PADDLE_WIDTH / 2;
 export const PADDLE_HEIGHT = 1;
 export const PADDLE_DEPTH = 1;
 

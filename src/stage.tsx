@@ -1,25 +1,38 @@
+import React from "react";
 import { RootState, useFrame, useLoader, useThree } from "@react-three/fiber";
-import { forwardRef, RefObject, use, useEffect, useRef } from "react";
+import { forwardRef, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { fitObject } from "./ThreeModule";
 import { acceleratedRaycast, MeshBVH } from "three-mesh-bvh";
-import { GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, SIDE, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
+import {
+  BALL_SPEED,
+  GOAL_1,
+  GOAL_2,
+  PADDLE_1,
+  PADDLE_2,
+  PADDLE_HALF_X,
+  SIDE,
+  STAGE_HEIGHT,
+  STAGE_WIDTH,
+  WALL_DEPTH,
+  WALL_HEIGHT
+} from "./constants";
 import { useStageStore } from "./store";
+import { PointDisplay } from "./point.tsx";
 
-(THREE.BufferGeometry.prototype as any).computeBoundsTree = function() {
+(THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
 };
-(THREE.BufferGeometry.prototype as any).disposeBoundsTree = function() {
+(THREE.BufferGeometry.prototype as any).disposeBoundsTree = function () {
   (this as any).boundsTree = null;
 };
 (THREE.Mesh.prototype as any).raycast = acceleratedRaycast;
 
-// --- Props ---
 type MeshProps = {
-  name: string,
-  position: [number, number, number],
-  material: THREE.MeshStandardMaterial
-}
+  name: string;
+  position: [number, number, number];
+  material: THREE.MeshStandardMaterial;
+};
 
 const SideWall = forwardRef<THREE.Mesh, MeshProps>((props, ref) => (
   <mesh ref={ref} {...props} rotation={[0, Math.PI / 2, 0]}>
@@ -39,14 +52,16 @@ const Paddle = forwardRef<THREE.Mesh, MeshProps>((props, ref) => (
   </mesh>
 ));
 
-const Ball = forwardRef<THREE.Mesh, { material: THREE.MeshStandardMaterial }>(({ material }, ref) => (
-  <mesh ref={ref} material={material}>
-    <boxGeometry />
-  </mesh>
-));
+const Ball = forwardRef<THREE.Mesh, { material: THREE.MeshStandardMaterial }>(
+  ({ material }, ref) => (
+    <mesh ref={ref} material={material}>
+      <boxGeometry />
+    </mesh>
+  )
+);
 
 function Floor() {
-  const texture = useLoader(THREE.TextureLoader, './texture/floor.png');
+  const texture = useLoader(THREE.TextureLoader, "./texture/floor.png");
   texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.colorSpace = THREE.SRGBColorSpace;
 
@@ -58,205 +73,209 @@ function Floor() {
   );
 }
 
-// --- パドル衝突処理（BVH Raycast） ---
-function handlePaddleCollision(paddleRef: RefObject<THREE.Mesh>, ballRef: RefObject<THREE.Mesh>, velocity: THREE.Vector3) {
-  if (!paddleRef.current || !ballRef.current) return;
-
-  const ballPos = ballRef.current.position;
-  const direction = velocity.clone().normalize();
-  const distance = velocity.length() * 1/60; // 1フレーム想定の距離
-
-  const ray = new THREE.Raycaster(ballPos, direction, 0, distance + 0.01);
-  const hits = ray.intersectObject(paddleRef.current, true);
-
-  if (hits.length > 0) {
-    const hit = hits[0];
-    const normal = hit.face!.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(paddleRef.current.matrixWorld));
-
-    // 衝突点までボールを戻す
-    ballPos.copy(hit.point.add(normal.multiplyScalar(0.01)));
-
-    // 反射角計算（X位置で角度調整）
-    const paddleHalfX = (STAGE_WIDTH / 6) / 2;
-    const dx = ballPos.x - paddleRef.current.position.x;
-    const normalized = THREE.MathUtils.clamp(dx / paddleHalfX, -1, 1);
-    const maxAngle = Math.PI / 3;
-    const angle = normalized * maxAngle;
-    const dzDir = paddleRef.current.position.z > 0 ? -1 : 1;
-
-    velocity.set(
-      velocity.length() * Math.sin(angle),
-      0,
-      dzDir * velocity.length() * Math.cos(angle)
-    );
-
-    // z方向が小さすぎる場合の補正
-    if (Math.abs(velocity.z) < 0.01) {
-      velocity.z = dzDir * 0.1;
-      velocity.normalize().multiplyScalar(velocity.length());
-    }
-  }
-}
-
 function handleHitSideWall() {
-  const velocity = useStageStore.getState().velocity.clone();
-  useStageStore.getState().setVelocity(velocity);
+  const store = useStageStore.getState();
+  const v = store.velocity.clone();
+  v.x *= -1;
+  store.setVelocity(v);
 }
 
 function handleHitGoalWall() {
-  const velocity = useStageStore.getState().velocity.clone();
-  useStageStore.getState().setVelocity(velocity);
+  const store = useStageStore.getState();
+  const v = store.velocity.clone();
+  v.z *= -1;
+  store.setVelocity(v);
 }
 
-function handleHitPaddle() {
-
+function handleHitPaddle(mesh: THREE.Mesh, normal: THREE.Vector3) {
+  const store = useStageStore.getState();
+  if (Math.abs(normal.z) > 0.9) {
+    const normalized = THREE.MathUtils.clamp(
+      (store.ballPosition.clone().x - mesh.position.clone().x) / PADDLE_HALF_X,
+      -1,
+      1
+    );
+    const maxAngle = Math.PI / 3;
+    const angle = normalized * maxAngle;
+    const dz = mesh.position.z > 0 ? -1 : 1;
+    const newVelocity = new THREE.Vector3(
+      store.ballSpeed * Math.sin(angle),
+      0,
+      dz * store.ballSpeed * Math.cos(angle)
+    );
+    store.setVelocity(newVelocity);
+  } else {
+    handleHitSideWall();
+  }
 }
 
-// --- Stage ---
 export default function Stage() {
   const { camera } = useThree();
   const stageGroup = useRef<THREE.Group>(null!);
 
   const ballRef = useRef<THREE.Mesh>(null!);
-
   const paddle1Ref = useRef<THREE.Mesh>(null!);
   const paddle2Ref = useRef<THREE.Mesh>(null!);
-
   const GoalWall1Ref = useRef<THREE.Mesh>(null!);
   const GoalWall2Ref = useRef<THREE.Mesh>(null!);
+  const SideWallsRef = [useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!)];
 
-  const SideWallsRef = [ useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!) ]
-
-  const refs = [paddle1Ref, paddle2Ref, GoalWall1Ref, GoalWall2Ref, ...SideWallsRef]
-
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3 });
-
-  const offsets = [
-    new THREE.Vector3(1/2,0,1/2), new THREE.Vector3(-1/2,0,1/2),
-    new THREE.Vector3(1/2,0,-1/2), new THREE.Vector3(-1/2,0,-1/2),
-    new THREE.Vector3(0,0,0)
+  const refs = [
+    paddle1Ref,
+    paddle2Ref,
+    GoalWall1Ref,
+    GoalWall2Ref,
+    ...SideWallsRef
   ];
 
+  const wallMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.3
+      }),
+    []
+  );
+
+  const offsets = useMemo(
+    () => [
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0.5, 0, 0.5),
+      new THREE.Vector3(-0.5, 0, 0.5),
+      new THREE.Vector3(0.5, 0, -0.5),
+      new THREE.Vector3(-0.5, 0, -0.5)
+    ],
+    []
+  );
+
+  const normalMatrix = useMemo(() => new THREE.Matrix3(), []);
+
   useEffect(() => {
-    refs.forEach(ref => ref.current?.geometry.computeBoundsTree());
-    useStageStore.getState().setVelocity(
-      new THREE.Vector3(0.1, 0, 1).normalize().multiplyScalar(28)
-    );
+    refs.forEach((ref) => ref.current?.geometry.computeBoundsTree());
+    useStageStore
+      .getState()
+      .setVelocity(new THREE.Vector3(0, 0, 1).normalize().multiplyScalar(BALL_SPEED));
   }, []);
 
   useEffect(() => {
-    if (stageGroup.current) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
+    if (stageGroup.current)
+      fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
   }, [camera]);
 
-  function handleHitObject(mesh: THREE.Mesh, normal: THREE.Vector3) {
+  function handleHitObj(mesh: THREE.Mesh, normal: THREE.Vector3) {
     switch (mesh.name) {
       case PADDLE_1:
-        break;
       case PADDLE_2:
+        handleHitPaddle(mesh, normal);
         break;
       case SIDE:
+        handleHitSideWall();
         break;
       case GOAL_1:
-        break;
       case GOAL_2:
+        handleHitGoalWall();
         break;
     }
-  }
-
-  function paddleControl() {
-    const store = useStageStore.getState();
-    paddle1Ref.current.position.z = store.p1PositionZ;
-    paddle2Ref.current.position.z = store.p2PositionZ;
   }
 
   function checkHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
     const intersects = ray.intersectObject(obj, true);
-    if (intersects.length > 0) return intersects[0].face?.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(obj.matrixWorld));
-    return;
+    if (intersects.length > 0) {
+      return intersects[0].face?.normal
+        .clone()
+        .applyMatrix3(normalMatrix.getNormalMatrix(obj.matrixWorld));
+    }
   }
 
-  function checkBallCollision() {
-    const store = useStageStore.getState();
-
+  function checkBallCollision(store: ReturnType<typeof useStageStore.getState>) {
+    const frameVelocity = store.velocity.clone().multiplyScalar(store.delta).length();
     for (const offset of offsets) {
-      const origin = ballRef.current.position.clone().add(offset);
-      const frameVelocity = store.velocity.clone().multiplyScalar(store.delta).length();
+      const origin = store.ballPosition.clone().add(offset);
       const ray = new THREE.Raycaster(
         origin,
         store.velocity.clone().normalize(),
         0,
-        frameVelocity + 0.02
-      )
+        frameVelocity + 0.09
+      );
 
       for (const objRef of refs) {
-        const normal = checkHit(ray, objRef.current);
-      }
-    }
+        const obj = objRef.current;
+        const normal = checkHit(ray, obj);
+        if (normal) {
+          handleHitObj(obj, normal);
 
-  }
+          const pushBack = normal.clone().multiplyScalar(0.25);
+          const newPos = store.ballPosition.clone().add(pushBack);
+          store.setBallPosition(newPos);
 
-  function update(delta: number) {
-    const store = useStageStore.getState();
-
-    store.setDelta(delta);
-    ballRef.current.position.addScaledVector(store.velocity, delta);
-    store.setBallPosition(ballRef.current.position);
-  }
-
-  function handleUseFrame(state: RootState, delta: number) {
-    paddleControl();
-
-    checkBallCollision();
-
-    update(delta);
-  }
-
-  useFrame((state, delta) => {
-    if (!ballRef.current || refs.some(ref => !ref.current)) return;
-
-    const gameStore = useStageStore.getState();
-
-    const velocity = gameStore.velocity;
-    const ballPos = ballRef.current.position;
-    const frameVelocity = velocity.clone().multiplyScalar(delta).length();
-
-    // 壁衝突
-    for (const offset of offsets) {
-      const origin = ballPos.clone().add(offset);
-      const ray = new THREE.Raycaster(origin, velocity.clone().normalize(), 0, frameVelocity + 0.01);
-
-      for (const wall of stageGroup.current.children) {
-        if (!wall) continue;
-        const intersects = ray.intersectObject(wall, true);
-        if (intersects.length > 0) {
-          const normal = intersects[0].face?.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(wall.matrixWorld));
-          if (normal) velocity.reflect(normal);
+          return;
         }
       }
     }
+  }
 
-    // パドル衝突
-    handlePaddleCollision(paddle1Ref, ballRef, velocity);
-    handlePaddleCollision(paddle2Ref, ballRef, velocity);
+  useFrame((state: RootState, delta: number) => {
+    const store = useStageStore.getState();
+    store.setDelta(delta);
 
-    // ボール移動
-    ballPos.addScaledVector(velocity, delta);
+    let newPos = store.ballPosition.clone().addScaledVector(store.velocity, delta);
+    store.setBallPosition(newPos);
+
+    checkBallCollision(store);
+
+    paddle1Ref.current.position.x = store.p1PositionX;
+    paddle2Ref.current.position.x = store.p2PositionX;
+
+    ballRef.current.position.copy(store.ballPosition);
   });
 
   return (
     <>
       <group ref={stageGroup}>
-        <SideWall ref={SideWallsRef[0]} name={SIDE} position={[ -STAGE_WIDTH/2, 0, 0 ]} material={wallMat} />
-        <SideWall ref={SideWallsRef[1]} name={SIDE} position={[ STAGE_WIDTH/2, 0, 0 ]} material={wallMat} />
-        <GoalWall ref={GoalWall1Ref} name={GOAL_1} position={[ 0, 0, STAGE_HEIGHT/2 ]} material={wallMat} />
-        <GoalWall ref={GoalWall2Ref} name={GOAL_2} position={[ 0, 0, -STAGE_HEIGHT/2 ]} material={wallMat} />
+        <SideWall
+          ref={SideWallsRef[0]}
+          name={SIDE}
+          position={[-STAGE_WIDTH / 2, 0, 0]}
+          material={wallMat}
+        />
+        <SideWall
+          ref={SideWallsRef[1]}
+          name={SIDE}
+          position={[STAGE_WIDTH / 2, 0, 0]}
+          material={wallMat}
+        />
+        <GoalWall
+          ref={GoalWall1Ref}
+          name={GOAL_1}
+          position={[0, 0, STAGE_HEIGHT / 2]}
+          material={wallMat}
+        />
+        <GoalWall
+          ref={GoalWall2Ref}
+          name={GOAL_2}
+          position={[0, 0, -STAGE_HEIGHT / 2]}
+          material={wallMat}
+        />
       </group>
 
-      <Paddle ref={paddle1Ref} name={PADDLE_1} position={[0,0,STAGE_HEIGHT/2 - 1]} material={wallMat.clone()} />
-      <Paddle ref={paddle2Ref} name={PADDLE_2} position={[0,0,-STAGE_HEIGHT/2 + 1]} material={wallMat.clone()} />
+      <Paddle
+        ref={paddle1Ref}
+        name={PADDLE_1}
+        position={[0, 0, STAGE_HEIGHT / 2 - 1]}
+        material={wallMat.clone()}
+      />
+      <Paddle
+        ref={paddle2Ref}
+        name={PADDLE_2}
+        position={[0, 0, -STAGE_HEIGHT / 2 + 1]}
+        material={wallMat.clone()}
+      />
 
       <Ball ref={ballRef} material={wallMat.clone()} />
       <Floor />
+
+      <PointDisplay num={0} position={[0, 0, 0]} />
     </>
   );
 }

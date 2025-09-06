@@ -7,16 +7,16 @@ type StageStore = {
   ballPosition: THREE.Vector3;
   velocity: THREE.Vector3;
 
-  p1PositionZ: number;
-  p2PositionZ: number;
+  p1PositionX: number;
+  p2PositionX: number;
 
   delta: number;
 
   setBallSpeed: (sp: number) => void;
   setBallPosition: (pos: THREE.Vector3) => void;
   setVelocity: (vel: THREE.Vector3) => void;
-  setP1PositionZ: (posZ: number) => void;
-  setP2PositionZ: (posZ: number) => void;
+  setP1PositionX: (posZ: number) => void;
+  setP2PositionX: (posZ: number) => void;
   setDelta: (time: number) => void;
 };
 
@@ -26,8 +26,8 @@ export const useStageStore = create<StageStore>(set => ({
   ballPosition: new THREE.Vector3(),
   velocity: new THREE.Vector3(),
 
-  p1PositionZ: 0,
-  p2PositionZ: 0,
+  p1PositionX: 1,
+  p2PositionX: 0,
 
   delta: 0,
 
@@ -43,11 +43,11 @@ export const useStageStore = create<StageStore>(set => ({
   setVelocity: vel =>
     set(() => ({ velocity: vel.clone() })),
 
-  setP1PositionZ: pos =>
-    set(() => ({p1PositionZ: pos})),
+  setP1PositionX: pos =>
+    set(() => ({p1PositionX: pos})),
 
-  setP2PositionZ: pos =>
-    set(() => ({p2PositionZ: pos})),
+  setP2PositionX: pos =>
+    set(() => ({p2PositionX: pos})),
 
   setDelta: time =>
     set(() => ({delta: time})),
@@ -61,7 +61,7 @@ export enum GameMode {
 };
 
 export enum GameStatus {
-  Wainting,
+  Waiting,
   First,
   Serving,
   Playing,
@@ -72,12 +72,12 @@ export enum GameStatus {
 type GameStore = {
   gameStatus: GameStatus;
 
-  setGameStatus: (sutatus: GameStatus) => void;
+  setGameStatus: (status: GameStatus) => void;
 }
 
 // レンダー用
 const useGameStore = create<GameStore>(set => ({
-  gameStatus: GameStatus.Wainting,
+  gameStatus: GameStatus.Waiting,
 
   setGameStatus: status =>
     set(() => ({gameStatus: status}))
