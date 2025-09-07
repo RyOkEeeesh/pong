@@ -17,7 +17,7 @@ import {
   WALL_DEPTH,
   WALL_HEIGHT
 } from "./constants";
-import { useStageStore } from "./store";
+import { useGameStore, useStageStore } from "./store";
 import { PointDisplay } from "./point.tsx";
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
@@ -80,11 +80,12 @@ function handleHitSideWall() {
   store.setVelocity(v);
 }
 
-function handleHitGoalWall() {
+function handleHitGoalWall(playre: boolean) {
   const store = useStageStore.getState();
   const v = store.velocity.clone();
   v.z *= -1;
   store.setVelocity(v);
+  useGameStore.getState().addPoint(playre);
 }
 
 function handleHitPaddle(mesh: THREE.Mesh, normal: THREE.Vector3) {
@@ -107,6 +108,32 @@ function handleHitPaddle(mesh: THREE.Mesh, normal: THREE.Vector3) {
   } else {
     handleHitSideWall();
   }
+}
+
+function PointDisplays() {
+  const point1 = useGameStore(s => s.point1);
+  const point2 = useGameStore(s => s.point2);
+
+  const groupRef = useRef<THREE.Group>(null!);
+
+  useEffect(() => {
+    if (!groupRef.current) return;
+    groupRef.current.rotation.x = -Math.PI / 2;
+    groupRef.current.rotation.z = Math.PI / 2;
+    groupRef.current.scale.set(0.4, 0.4, 0.4);
+    const box = new THREE.Box3().setFromObject(groupRef.current);
+    const center = box.getCenter(new THREE.Vector3());
+    groupRef.current.position.sub(center);
+    groupRef.current.position.y = -0.5;
+    groupRef.current.position.x = -5.5;
+  }, []);
+
+  return (
+    <group ref={groupRef}>
+      <PointDisplay position={[0, 0, 0]} num={point1} />
+      <PointDisplay position={[20, 0, 0]} num={point2} />
+    </group>
+  )
 }
 
 export default function Stage() {
@@ -173,8 +200,10 @@ export default function Stage() {
         handleHitSideWall();
         break;
       case GOAL_1:
+        handleHitGoalWall(false);
+        break;
       case GOAL_2:
-        handleHitGoalWall();
+        handleHitGoalWall(true);
         break;
     }
   }
@@ -275,7 +304,7 @@ export default function Stage() {
       <Ball ref={ballRef} material={wallMat.clone()} />
       <Floor />
 
-      <PointDisplay num={0} position={[0, 0, 0]} />
+      <PointDisplays />
     </>
   );
 }

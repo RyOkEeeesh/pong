@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as THREE from 'three';
 import { BALL_SPEED } from './constants';
+import { platform } from 'os';
 
 type StageStore = {
   ballSpeed: number,
@@ -34,7 +35,7 @@ export const useStageStore = create<StageStore>(set => ({
   setBallSpeed: (sp = BALL_SPEED) =>
     set(s => ({
       ballSpeed: sp,
-      velocity: s.velocity.clone().normalize().multiplyScalar(sp),
+      velocity: s.velocity.clone().normalize().multiplyScalar(sp)
     })),
 
   setBallPosition: pos =>
@@ -72,14 +73,35 @@ export enum GameStatus {
 type GameStore = {
   gameStatus: GameStatus;
 
+  point1: number;
+  point2: number;
+
   setGameStatus: (status: GameStatus) => void;
+
+  setPoint1: (num: number) => void;
+  setPoint2: (num: number) => void;
+  addPoint: (player: boolean) => void;
+  resetPoint: () => void;
 }
 
 // レンダー用
-const useGameStore = create<GameStore>(set => ({
+export const useGameStore = create<GameStore>(set => ({
   gameStatus: GameStatus.Waiting,
 
-  setGameStatus: status =>
-    set(() => ({gameStatus: status}))
+  point1: 0,
+  point2: 0,
 
+  setGameStatus: status =>
+    set(() => ({gameStatus: status})),
+
+  setPoint1: num => set(() => ({point1: num})),
+  setPoint2: num => set(() => ({point2: num})),
+  addPoint: player => set(s => {
+    const key = player ? "point1" : "point2";
+    return { [key]: s[key] + 1 };
+  }),
+  resetPoint: () => set(() => ({
+    point1: 0,
+    point2: 0
+  }))
 }))
