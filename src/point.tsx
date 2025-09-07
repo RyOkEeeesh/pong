@@ -107,3 +107,11 @@ export function PointDisplay({num, position}: PointDisplayProps) {
     </group>
   )
 }
+
+type PointDisplaysProps = {
+  position: [number, number, number];
+}
+
+export function PointDisplays({position}: PointDisplaysProps) {
+  
+}
