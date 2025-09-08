@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { RootState, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { forwardRef, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { fitObject } from "./ThreeModule";
+import { fitObject, fitObjectFast } from "./ThreeModule";
 import { acceleratedRaycast, MeshBVH } from "three-mesh-bvh";
 import {
   BALL_SPEED,
@@ -19,6 +19,7 @@ import {
 } from "./constants";
 import { useGameStore, useStageStore } from "./store";
 import { PointDisplay } from "./point.tsx";
+import { PaddleController } from "./control.tsx"
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -136,7 +137,11 @@ function PointDisplays() {
   )
 }
 
-export default function Stage() {
+type StageProps = {
+  isResizing: boolean
+}
+
+export default function Stage({isResizing}: StageProps) {
   const { camera } = useThree();
   const stageGroup = useRef<THREE.Group>(null!);
 
@@ -155,40 +160,38 @@ export default function Stage() {
     ...SideWallsRef
   ];
 
-  const wallMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: 0xffffff,
-        emissiveIntensity: 0.3
-      }),
-    []
+  const wallMat = useMemo(() =>
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.3
+    }), []
   );
 
-  const offsets = useMemo(
-    () => [
+  const offsets = useMemo(() => [
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(0.5, 0, 0.5),
       new THREE.Vector3(-0.5, 0, 0.5),
       new THREE.Vector3(0.5, 0, -0.5),
       new THREE.Vector3(-0.5, 0, -0.5)
-    ],
-    []
+    ], []
   );
 
   const normalMatrix = useMemo(() => new THREE.Matrix3(), []);
 
   useEffect(() => {
-    refs.forEach((ref) => ref.current?.geometry.computeBoundsTree());
+    refs.forEach(ref => ref.current?.geometry.computeBoundsTree());
+
+    // 後で消してね
     useStageStore
       .getState()
       .setVelocity(new THREE.Vector3(0, 0, 1).normalize().multiplyScalar(BALL_SPEED));
   }, []);
 
-  useEffect(() => {
-    if (stageGroup.current)
-      fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
-  }, [camera]);
+  useEffect(() => { // 画面リサイズ処理
+    if (!stageGroup.current) return;
+    if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
+  }, [isResizing, camera]);
 
   function handleHitObj(mesh: THREE.Mesh, normal: THREE.Vector3) {
     switch (mesh.name) {
@@ -261,6 +264,7 @@ export default function Stage() {
 
   return (
     <>
+      <PaddleController isP1={true} />
       <group ref={stageGroup}>
         <SideWall
           ref={SideWallsRef[0]}

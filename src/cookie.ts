@@ -1,6 +1,29 @@
 import Cookies from "js-cookie";
 import { compress, decompress } from "./pako";
 
+export function deepAssignWithoutUndefined<T extends object>(target: T, source: Partial<T>): T {
+  const result: any = Array.isArray(target) ? [...target] : { ...target };
+
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue;
+
+    const targetValue = (target as any)[key];
+
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value) &&
+      typeof targetValue === "object" &&
+      targetValue !== null
+    ) {
+      result[key] = deepAssignWithoutUndefined(targetValue, value as any);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export type cookieDef = {
   domain: string;
   path: string;
