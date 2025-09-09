@@ -2,8 +2,6 @@ import React from "react";
 import {} from "@react-three/fiber";
 import { forwardRef, RefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useGameStore } from "./store";
-import { STAGE_HEIGHT } from "./constants";
 
 const digitMap = [
   [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1],

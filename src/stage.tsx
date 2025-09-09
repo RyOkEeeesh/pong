@@ -20,6 +20,7 @@ import {
 import { useGameStore, useStageStore } from "./store";
 import { PointDisplay } from "./point.tsx";
 import { PaddleController } from "./control.tsx"
+import { CPUMode } from "./control.tsx";
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -264,7 +265,7 @@ export default function Stage({isResizing}: StageProps) {
 
   return (
     <>
-      <PaddleController isP1={true} />
+      <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
       <group ref={stageGroup}>
         <SideWall
           ref={SideWallsRef[0]}

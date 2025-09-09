@@ -1,44 +1,118 @@
 import { useKeyboardControls } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useCallback } from "react";
-import { CPUMode, useStageStore, useUserSetting } from "./store";
-import { PADDLE_HALF_X, STAGE_WIDTH } from "./constants";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useStageStore, useUserSetting } from "./store";
+import { BALL_SPEED, PADDLE_HALF_X, STAGE_WIDTH } from "./constants";
+
+export enum CPUMode {
+  Easy,
+  Normal,
+  Hard
+};
 
 type PaddleControllerProps = {
   isP1: boolean;
-  cpuStatus?: null | CPUMode;
-}
+  cpuMode?: null | CPUMode;
+};
 
-export function PaddleController({ isP1, cpuStatus = null }: PaddleControllerProps) {
+export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps) {
   const [_, get] = useKeyboardControls();
-  const setPaddlePositionZ = isP1 ? useStageStore.getState().setP1PositionX : useStageStore.getState().setP2PositionX ;
-  const speed = isP1 ? useUserSetting.getState().control.p1.speed : useUserSetting.getState().control.p2.speed ;
+  const setPaddlePositionX = isP1
+    ? useStageStore.getState().setP1PositionX
+    : useStageStore.getState().setP2PositionX;
 
-  const paddleMove = useCallback((move: number) => {
-    const state = useStageStore.getState();
-    const positionZ = isP1 ? state.p1PositionX : state.p2PositionX;
-    const newPositionZ = Math.min(Math.max(positionZ + move, -STAGE_WIDTH / 2 + PADDLE_HALF_X), STAGE_WIDTH / 2 - PADDLE_HALF_X);
-    setPaddlePositionZ(newPositionZ);
-  }, [isP1])
+  const speed = isP1
+    ? useUserSetting.getState().control.p1.speed
+    : useUserSetting.getState().control.p2.speed;
 
-  const moveLeft = useCallback(() => {
-    paddleMove(-speed * useStageStore.getState().delta);
-  }, [speed])
+  const stage = useStageStore();
 
-  const moveRight = useCallback(() => {
-    paddleMove(speed * useStageStore.getState().delta);
-  }, [speed])
+  const cpuState = useMemo(() => {
+    switch (cpuMode) {
+      case CPUMode.Easy:
+        return { speed: BALL_SPEED - 10, missChance: 0.5, precision: 8 };
+      case CPUMode.Normal:
+        return { speed: BALL_SPEED - 7.5, missChance: 0.3, precision: 6 };
+      case CPUMode.Hard:
+        return { speed: BALL_SPEED - 5, missChance: 0.2, precision: 4 };
+    }
+    return null;
+  }, [cpuMode]);
+
+  const [predictedTargetX, setPredictedTargetX] = useState<number | null>(null);
+
+  const velocity = useStageStore(s => s.velocity);
+
+  useEffect(() => {
+    if (!cpuState) return;
+
+    const { ballPosition } = useStageStore.getState();
+    const paddlePositionZ = isP1
+      ? useStageStore.getState().p1PositionX
+      : useStageStore.getState().p2PositionX;
+
+    // console.log((ballPosition.z - paddlePositionZ) * velocity.z);
+    console.log(velocity.z)
+
+    if (velocity.length() === 0) {
+      setPredictedTargetX(null);
+      return;
+    }
+
+    const timeToReach = Math.abs((paddlePositionZ - ballPosition.z) / velocity.z);
+    const noise =
+      Math.random() < cpuState.missChance
+        ? (Math.random() - 0.5) * cpuState.precision
+        : 0;
+    const targetX = ballPosition.x + velocity.x * timeToReach + noise;
+
+    setPredictedTargetX(targetX);
+  }, [velocity, cpuState, isP1]);
+
+  const paddleMove = useCallback(
+    (move: number) => {
+      const s = useStageStore.getState();
+      const posX = isP1 ? s.p1PositionX : s.p2PositionX;
+      const newPos = Math.min(
+        Math.max(posX + move, -STAGE_WIDTH / 2 + PADDLE_HALF_X),
+        STAGE_WIDTH / 2 - PADDLE_HALF_X
+      );
+      setPaddlePositionX(newPos);
+    },
+    [isP1, setPaddlePositionX]
+  );
+
+  const moveLeft = useCallback(
+    () => paddleMove(-(cpuState?.speed ?? speed) * stage.delta),
+    [speed, cpuState, stage.delta]
+  );
+
+  const moveRight = useCallback(
+    () => paddleMove((cpuState?.speed ?? speed) * stage.delta),
+    [speed, cpuState, stage.delta]
+  );
 
   const handleControls = useCallback(() => {
-    const keys = get();
-    if (isP1) {
-      if (keys.L1) moveLeft();
-      if (keys.R1) moveRight();
+    if (!cpuState) {
+      const keys = get();
+      if (isP1) {
+        if (keys.L1) moveLeft();
+        if (keys.R1) moveRight();
+      } else {
+        if (keys.L2) moveLeft();
+        if (keys.R2) moveRight();
+      }
     } else {
-      if (keys.L2) moveLeft();
-      if (keys.R2) moveRight();
+      if (predictedTargetX != null) {
+        const posX = isP1 ? stage.p1PositionX : stage.p2PositionX;
+        if (posX < predictedTargetX - cpuState.precision) {
+          moveRight();
+        } else if (posX > predictedTargetX + cpuState.precision) {
+          moveLeft();
+        }
+      }
     }
-  }, [isP1, get]);
+  }, [get, isP1, cpuState, predictedTargetX, moveLeft, moveRight, stage]);
 
   useFrame(() => {
     handleControls();
