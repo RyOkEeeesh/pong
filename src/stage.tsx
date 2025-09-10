@@ -19,8 +19,7 @@ import {
 } from "./constants";
 import { useGameStore, useStageStore } from "./store";
 import { PointDisplay } from "./point.tsx";
-import { PaddleController } from "./control.tsx"
-import { CPUMode } from "./control.tsx";
+import { CPUMode, PaddleController } from "./controller.tsx";
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -189,7 +188,7 @@ export default function Stage({isResizing}: StageProps) {
       .setVelocity(new THREE.Vector3(0, 0, 1).normalize().multiplyScalar(BALL_SPEED));
   }, []);
 
-  useEffect(() => { // 画面リサイズ処理
+  useEffect(() => {
     if (!stageGroup.current) return;
     if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
   }, [isResizing, camera]);
@@ -265,7 +264,8 @@ export default function Stage({isResizing}: StageProps) {
 
   return (
     <>
-      <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
+      <PaddleController isP1={false} cpuMode={CPUMode.Hard} />
+      <PaddleController isP1={true} />
       <group ref={stageGroup}>
         <SideWall
           ref={SideWallsRef[0]}
