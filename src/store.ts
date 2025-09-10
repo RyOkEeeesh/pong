@@ -12,12 +12,15 @@ type StageStore = {
 
   delta: number;
 
+  acceptMove: boolean;
+
   setBallSpeed: (sp: number) => void;
   setBallPosition: (pos: THREE.Vector3) => void;
   setVelocity: (vel: THREE.Vector3) => void;
   setP1PositionX: (posZ: number) => void;
   setP2PositionX: (posZ: number) => void;
   setDelta: (time: number) => void;
+  setAcceptMove: (acceptMove: boolean) => void;
 };
 
 // 非レンダー用
@@ -31,6 +34,8 @@ export const useStageStore = create<StageStore>(set => ({
 
   delta: 0,
 
+  acceptMove: false,
+
   setBallSpeed: (sp = BALL_SPEED) =>
     set(s => ({
       ballSpeed: sp,
@@ -38,19 +43,22 @@ export const useStageStore = create<StageStore>(set => ({
     })),
 
   setBallPosition: pos =>
-    set(() => ({ ballPosition: pos.clone() })),
+    set({ ballPosition: pos.clone() }),
 
   setVelocity: vel =>
-    set(() => ({ velocity: vel.clone() })),
+    set({ velocity: vel.clone() }),
 
   setP1PositionX: pos =>
-    set(() => ({p1PositionX: pos})),
+    set({p1PositionX: pos}),
 
   setP2PositionX: pos =>
-    set(() => ({p2PositionX: pos})),
+    set({p2PositionX: pos}),
 
   setDelta: time =>
-    set(() => ({delta: time})),
+    set({delta: Math.min(time, 1000 / 24)}),
+
+  setAcceptMove: acceptMove =>
+    set({acceptMove}),
 }));
 
 export enum GameMode {
@@ -66,7 +74,8 @@ export enum GameStatus {
   Serving,
   Playing,
   GetPoint,
-  End
+  End,
+  Pause
 };
 
 type GameStore = {
@@ -77,7 +86,9 @@ type GameStore = {
 
   pointGetter: boolean;
 
-  setGameStatus: (status: GameStatus) => void;
+  needReset: boolean;
+
+  setGameStatus: (gameStatus: GameStatus) => void;
 
   setPoint1: (num: number) => void;
   setPoint2: (num: number) => void;
@@ -85,33 +96,40 @@ type GameStore = {
   resetPoint: () => void;
 
   setPointGetter: (isP1: boolean) => void;
+
+  setNeedReset: (needReset: boolean) => void;
 }
 
 // レンダー用
 export const useGameStore = create<GameStore>(set => ({
-  gameStatus: GameStatus.Waiting,
+  gameStatus: GameStatus.First,
 
   point1: 0,
   point2: 0,
 
   pointGetter: Boolean(Math.round(Math.random())),
 
-  setGameStatus: status =>
-    set(() => ({gameStatus: status})),
+  needReset: false,
 
-  setPoint1: num => set(() => ({point1: num})),
-  setPoint2: num => set(() => ({point2: num})),
+  setGameStatus: gameStatus =>
+    set({gameStatus}),
+
+  setPoint1: num => set({point1: num}),
+  setPoint2: num => set({point2: num}),
   addPoint: isP1 => set(s => {
     const key = isP1 ? "point1" : "point2";
     return { [key]: s[key] + 1 };
   }),
-  resetPoint: () => set(() => ({
+  resetPoint: () => set({
     point1: 0,
     point2: 0
-  })),
+  }),
 
   setPointGetter: isP1 =>
-    set(() => ({pointGetter: isP1})),
+    set({pointGetter: isP1}),
+
+  setNeedReset: needReset =>
+    set({ needReset }),
 }))
 
 // controller

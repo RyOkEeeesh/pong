@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { RootState, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { forwardRef, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -17,7 +17,7 @@ import {
   WALL_DEPTH,
   WALL_HEIGHT
 } from "./constants";
-import { useGameStore, useStageStore } from "./store";
+import { GameStatus, useGameStore, useStageStore } from "./store";
 import { PointDisplay } from "./point.tsx";
 import { CPUMode, PaddleController } from "./controller.tsx";
 
@@ -82,11 +82,11 @@ function handleHitSideWall() {
 }
 
 function handleHitGoalWall(playre: boolean) {
-  const store = useStageStore.getState();
-  const v = store.velocity.clone();
-  v.z *= -1;
-  store.setVelocity(v);
-  useGameStore.getState().addPoint(playre);
+  useStageStore.getState().setVelocity(new THREE.Vector3);
+  const { setGameStatus, addPoint, setPointGetter } = useGameStore.getState();
+  setGameStatus(GameStatus.GetPoint);
+  addPoint(playre);
+  setPointGetter(playre);
 }
 
 function handleHitPaddle(mesh: THREE.Mesh, normal: THREE.Vector3) {
@@ -193,7 +193,7 @@ export default function Stage({isResizing}: StageProps) {
     if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
   }, [isResizing, camera]);
 
-  function handleHitObj(mesh: THREE.Mesh, normal: THREE.Vector3) {
+  const handleHitObj = useCallback((mesh: THREE.Mesh, normal: THREE.Vector3) => {
     switch (mesh.name) {
       case PADDLE_1:
       case PADDLE_2:
@@ -209,24 +209,25 @@ export default function Stage({isResizing}: StageProps) {
         handleHitGoalWall(true);
         break;
     }
-  }
+  }, []);
 
-  function checkHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
+  const checkHit = useCallback((ray: THREE.Raycaster, obj: THREE.Mesh) => {
     const intersects = ray.intersectObject(obj, true);
     if (intersects.length > 0) {
       return intersects[0].face?.normal
         .clone()
         .applyMatrix3(normalMatrix.getNormalMatrix(obj.matrixWorld));
     }
-  }
+  }, []);
 
-  function checkBallCollision(store: ReturnType<typeof useStageStore.getState>) {
-    const frameVelocity = store.velocity.clone().multiplyScalar(store.delta).length();
+  const checkBallCollision = useCallback(() => {
+    const { velocity, delta, ballPosition, setBallPosition } = useStageStore.getState();
+    const frameVelocity = velocity.clone().multiplyScalar(delta).length();
     for (const offset of offsets) {
-      const origin = store.ballPosition.clone().add(offset);
+      const origin = ballPosition.clone().add(offset);
       const ray = new THREE.Raycaster(
         origin,
-        store.velocity.clone().normalize(),
+        velocity.clone().normalize(),
         0,
         frameVelocity + 0.09
       );
@@ -238,28 +239,67 @@ export default function Stage({isResizing}: StageProps) {
           handleHitObj(obj, normal);
 
           const pushBack = normal.clone().multiplyScalar(0.25);
-          const newPos = store.ballPosition.clone().add(pushBack);
-          store.setBallPosition(newPos);
+          const newPos = ballPosition.clone().add(pushBack);
+          setBallPosition(newPos);
 
           return;
         }
       }
     }
-  }
+  }, []);
 
-  useFrame((state: RootState, delta: number) => {
-    const store = useStageStore.getState();
-    store.setDelta(delta);
+  const moveBall = useCallback((pos: THREE.Vector3) => {
+    const speed = 20;
+    const { ballPosition, setBallPosition, delta } = useStageStore.getState();
 
-    let newPos = store.ballPosition.clone().addScaledVector(store.velocity, delta);
-    store.setBallPosition(newPos);
+    const axes: ('z' | 'x')[] = ['z', 'x'];
 
-    checkBallCollision(store);
+    for (const axis of axes) {
+      const dir = pos[axis] - ballPosition[axis];
+      if (Math.abs(dir) > 0.001) {
+        const step = Math.sign(dir) * speed * delta;
+        ballPosition[axis] += Math.abs(dir) > Math.abs(step) ? step : dir;
+        setBallPosition(ballPosition);
+        return false;
+      }
+    }
 
-    paddle1Ref.current.position.x = store.p1PositionX;
-    paddle2Ref.current.position.x = store.p2PositionX;
+    return true;
+  }, []);
 
-    ballRef.current.position.copy(store.ballPosition);
+  const moveBallForPaddle = useCallback(() => {
+    const { pointGetter } = useGameStore.getState();
+    const position = pointGetter
+      ? paddle2Ref.current.position.clone()
+      : paddle1Ref.current.position.clone() ;
+    position.z = position.z - Math.sign(position.z) * 1.2;
+    return moveBall(position);
+  }, [])
+
+  useFrame((_, delta: number) => {
+    const { setDelta, ballPosition, setBallPosition, velocity, p1PositionX, p2PositionX } = useStageStore.getState();
+    const { gameStatus } = useGameStore.getState();
+    setDelta(delta);
+
+    switch (gameStatus) {
+      case GameStatus.Waiting:
+      case GameStatus.First:
+
+      case GameStatus.Serving:
+      case GameStatus.Playing:
+      case GameStatus.GetPoint:
+      case GameStatus.End:
+      case GameStatus.Pause:
+    }
+    let newPos = ballPosition.clone().addScaledVector(velocity, delta);
+    setBallPosition(newPos);
+
+    checkBallCollision();
+
+    paddle1Ref.current.position.x = p1PositionX;
+    paddle2Ref.current.position.x = p2PositionX;
+
+    ballRef.current.position.copy(ballPosition);
   });
 
   return (

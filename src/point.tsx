@@ -1,6 +1,5 @@
-import React from "react"; 
 import {} from "@react-three/fiber";
-import { forwardRef, RefObject, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
 const digitMap = [
