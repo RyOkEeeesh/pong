@@ -1,6 +1,6 @@
 import { useKeyboardControls } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useStageStore, useUserSetting } from "./store";
 import { BALL_SPEED, PADDLE_HALF_X, STAGE_WIDTH } from "./constants";
 import * as THREE from 'three';
@@ -22,13 +22,15 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     ? useStageStore.getState().setP1PositionX
     : useStageStore.getState().setP2PositionX;
 
-  const speed = isP1
-    ? useUserSetting.getState().control.p1.speed
-    : useUserSetting.getState().control.p2.speed;
-
   const stage = useStageStore();
 
-  const cpuState = useMemo(() => {
+  const state = useMemo(() => {
+    if (cpuMode === null) {
+      return isP1
+        ? { speed: useUserSetting.getState().control.p1.speed }
+        : { speed: useUserSetting.getState().control.p2.speed };
+    }
+
     switch (cpuMode) {
       case CPUMode.Easy:
         return { speed: BALL_SPEED - 10, missChance: 0.5, precision: 8 };
@@ -37,21 +39,20 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
       case CPUMode.Hard:
         return { speed: BALL_SPEED - 5, missChance: 0.2, precision: 4 };
     }
-    return null;
-  }, [cpuMode]);
+  }, [cpuMode, isP1]);
 
   const [predictedTargetX, setPredictedTargetX] = useState<number | null>(null);
 
   const velocity = useStageStore(s => s.velocity);
 
   function setTargetX() {
-    if (!cpuState) return;
+    if(!state.missChance && !state.precision) return;
     if(predictedTargetX !== null) return;
 
     const { ballPosition } = useStageStore.getState();
     const paddlePositionZ = isP1
       ? useStageStore.getState().p1PositionX
-      : useStageStore.getState().p2PositionX;
+      : useStageStore.getState().p2PositionX ;
 
     if (velocity.length() === 0) {
       setPredictedTargetX(null);
@@ -59,15 +60,14 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     }
 
     const timeToReach = Math.abs((paddlePositionZ - ballPosition.z) / velocity.z);
-    const noise =
-      Math.random() < cpuState.missChance
-        ? (Math.random() - 0.5) * cpuState.precision
-        : 0;
+    const noise = Math.random() < state?.missChance
+      ? (Math.random() - 0.5) * state?.precision
+      : 0 ;
     const targetX = ballPosition.x + velocity.x * timeToReach + noise;
 
     console.log(targetX);
 
-    setPredictedTargetX(targetX);
+    setPredictedTargetX(targetX); 
   }
 
   const paddleMove = useCallback(
@@ -84,13 +84,13 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   );
 
   const moveLeft = useCallback(
-    () => paddleMove(-(cpuState?.speed ?? speed) * stage.delta),
-    [speed, cpuState, stage.delta]
+    () => paddleMove(-state.speed * stage.delta),
+    [state, stage.delta]
   );
 
   const moveRight = useCallback(
-    () => paddleMove((cpuState?.speed ?? speed) * stage.delta),
-    [speed, cpuState, stage.delta]
+    () => paddleMove(state.speed * stage.delta),
+    [state, stage.delta]
   );
 
   const handleControls = useCallback(() => {
