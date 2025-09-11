@@ -373,7 +373,7 @@ export default function Stage({isResizing}: StageProps) {
 
   return (
     <>
-      <PaddleController isP1={false} cpuMode={CPUMode.Hard} />
+      <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
       <PaddleController isP1={true} />
       <group ref={stageGroup}>
         <SideWall
