@@ -1,15 +1,11 @@
 import { useKeyboardControls } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useCallback, useMemo, useRef } from "react";
-import { useStageStore, useUserSetting } from "./store";
-import { BALL_SPEED, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from "./constants";
+import { useRef } from "react";
+import { useGameStore, useStageStore, useUserSetting } from "./store";
+import { BALL_SPEED, CPUMode, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from "./constants";
 import * as THREE from "three";
 
-export enum CPUMode {
-  Easy,
-  Normal,
-  Hard
-}
+
 
 type PaddleControllerProps = {
   isP1: boolean;
@@ -18,25 +14,15 @@ type PaddleControllerProps = {
 
 export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps) {
   const [_, get] = useKeyboardControls();
-  const setPaddlePositionX = isP1
-    ? useStageStore.getState().setP1PositionX
-    : useStageStore.getState().setP2PositionX;
+  const { setPaddlePosition } = useStageStore.getState();
 
-  const getPaddlePositionX = useCallback(
-    () => (isP1 ? useStageStore.getState().p1PositionX : useStageStore.getState().p2PositionX),
-    [isP1]
-  );
+  function getPaddlePosition() { return useStageStore.getState().paddlePosition[Number(isP1)] };
 
-  const paddleZ = useMemo(
-    () => (isP1 ? PADDLE_POSITION_Z1 : PADDLE_POSITION_Z2),
-    [isP1]
-  );
+  const paddleZ = isP1 ? PADDLE_POSITION_Z1 : PADDLE_POSITION_Z2;
 
-  const state = useMemo(() => {
+  const state = (() => {
     if (cpuMode === null) {
-      return isP1
-        ? { speed: useUserSetting.getState().control.p1.speed }
-        : { speed: useUserSetting.getState().control.p2.speed };
+      return isP1 ? { speed: useUserSetting(s => s.control.p1.speed) } : { speed: useUserSetting(s => s.control.p2.speed) };
     }
 
     switch (cpuMode) {
@@ -47,7 +33,42 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
       case CPUMode.Hard:
         return { speed: BALL_SPEED - 5, missChance: 0.2, precision: 4 };
     }
-  }, [cpuMode, isP1]);
+  })();
+
+
+  const { setServeHit } = useGameStore.getState();
+  const serveTime = useRef<NodeJS.Timeout | null>(null);
+
+  function triggerServe() {
+    setServeHit(true);
+    if(serveTime.current) clearTimeout(serveTime.current);
+    serveTime.current = null;
+  }
+
+  function handlePlayerServe() {
+    const { pointGetter } = useGameStore.getState();
+    if(pointGetter === isP1) return;
+    const keys = get();
+
+    if(serveTime.current) serveTime.current = setTimeout(triggerServe, 10000);
+
+    if ((isP1 && keys.S1) || (!isP1 && keys.S2)) {
+      triggerServe();
+    }
+    handlePlayerControl();
+  };
+
+  function handleCPUServe() {
+    const { pointGetter } = useGameStore.getState();
+    if(
+      !moveCenter() ||
+      pointGetter === isP1 ||
+      serveTime.current !== null ||
+      useGameStore.getState().serveHit
+    ) return;
+    serveTime.current = setTimeout(triggerServe, Math.random() + 0.5);
+  }
+
 
   const predictedTargetX = useRef<number | null>(null);
   const waitMoving = useRef<number | null>(null);
@@ -72,21 +93,31 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     predictedTargetX.current = targetX;
   }
 
-  const paddleMove = useCallback(
-    (move: number) => {
-      const s = useStageStore.getState();
-      const posX = isP1 ? s.p1PositionX : s.p2PositionX;
-      const newPos = Math.min(
-        Math.max(posX + move, -STAGE_WIDTH / 2 + PADDLE_HALF_X),
-        STAGE_WIDTH / 2 - PADDLE_HALF_X
-      );
-      setPaddlePositionX(newPos);
-    },
-    [isP1, setPaddlePositionX]
-  );
+  function paddleMove(move: number) {
+    const posX = getPaddlePosition();
+    const newPos = Math.min(
+      Math.max(posX + move, -STAGE_WIDTH / 2 + PADDLE_HALF_X),
+      STAGE_WIDTH / 2 - PADDLE_HALF_X
+    );
+    setPaddlePosition(isP1, newPos);
+  }
 
-  const handleCPUControl = useCallback(() => {
-    const paddleX = getPaddlePositionX();
+  function moveCenter(speed?: number) {
+    const paddleX = getPaddlePosition();
+    const dx = 0 - paddleX;
+    if(!dx) return true;
+    const s = speed ?? 20;
+    const step = Math.sign(dx) * s * useStageStore.getState().delta;
+    if (Math.abs(dx) <= Math.abs(step)) {
+      setPaddlePosition(isP1, 0);
+      return true;
+    }
+    setPaddlePosition(isP1, paddleX + step);
+    return false;
+  }
+
+  function handleCPUControl() {
+    const paddleX = getPaddlePosition();
     const { ballPosition, velocity, delta } = useStageStore.getState();
 
     const speed = state.speed * delta;
@@ -98,13 +129,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
         if (waitMoving.current === null) {
           waitMoving.current = now;
         } else if (now - waitMoving.current >= 500) {
-          const dx = 0 - paddleX;
-          const step = Math.sign(dx) * state.speed * useStageStore.getState().delta;
-          if (Math.abs(dx) <= Math.abs(step)) {
-            setPaddlePositionX(0);
-          } else {
-            setPaddlePositionX(paddleX + step);
-          }
+          moveCenter(state.speed);
         }
       }
     return;
@@ -118,34 +143,57 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     const move = THREE.MathUtils.clamp(direction, -speed, speed);
 
     paddleMove(move);
-  }, [state, cpuMode]);
+  }
 
   const handlePlayerControl = isP1
-    ? useCallback(() => {
+    ? function() {
         const keys = get();
         const { delta } = useStageStore.getState();
         if (keys.L1) paddleMove(-state.speed * delta);
         if (keys.R1) paddleMove(state.speed * delta);
-      }, [get, state])
-    : useCallback(() => {
+      }
+    : function() {
         const keys = get();
         const { delta } = useStageStore.getState();
         if (keys.L2) paddleMove(-state.speed * delta);
         if (keys.R2) paddleMove(state.speed * delta);
-      }, [get, state]);
+      };
 
-  const handleControls = cpuMode === null ? handlePlayerControl : handleCPUControl;
+
+  const [handleControls, handleServe] = cpuMode === null ? [handlePlayerControl, handlePlayerServe] : [handleCPUControl, handleCPUServe];
 
   const prevVel = useRef(new THREE.Vector3());
 
   useFrame(() => {
     const { velocity } = useStageStore.getState();
+    const { gameStatus } = useGameStore.getState();
     if (!velocity.equals(prevVel.current)) {
       predictedTargetX.current = null;
       prevVel.current.copy(velocity);
     }
 
-    handleControls();
+    switch (gameStatus) {
+      case GameStatus.Waiting:
+        break;
+      case GameStatus.First:
+        break;
+      case GameStatus.Serving:
+        handleServe();
+        break;
+      case GameStatus.Playing:
+        if (serveTime.current) {
+          clearTimeout(serveTime.current);
+          serveTime.current = null;
+        }
+        handleControls();
+        break;
+      case GameStatus.GetPoint:
+        break;
+      case GameStatus.End:
+        break;
+      case GameStatus.Pause:
+        break;
+    }
   });
 
   return null;

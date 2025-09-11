@@ -1,26 +1,21 @@
 import { create } from 'zustand';
 import * as THREE from 'three';
-import { BALL_SPEED } from './constants';
+import { BALL_SPEED, GameStatus } from './constants';
 
 type StageStore = {
   ballSpeed: number,
   ballPosition: THREE.Vector3;
   velocity: THREE.Vector3;
 
-  p1PositionX: number;
-  p2PositionX: number;
+  paddlePosition: [number, number];
 
   delta: number;
-
-  acceptMove: boolean;
 
   setBallSpeed: (sp: number) => void;
   setBallPosition: (pos: THREE.Vector3) => void;
   setVelocity: (vel: THREE.Vector3) => void;
-  setP1PositionX: (posZ: number) => void;
-  setP2PositionX: (posZ: number) => void;
+  setPaddlePosition: (isP1: boolean, position: number) => void;
   setDelta: (time: number) => void;
-  setAcceptMove: (acceptMove: boolean) => void;
 };
 
 // 非レンダー用
@@ -29,12 +24,9 @@ export const useStageStore = create<StageStore>(set => ({
   ballPosition: new THREE.Vector3(),
   velocity: new THREE.Vector3(),
 
-  p1PositionX: 1,
-  p2PositionX: 0,
+  paddlePosition: [0, 0], // [ p2Position, p1Position ]
 
   delta: 0,
-
-  acceptMove: false,
 
   setBallSpeed: (sp = BALL_SPEED) =>
     set(s => ({
@@ -48,35 +40,16 @@ export const useStageStore = create<StageStore>(set => ({
   setVelocity: vel =>
     set({ velocity: vel.clone() }),
 
-  setP1PositionX: pos =>
-    set({p1PositionX: pos}),
-
-  setP2PositionX: pos =>
-    set({p2PositionX: pos}),
+  setPaddlePosition: (isP1, position) =>
+    set(s => {
+      const paddlePosition = s.paddlePosition.slice();
+      paddlePosition[Number(isP1)] = position;
+      return ({ paddlePosition: (paddlePosition as [number, number]) })
+    }),
 
   setDelta: time =>
-    set({delta: Math.min(time, 1000 / 24)}),
-
-  setAcceptMove: acceptMove =>
-    set({acceptMove}),
+    set({ delta: Math.min(time, 1000 / 24) }),
 }));
-
-export enum GameMode {
-  Selecting,
-  Single,
-  Duo,
-  Multi
-};
-
-export enum GameStatus {
-  Waiting,
-  First,
-  Serving,
-  Playing,
-  GetPoint,
-  End,
-  Pause
-};
 
 type GameStore = {
   gameStatus: GameStatus;
@@ -86,7 +59,8 @@ type GameStore = {
 
   pointGetter: boolean;
 
-  needReset: boolean;
+  serveHit : boolean;
+
 
   setGameStatus: (gameStatus: GameStatus) => void;
 
@@ -97,7 +71,7 @@ type GameStore = {
 
   setPointGetter: (isP1: boolean) => void;
 
-  setNeedReset: (needReset: boolean) => void;
+  setServeHit: (serveHit: boolean) => void;
 }
 
 // レンダー用
@@ -109,7 +83,7 @@ export const useGameStore = create<GameStore>(set => ({
 
   pointGetter: Boolean(Math.round(Math.random())),
 
-  needReset: false,
+  serveHit: false,
 
   setGameStatus: gameStatus =>
     set({gameStatus}),
@@ -128,8 +102,8 @@ export const useGameStore = create<GameStore>(set => ({
   setPointGetter: isP1 =>
     set({pointGetter: isP1}),
 
-  setNeedReset: needReset =>
-    set({ needReset }),
+  setServeHit: serveHit =>
+    set({ serveHit }),
 }))
 
 // controller

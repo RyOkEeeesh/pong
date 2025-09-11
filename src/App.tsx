@@ -62,7 +62,7 @@ export default function App() {
   }, []);
 
   const setting = useUserSetting(s => s.control);
-  const keyMap = useMemo(() => [
+  const keyMap = [
     { name: 'L1', keys: setting.p1.L },
     { name: 'R1', keys: setting.p1.R },
     { name: 'S1', keys: setting.p1.S },
@@ -74,7 +74,7 @@ export default function App() {
     { name: 'quit', keys: setting.quit },
     { name: 'prevCam', keys: setting.prevCamera },
     { name: 'nextCam', keys: setting.nextCamera }
-  ], [setting]);
+  ];
 
   return (
     <>

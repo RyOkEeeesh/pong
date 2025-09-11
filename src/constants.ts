@@ -24,3 +24,27 @@ export const GOAL_1 = 'goalWall1';
 export const GOAL_2 = 'goalWall2';
 
 export const SIDE = 'sideWall';
+
+export enum CPUMode {
+  Easy,
+  Normal,
+  Hard
+}
+
+
+export enum GameMode {
+  Selecting,
+  Single,
+  Duo,
+  Multi
+};
+
+export enum GameStatus {
+  Waiting,
+  First,
+  Serving,
+  Playing,
+  GetPoint,
+  End,
+  Pause
+};
