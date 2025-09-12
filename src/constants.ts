@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export const STAGE_HEIGHT = 28;
 export const STAGE_WIDTH = 22.4;
 
@@ -25,12 +27,23 @@ export const GOAL_2 = 'goalWall2';
 
 export const SIDE = 'sideWall';
 
+export const EFFECT_MESH_WIDTH = 1.5;
+
+export const EFFECT_MATERIAL_ARGS = {
+  color: 0x000000,
+  emissive: 0xffffff,
+  emissiveIntensity: 3,
+  transparent: true,
+  opacity: 0,
+  side: THREE.DoubleSide,
+  depthWrite: false
+};
+
 export enum CPUMode {
   Easy,
   Normal,
   Hard
 }
-
 
 export enum GameMode {
   Selecting,

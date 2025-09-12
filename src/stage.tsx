@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useMemo, useRef } from "react";
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { fitObject } from "./ThreeModule";
@@ -7,6 +7,8 @@ import {
   BALL_SIZE,
   BALL_SPEED,
   CPUMode,
+  EFFECT_MATERIAL_ARGS,
+  EFFECT_MESH_WIDTH,
   GameStatus,
   GOAL_1,
   GOAL_2,
@@ -93,26 +95,22 @@ function handleHitGoalWall(playre: boolean) {
   setGameStatus(GameStatus.GetPoint);
 }
 
-function handleHitPaddle(mesh: THREE.Mesh, normal: THREE.Vector3) {
+function handleHitPaddle(mesh: THREE.Mesh) {
   const store = useStageStore.getState();
-  if (Math.abs(normal.z) > 0.9) {
-    const normalized = THREE.MathUtils.clamp(
-      (store.ballPosition.clone().x - mesh.position.clone().x) / PADDLE_HALF_X,
-      -1,
-      1
-    );
-    const maxAngle = Math.PI / 3;
-    const angle = normalized * maxAngle;
-    const dz = mesh.position.z > 0 ? -1 : 1;
-    const newVelocity = new THREE.Vector3(
-      store.ballSpeed * Math.sin(angle),
-      0,
-      dz * store.ballSpeed * Math.cos(angle)
-    );
-    store.setVelocity(newVelocity);
-  } else {
-    handleHitSideWall();
-  }
+  const normalized = THREE.MathUtils.clamp(
+    (store.ballPosition.clone().x - mesh.position.clone().x) / PADDLE_HALF_X,
+    -1,
+    1
+  );
+  const maxAngle = Math.PI / 3;
+  const angle = normalized * maxAngle;
+  const dz = mesh.position.z > 0 ? -1 : 1;
+  const newVelocity = new THREE.Vector3(
+    store.ballSpeed * Math.sin(angle),
+    0,
+    dz * store.ballSpeed * Math.cos(angle)
+  );
+  store.setVelocity(newVelocity);
 }
 
 function PointDisplays() {
@@ -141,11 +139,18 @@ function PointDisplays() {
   )
 }
 
-const serviceHit = new THREE.Vector3(0, 0, 1);
-
 type StageProps = {
   isResizing: boolean
 }
+
+type Effect = {
+  mesh: THREE.Mesh;
+  startTime: number;
+  side: -1 | 1;
+  normal: THREE.Vector3;
+  center: THREE.Vector3;
+  wall: THREE.Mesh;
+};
 
 export default function Stage({isResizing}: StageProps) {
   const { camera } = useThree();
@@ -155,16 +160,117 @@ export default function Stage({isResizing}: StageProps) {
 
   const ballRef = useRef<THREE.Mesh>(null!);
   const paddleRefs = [ useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!) ]; // [ p2, p1 ]
-  const GoalWall1Ref = useRef<THREE.Mesh>(null!);
-  const GoalWall2Ref = useRef<THREE.Mesh>(null!);
-  const SideWallsRef = [useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!)];
+  const goalWall1Ref = useRef<THREE.Mesh>(null!);
+  const goalWall2Ref = useRef<THREE.Mesh>(null!);
+  const sideWallsRef = [useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!)];
 
   const refs = [
     ...paddleRefs,
-    GoalWall1Ref,
-    GoalWall2Ref,
-    ...SideWallsRef
+    goalWall1Ref,
+    goalWall2Ref,
+    ...sideWallsRef
   ];
+
+  const [effectPool, setEffectPool] = useState<THREE.Mesh[]>(Array.from({ length: 4 }, () => {
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT),
+      new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS)
+    );
+    mesh.visible = false;
+    return mesh;
+  }));
+
+  function getEffectMesh() {
+    const mesh = effectPool.find(m => !m.visible);
+    if (mesh) {
+      mesh.visible = true;
+      return mesh;
+    }
+    const newEffectMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT),
+      new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS)
+    );
+    const newEffectPool = [ ...effectPool, newEffectMesh];
+    setEffectPool(newEffectPool);
+    return newEffectMesh;
+  }
+
+  const effectsRef = useRef<Effect[]>([]);
+
+  function stretchEffect(center: THREE.Vector3, normal: THREE.Vector3, wall: THREE.Mesh) {
+    const sideOptions: (-1 | 1)[] = [-1, 1];
+
+    const newEffects = sideOptions.map(side => {
+      const mesh = getEffectMesh();
+      mesh.visible = true;
+      mesh.rotation.copy(wall.rotation);
+
+      return { mesh, startTime: performance.now(), side, normal, center, wall };
+    });
+
+    effectsRef.current.push(...newEffects);
+  }
+
+  function updateStretchEffect() {
+    const duration = 450;
+    const now = performance.now();
+    const gameStatus = useGameStore.getState().gameStatus;
+
+    effectsRef.current = effectsRef.current.filter(effect => {
+      const elapsed = now - effect.startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      if (progress >= 1 || gameStatus === GameStatus.GetPoint) {
+        effect.mesh.visible = false;
+        return false;
+      }
+
+      const wallTangent = new THREE.Vector3().crossVectors(effect.normal, new THREE.Vector3(0, 1, 0)).normalize();
+      const wallSize = new THREE.Vector3();
+      effect.wall.geometry.computeBoundingBox();
+      effect.wall.geometry.boundingBox?.getSize(wallSize);
+
+      const wallCenter = new THREE.Vector3();
+      effect.wall.getWorldPosition(wallCenter);
+
+      const wallDirection = wallTangent.clone();
+      const halfLength = wallSize.x / 2;
+      const wallStart = wallCenter.clone().add(wallDirection.clone().multiplyScalar(-halfLength));
+      const wallEnd = wallCenter.clone().add(wallDirection.clone().multiplyScalar(halfLength));
+
+      const basePosition = effect.center.clone().add(effect.normal.clone().multiplyScalar(0.06));
+      let effectPos = basePosition.clone().add(wallTangent.clone().multiplyScalar(6 * progress * effect.side));
+
+      const localOffset = effectPos.clone().sub(wallStart);
+      const projectedLength = localOffset.dot(wallDirection);
+      const halfEffectWidth = 0.75;
+
+      if (projectedLength < halfEffectWidth) {
+        effectPos = wallStart.clone().add(wallDirection.clone().multiplyScalar(halfEffectWidth));
+      } else if (projectedLength > wallSize.x - halfEffectWidth) {
+        effectPos = wallEnd.clone().add(wallDirection.clone().multiplyScalar(-halfEffectWidth));
+      }
+
+      effect.mesh.position.copy(effectPos);
+      const material = effect.mesh.material as THREE.MeshStandardMaterial;
+      material.opacity = 1 - progress;
+      material.emissiveIntensity = 3 * (1 - progress);
+
+      return true;
+    });
+  }
+
+// useFrame 内で
+// useFrame(() => {
+//   const { gameStatus } = useGameStore.getState();
+//   if (gameStatus === GameStatus.Playing) {
+//     updateStretchEffect();
+//   } else if (gameStatus === GameStatus.GetPoint) {
+//     // エフェクトを全部リセット
+//     effectsRef.current.forEach(e => (e.mesh.visible = false));
+//     effectsRef.current = [];
+//   }
+// });
 
   const wallMat = useMemo(() =>
     new THREE.MeshStandardMaterial({
@@ -194,13 +300,32 @@ export default function Stage({isResizing}: StageProps) {
     if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
   }, [isResizing, camera]);
 
-  function handleHitObj(mesh: THREE.Mesh, normal: THREE.Vector3) {
+  function handleHitObj(mesh: THREE.Mesh, hitPoint: THREE.Vector3, normal: THREE.Vector3) {
     switch (mesh.name) {
       case PADDLE_1:
+        if (Math.abs(normal.z) > 0.9) {
+          const forEffect = goalWall1Ref.current;
+          const hit = hitPoint.clone();
+          hit.z = forEffect.position.z;
+          stretchEffect(hit, normal, forEffect);
+          handleHitPaddle(mesh);
+        } else {
+          handleHitSideWall();
+        }
+        break
       case PADDLE_2:
-        handleHitPaddle(mesh, normal);
+        if (Math.abs(normal.z) > 0.9) {
+          const forEffect = goalWall2Ref.current;
+          const hit = hitPoint.clone();
+          hit.z = forEffect.position.z;
+          stretchEffect(hit, normal, forEffect);
+          handleHitPaddle(mesh);
+        } else {
+          handleHitSideWall();
+        }
         break;
       case SIDE:
+        stretchEffect(hitPoint, normal, mesh);
         handleHitSideWall();
         break;
       case GOAL_1:
@@ -215,11 +340,14 @@ export default function Stage({isResizing}: StageProps) {
   function checkHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
     const intersects = ray.intersectObject(obj, true);
     if (intersects.length > 0) {
-      return intersects[0].face?.normal
-        .clone()
-        .applyMatrix3(normalMatrix.getNormalMatrix(obj.matrixWorld));
+      return [
+        intersects[0].point.clone(),
+        intersects[0].face?.normal
+          .clone()
+          .applyMatrix3(normalMatrix.getNormalMatrix(obj.matrixWorld))
+      ];
     }
-    return undefined;
+    return [undefined, undefined];
   }
 
   function checkBallCollision() {
@@ -237,9 +365,9 @@ export default function Stage({isResizing}: StageProps) {
       for (const objRef of refs) {
         const obj = objRef.current;
         if (!obj) continue;
-        const normal = checkHit(ray, obj);
-        if (normal) {
-          handleHitObj(obj, normal);
+        const [ hitPoint ,normal ] = checkHit(ray, obj);
+        if (hitPoint && normal) {
+          handleHitObj(obj, hitPoint, normal);
 
           const pushBack = normal.clone().multiplyScalar(0.25);
           const newPos = ballPosition.clone().add(pushBack);
@@ -340,7 +468,7 @@ export default function Stage({isResizing}: StageProps) {
           moveBallForServe();
           if(serveHit) {
             setServeHit(false);
-            handleHitPaddle(paddleRefs[Number(!pointGetter)].current, serviceHit);
+            handleHitPaddle(paddleRefs[Number(!pointGetter)].current);
             resetBeforePositions();
             setGameStatus(GameStatus.Playing);
           }
@@ -350,13 +478,14 @@ export default function Stage({isResizing}: StageProps) {
         { // playing
           const newPos = ballPosition.clone().addScaledVector(velocity, delta);
           setBallPosition(newPos);
-
+          updateStretchEffect();
           checkBallCollision();
         }
         break;
       case GameStatus.GetPoint:
         {
           // エフェクト実装
+          updateStretchEffect();
           if(moveBallForPaddle()) setGameStatus(GameStatus.Serving);
         }
         break;
@@ -377,25 +506,25 @@ export default function Stage({isResizing}: StageProps) {
       <PaddleController isP1={true} />
       <group ref={stageGroup}>
         <SideWall
-          ref={SideWallsRef[0]}
+          ref={sideWallsRef[0]}
           name={SIDE}
           position={[-STAGE_WIDTH / 2, 0, 0]}
           material={wallMat}
         />
         <SideWall
-          ref={SideWallsRef[1]}
+          ref={sideWallsRef[1]}
           name={SIDE}
           position={[STAGE_WIDTH / 2, 0, 0]}
           material={wallMat}
         />
         <GoalWall
-          ref={GoalWall1Ref}
+          ref={goalWall1Ref}
           name={GOAL_1}
           position={[0, 0, STAGE_HEIGHT / 2]}
           material={wallMat}
         />
         <GoalWall
-          ref={GoalWall2Ref}
+          ref={goalWall2Ref}
           name={GOAL_2}
           position={[0, 0, -STAGE_HEIGHT / 2]}
           material={wallMat}
@@ -419,6 +548,10 @@ export default function Stage({isResizing}: StageProps) {
       <Floor />
 
       <PointDisplays />
+
+      {effectPool.map((mesh, i) => (
+        <primitive object={mesh} key={i} />
+      ))}
     </>
   );
 }
