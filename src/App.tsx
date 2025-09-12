@@ -31,12 +31,6 @@ function ComposerSetup() {
         luminanceSmoothing={0.0}
         height={window.innerHeight}
       />
-      <Vignette
-        eskil={false}
-        offset={0.1}
-        darkness={0.9}
-        blendFunction={BlendFunction.NORMAL}
-      />
     </EffectComposer>
   )
 }

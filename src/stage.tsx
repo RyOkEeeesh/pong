@@ -143,7 +143,7 @@ type StageProps = {
   isResizing: boolean
 }
 
-type Effect = {
+type StretchEffect = {
   mesh: THREE.Mesh;
   startTime: number;
   side: -1 | 1;
@@ -151,6 +151,15 @@ type Effect = {
   center: THREE.Vector3;
   wall: THREE.Mesh;
 };
+
+type BlinkingEffect = {
+  mat: THREE.MeshStandardMaterial[];
+  start?: number;
+  end: number;
+  difference: number;
+  times: number;
+  defEmissiveIntensity?: number[];
+}
 
 export default function Stage({isResizing}: StageProps) {
   const { camera } = useThree();
@@ -195,7 +204,7 @@ export default function Stage({isResizing}: StageProps) {
     return newEffectMesh;
   }
 
-  const effectsRef = useRef<Effect[]>([]);
+  const stretchEffectsRef = useRef<StretchEffect[]>([]);
 
   function stretchEffect(center: THREE.Vector3, normal: THREE.Vector3, wall: THREE.Mesh) {
     const sideOptions: (-1 | 1)[] = [-1, 1];
@@ -208,15 +217,16 @@ export default function Stage({isResizing}: StageProps) {
       return { mesh, startTime: performance.now(), side, normal, center, wall };
     });
 
-    effectsRef.current.push(...newEffects);
+    stretchEffectsRef.current.push(...newEffects);
   }
 
   function updateStretchEffect() {
+    if (!stretchEffectsRef.current.length) return;
     const duration = 450;
     const now = performance.now();
     const gameStatus = useGameStore.getState().gameStatus;
 
-    effectsRef.current = effectsRef.current.filter(effect => {
+    stretchEffectsRef.current = stretchEffectsRef.current.filter(effect => {
       const elapsed = now - effect.startTime;
       const progress = Math.min(elapsed / duration, 1);
 
@@ -260,17 +270,46 @@ export default function Stage({isResizing}: StageProps) {
     });
   }
 
-// useFrame 内で
-// useFrame(() => {
-//   const { gameStatus } = useGameStore.getState();
-//   if (gameStatus === GameStatus.Playing) {
-//     updateStretchEffect();
-//   } else if (gameStatus === GameStatus.GetPoint) {
-//     // エフェクトを全部リセット
-//     effectsRef.current.forEach(e => (e.mesh.visible = false));
-//     effectsRef.current = [];
-//   }
-// });
+  const blinkingEffectRef = useRef<BlinkingEffect[]>([]);
+
+  function brinkingEffect(option: BlinkingEffect) {
+    blinkingEffectRef.current.push({
+      ...option,
+      start: performance.now(),
+      defEmissiveIntensity: option.mat.map(m => m.emissiveIntensity)
+    });
+  }
+
+  function updateBlinkingEffect() {
+    if (!blinkingEffectRef.current.length) return;
+    const now = performance.now();
+
+    blinkingEffectRef.current = blinkingEffectRef.current.filter(effect => {
+      const { start, end, difference, times, mat, defEmissiveIntensity } = effect;
+      const elapsed = now - start!;
+      // const elapsed = (now - start) / 1000;
+
+      if (elapsed >= end) {
+        mat.forEach((m, i) => {
+          m.emissiveIntensity = defEmissiveIntensity![i];
+          m.needsUpdate = true;
+        });
+        return false;
+      }
+
+      const totalRadians = 1.75 * times * Math.PI;
+      const angle = (elapsed * totalRadians) / end;
+      const value = Math.sin(angle);
+      const step = difference * ((value + 1) / 2);
+
+      mat.forEach((m, i) => {
+        m.emissiveIntensity = defEmissiveIntensity![i] + step;
+        m.needsUpdate = true;
+      });
+
+      return true;
+    });
+  }
 
   const wallMat = useMemo(() =>
     new THREE.MeshStandardMaterial({
@@ -330,6 +369,12 @@ export default function Stage({isResizing}: StageProps) {
         break;
       case GOAL_1:
         handleHitGoalWall(false);
+        brinkingEffect({
+          mat: [wallMat],
+          end: 250,
+          difference: 0.15,
+          times: 2
+        })
         break;
       case GOAL_2:
         handleHitGoalWall(true);
@@ -450,6 +495,13 @@ export default function Stage({isResizing}: StageProps) {
     beforePaddlePosition.current = null;
   }
 
+  const sleepRef = useRef<number | null>(null); // ms
+
+  function sleep() {
+    if(!sleepRef.current) return false;
+    return sleepRef.current <= performance.now();
+  }
+
   useFrame((_, delta: number) => {
     const { setDelta, ballPosition, setBallPosition, velocity, paddlePosition } = useStageStore.getState();
     const { gameStatus, serveHit, setServeHit, pointGetter } = useGameStore.getState();
@@ -484,15 +536,23 @@ export default function Stage({isResizing}: StageProps) {
         break;
       case GameStatus.GetPoint:
         {
-          // エフェクト実装
           updateStretchEffect();
-          if(moveBallForPaddle()) setGameStatus(GameStatus.Serving);
+          if(sleepRef.current && sleep()) {
+            if(moveBallForPaddle()) {
+              sleepRef.current = null;
+              setGameStatus(GameStatus.Serving);
+            }
+          } else if (sleepRef.current === null) {
+            sleepRef.current = performance.now() + 250;
+          }
         }
         break;
       case GameStatus.End:
       case GameStatus.Pause:
         break;
     }
+
+    updateBlinkingEffect();
 
     paddleRefs[0].current.position.x = paddlePosition[0];
     paddleRefs[1].current.position.x = paddlePosition[1];
