@@ -133,8 +133,8 @@ function PointDisplays() {
 
   return (
     <group ref={groupRef}>
-      <PointDisplay position={[0, 0, 0]} num={point1} />
-      <PointDisplay position={[20, 0, 0]} num={point2} />
+      <PointDisplay position={[0, 0, 0]} num={point1} isP1={true} />
+      <PointDisplay position={[20, 0, 0]} num={point2} isP1={false} />
     </group>
   )
 }

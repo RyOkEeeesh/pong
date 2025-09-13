@@ -1,6 +1,8 @@
 import {} from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
+import { useStageStore } from "./store";
+import { is } from "@react-three/fiber/dist/declarations/src/core/utils";
 
 const digitMap = [
   [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1],
@@ -35,9 +37,10 @@ function DigitMesh(props: DigitMeshProps) {
 type DisplayProps = {
   num: number;
   position: [number, number, number];
+  isP1: boolean;
 }
 
-function DigitDisplay({num, position}: DisplayProps) {
+function DigitDisplay({num, position, isP1}: DisplayProps) {
   const materialMap = useMemo(() =>
       Array.from({ length: 13 }, () =>
         new THREE.MeshStandardMaterial({
@@ -50,6 +53,10 @@ function DigitDisplay({num, position}: DisplayProps) {
       ),
     []
   );
+
+  useEffect(() => {
+    useStageStore(s => s.pushPointDisplayMats(isP1, materialMap));
+  }, []);
 
   const positionMap = useMemo(() => [
     [[0, DIGIT_HEIGHT, 0]],
@@ -91,16 +98,17 @@ function DigitDisplay({num, position}: DisplayProps) {
 type PointDisplayProps = {
   num: number;
   position: [number, number, number];
+  isP1: boolean;
 };
 
-export function PointDisplay({num, position}: PointDisplayProps) {
+export function PointDisplay({num, position, isP1}: PointDisplayProps) {
   const nums = num.toString().padStart(2, '0').split('').map(Number);
 
   return (
     <group position={position}>
       {
         nums.map((num, i) =>
-          <DigitDisplay key={i} num={num} position={[7.5 * i, 0, 0]} />
+          <DigitDisplay key={i} num={num} position={[7.5 * i, 0, 0]} isP1={isP1} />
         )
       }
     </group>

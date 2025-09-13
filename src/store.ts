@@ -11,11 +11,14 @@ type StageStore = {
 
   delta: number;
 
+  pointDisplayMats: THREE.MeshStandardMaterial[][];
+
   setBallSpeed: (sp: number) => void;
   setBallPosition: (pos: THREE.Vector3) => void;
   setVelocity: (vel: THREE.Vector3) => void;
   setPaddlePosition: (isP1: boolean, position: number) => void;
   setDelta: (time: number) => void;
+  pushPointDisplayMats: (isP1: boolean, mats: THREE.MeshStandardMaterial[]) => void;
 };
 
 // 非レンダー用
@@ -27,6 +30,8 @@ export const useStageStore = create<StageStore>(set => ({
   paddlePosition: [0, 0], // [ p2Position, p1Position ]
 
   delta: 0,
+
+  pointDisplayMats: [[], []],
 
   setBallSpeed: (sp = BALL_SPEED) =>
     set(s => ({
@@ -49,6 +54,13 @@ export const useStageStore = create<StageStore>(set => ({
 
   setDelta: time =>
     set({ delta: Math.min(time, 1000 / 24) }),
+
+  pushPointDisplayMats: (isP1, mats) =>
+    set(s => {
+      const mat = s.pointDisplayMats.slice();
+      mat[Number(isP1)].push(...mats);
+      return ({ pointDisplayMats: mat });
+    })
 }));
 
 type GameStore = {

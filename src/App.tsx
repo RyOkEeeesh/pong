@@ -1,6 +1,5 @@
 import { PerspectiveCamera, KeyboardControls } from "@react-three/drei"
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
-import { BlendFunction } from "postprocessing";
 import { Canvas, useThree } from "@react-three/fiber"
 import { useEffect, useMemo, useRef, useState } from "react"
 import * as THREE from "three"
