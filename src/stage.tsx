@@ -374,10 +374,16 @@ export default function Stage({isResizing}: StageProps) {
           end: 250,
           difference: 0.15,
           times: 2
-        })
+        });
         break;
       case GOAL_2:
         handleHitGoalWall(true);
+        brinkingEffect({
+          mat: [wallMat],
+          end: 250,
+          difference: 0.15,
+          times: 2
+        });
         break;
     }
   }
