@@ -18,6 +18,9 @@ export const ACCELERATION = 0.2;
 export const PADDLE_POSITION_Z1 = STAGE_HEIGHT / 2 - 1;
 export const PADDLE_POSITION_Z2 = -STAGE_HEIGHT / 2 + 1;
 
+export const GAME_POINT = 3;
+export const GAME_POINT_MAX = 6;
+
 // Mesh Name
 export const PADDLE_1 = 'paddle1';
 export const PADDLE_2 = 'paddle2';

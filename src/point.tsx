@@ -55,7 +55,7 @@ function DigitDisplay({num, position, isP1}: DisplayProps) {
   );
 
   useEffect(() => {
-    useStageStore(s => s.pushPointDisplayMats(isP1, materialMap));
+    useStageStore.getState().pushPointDisplayMats(isP1, materialMap);
   }, []);
 
   const positionMap = useMemo(() => [
@@ -78,7 +78,7 @@ function DigitDisplay({num, position, isP1}: DisplayProps) {
 
   useEffect(() => {
     digit.forEach((on, i) => {
-      materialMap[i].emissiveIntensity = on ? 1 : 0;
+      materialMap[i].emissiveIntensity = on;
     });
   }, [num]);
 

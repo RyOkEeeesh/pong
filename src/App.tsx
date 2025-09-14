@@ -13,7 +13,8 @@ function CameraSetup() {
   useEffect(() => {
     if (cameraRef.current) {
       trackingLookAt(cameraRef.current);
-      cameraRef.current.lookAt(0, 0, 3.5);
+      cameraRef.current.lookAt(0, 0, 3.5)
+      ;
     }
   }, []);
 

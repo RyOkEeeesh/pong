@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as THREE from 'three';
-import { BALL_SPEED, GameStatus } from './constants';
+import { BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameStatus } from './constants';
 
 type StageStore = {
   ballSpeed: number,
@@ -69,6 +69,11 @@ type GameStore = {
   point1: number;
   point2: number;
 
+  gamePoint: number;
+
+  matchPoint: boolean;
+  isFinish: boolean;
+
   pointGetter: boolean;
 
   serveHit : boolean;
@@ -81,6 +86,8 @@ type GameStore = {
   addPoint: (isP1: boolean) => void;
   resetPoint: () => void;
 
+  processAddPoint: () => void;
+
   setPointGetter: (isP1: boolean) => void;
 
   setServeHit: (serveHit: boolean) => void;
@@ -92,6 +99,11 @@ export const useGameStore = create<GameStore>(set => ({
 
   point1: 0,
   point2: 0,
+
+  gamePoint: GAME_POINT,
+
+  matchPoint: false,
+  isFinish: false,
 
   pointGetter: Boolean(Math.round(Math.random())),
 
@@ -111,12 +123,33 @@ export const useGameStore = create<GameStore>(set => ({
     point2: 0
   }),
 
+  processAddPoint: () =>
+    set(s => {
+      const max = Math.max(s.point1, s.point2);
+      if (s.gamePoint - max === 1) {
+        if (s.point1 === s.point2 && GAME_POINT_MAX - max !== 1) { // デュース
+          return ({
+            gamePoint: Math.min(s.gamePoint + 1, GAME_POINT_MAX),
+            matchPoint: false
+          });
+        } else {
+          return ({ matchPoint: true });
+        }
+      } else if (s.gamePoint === max) {
+        return ({
+          matchPoint: false,
+          isFinish: true
+        });
+      }
+      return ({ matchPoint: false });
+    }),
+
   setPointGetter: isP1 =>
     set({pointGetter: isP1}),
 
   setServeHit: serveHit =>
     set({ serveHit }),
-}))
+}));
 
 // controller
 

@@ -87,11 +87,12 @@ function handleHitSideWall() {
   store.setVelocity(v);
 }
 
-function handleHitGoalWall(playre: boolean) {
+function handleHitGoalWall(player: boolean) {
   useStageStore.getState().setVelocity(new THREE.Vector3());
-  const { setGameStatus, addPoint, setPointGetter } = useGameStore.getState();
-  addPoint(playre);
-  setPointGetter(playre);
+  const { setGameStatus, addPoint, processAddPoint, setPointGetter } = useGameStore.getState();
+  addPoint(player);
+  processAddPoint();
+  setPointGetter(player);
   setGameStatus(GameStatus.GetPoint);
 }
 
@@ -165,6 +166,33 @@ export default function Stage({isResizing}: StageProps) {
   const { camera } = useThree();
   const { setGameStatus } = useGameStore.getState();
 
+  const matchPoint = useGameStore(s => s.matchPoint);
+  const isFinish = useGameStore(s => s.isFinish);
+
+  useEffect(() => {
+    if ( !matchPoint && !isFinish ) return;
+    const {  pointGetter } = useGameStore.getState();
+    const mats = useStageStore.getState().pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+    const option = isFinish
+      ? {
+        mat: mats,
+        end: 4000,
+        difference: -0.8,
+        times: 16
+      } : {
+        mat: mats,
+        end: 800,
+        difference: -0.8,
+        times: 4
+      };
+    blinkingEffect(option);
+  }, [matchPoint, isFinish]);
+
+  useEffect(() => {
+    if (!stageGroup.current) return;
+    if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
+  }, [isResizing, camera]);
+
   const stageGroup = useRef<THREE.Group>(null!);
 
   const ballRef = useRef<THREE.Mesh>(null!);
@@ -179,6 +207,10 @@ export default function Stage({isResizing}: StageProps) {
     goalWall2Ref,
     ...sideWallsRef
   ];
+
+  useEffect(() => {
+    refs.forEach(ref => ref.current?.geometry.computeBoundsTree());
+  }, []);
 
   const [effectPool, setEffectPool] = useState<THREE.Mesh[]>(Array.from({ length: 4 }, () => {
     const mesh = new THREE.Mesh(
@@ -272,7 +304,7 @@ export default function Stage({isResizing}: StageProps) {
 
   const blinkingEffectRef = useRef<BlinkingEffect[]>([]);
 
-  function brinkingEffect(option: BlinkingEffect) {
+  function blinkingEffect(option: BlinkingEffect) {
     blinkingEffectRef.current.push({
       ...option,
       start: performance.now(),
@@ -287,7 +319,6 @@ export default function Stage({isResizing}: StageProps) {
     blinkingEffectRef.current = blinkingEffectRef.current.filter(effect => {
       const { start, end, difference, times, mat, defEmissiveIntensity } = effect;
       const elapsed = now - start!;
-      // const elapsed = (now - start) / 1000;
 
       if (elapsed >= end) {
         mat.forEach((m, i) => {
@@ -330,14 +361,6 @@ export default function Stage({isResizing}: StageProps) {
 
   const normalMatrix = useMemo(() => new THREE.Matrix3(), []);
 
-  useEffect(() => {
-    refs.forEach(ref => ref.current?.geometry.computeBoundsTree());
-  }, []);
-
-  useEffect(() => {
-    if (!stageGroup.current) return;
-    if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
-  }, [isResizing, camera]);
 
   function handleHitObj(mesh: THREE.Mesh, hitPoint: THREE.Vector3, normal: THREE.Vector3) {
     switch (mesh.name) {
@@ -368,17 +391,9 @@ export default function Stage({isResizing}: StageProps) {
         handleHitSideWall();
         break;
       case GOAL_1:
-        handleHitGoalWall(false);
-        brinkingEffect({
-          mat: [wallMat],
-          end: 250,
-          difference: 0.15,
-          times: 2
-        });
-        break;
       case GOAL_2:
-        handleHitGoalWall(true);
-        brinkingEffect({
+        handleHitGoalWall(mesh.name === GOAL_2);
+        blinkingEffect({
           mat: [wallMat],
           end: 250,
           difference: 0.15,
@@ -510,7 +525,7 @@ export default function Stage({isResizing}: StageProps) {
 
   useFrame((_, delta: number) => {
     const { setDelta, ballPosition, setBallPosition, velocity, paddlePosition } = useStageStore.getState();
-    const { gameStatus, serveHit, setServeHit, pointGetter } = useGameStore.getState();
+    const { gameStatus, isFinish, serveHit, setServeHit, pointGetter } = useGameStore.getState();
     setDelta(delta);
 
     switch (gameStatus) {
@@ -546,7 +561,7 @@ export default function Stage({isResizing}: StageProps) {
           if(sleepRef.current && sleep()) {
             if(moveBallForPaddle()) {
               sleepRef.current = null;
-              setGameStatus(GameStatus.Serving);
+              setGameStatus(isFinish ? GameStatus.End :GameStatus.Serving);
             }
           } else if (sleepRef.current === null) {
             sleepRef.current = performance.now() + 250;
@@ -554,6 +569,8 @@ export default function Stage({isResizing}: StageProps) {
         }
         break;
       case GameStatus.End:
+        console.log('Game END');
+        break;
       case GameStatus.Pause:
         break;
     }
