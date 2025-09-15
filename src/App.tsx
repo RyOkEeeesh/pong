@@ -1,11 +1,11 @@
-import { PerspectiveCamera, KeyboardControls } from "@react-three/drei"
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
-import { Canvas, useThree } from "@react-three/fiber"
-import { useEffect, useMemo, useRef, useState } from "react"
-import * as THREE from "three"
-import Stage from "./stage"
-import { trackingLookAt } from "./ThreeModule"
-import { useUserSetting } from "./store";
+import { PerspectiveCamera, KeyboardControls } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { Canvas, useThree } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
+import Stage from './stage';
+import { trackingLookAt } from './ThreeModule';
+import { useUserSetting } from './store';
 
 function CameraSetup() {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null!);
@@ -49,9 +49,9 @@ export default function App() {
       }, 1000 / 24);
     };
 
-    window.addEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 

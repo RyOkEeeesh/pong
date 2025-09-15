@@ -1,9 +1,9 @@
-import { useKeyboardControls } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
-import { useGameStore, useStageStore, useUserSetting } from "./store";
-import { BALL_SPEED, CPUMode, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from "./constants";
-import * as THREE from "three";
+import { useKeyboardControls } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { useRef } from 'react';
+import { useGameStore, useStageStore, useUserSetting } from './store';
+import { BALL_SPEED, CPUMode, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from './constants';
+import * as THREE from 'three';
 
 
 

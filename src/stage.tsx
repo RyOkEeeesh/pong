@@ -1,8 +1,8 @@
-import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { useFrame, useLoader, useThree } from "@react-three/fiber";
-import * as THREE from "three";
-import { fitObject } from "./ThreeModule";
-import { acceleratedRaycast, MeshBVH } from "three-mesh-bvh";
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useLoader, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
+import { fitObject } from './ThreeModule';
+import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
 import {
   BALL_SIZE,
   BALL_SPEED,
@@ -22,10 +22,10 @@ import {
   STAGE_WIDTH,
   WALL_DEPTH,
   WALL_HEIGHT
-} from "./constants";
-import { useGameStore, useStageStore } from "./store";
-import { PointDisplay } from "./point.tsx";
-import { PaddleController } from "./controller.tsx";
+} from './constants';
+import { useGameStore, useStageStore } from './store';
+import { PointDisplay } from './point.tsx';
+import { PaddleController } from './controller.tsx';
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -68,7 +68,7 @@ const Ball = forwardRef<THREE.Mesh, { material: THREE.MeshStandardMaterial }>(
 );
 
 function Floor() {
-  const texture = useLoader(THREE.TextureLoader, "./texture/floor.png");
+  const texture = useLoader(THREE.TextureLoader, './texture/floor.png');
   texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.colorSpace = THREE.SRGBColorSpace;
 

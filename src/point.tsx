@@ -1,8 +1,7 @@
-import {} from "@react-three/fiber";
-import { useEffect, useMemo } from "react";
-import * as THREE from "three";
-import { useStageStore } from "./store";
-import { is } from "@react-three/fiber/dist/declarations/src/core/utils";
+import {} from '@react-three/fiber';
+import { useEffect, useMemo } from 'react';
+import * as THREE from 'three';
+import { useStageStore } from './store';
 
 const digitMap = [
   [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1],
