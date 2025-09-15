@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { fitObject } from './ThreeModule';
 import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
 import {
+  ACCELERATION,
   BALL_SIZE,
-  BALL_SPEED,
+  BALL_SPEED_MAX,
   CPUMode,
   EFFECT_MATERIAL_ARGS,
   EFFECT_MESH_WIDTH,
@@ -15,8 +16,10 @@ import {
   PADDLE_1,
   PADDLE_2,
   PADDLE_HALF_X,
+  PADDLE_HEIGHT,
   PADDLE_POSITION_Z1,
   PADDLE_POSITION_Z2,
+  PADDLE_WIDTH,
   SIDE,
   STAGE_HEIGHT,
   STAGE_WIDTH,
@@ -55,7 +58,7 @@ const GoalWall = forwardRef<THREE.Mesh, MeshProps>((props, ref) => (
 
 const Paddle = forwardRef<THREE.Mesh, MeshProps>((props, ref) => (
   <mesh ref={ref} {...props}>
-    <boxGeometry args={[STAGE_WIDTH / 6, WALL_HEIGHT, WALL_HEIGHT]} />
+    <boxGeometry args={[PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_HEIGHT]} />
   </mesh>
 ));
 
@@ -81,10 +84,10 @@ function Floor() {
 }
 
 function handleHitSideWall() {
-  const store = useStageStore.getState();
-  const v = store.velocity.clone();
+  const { velocity, setVelocity } = useStageStore.getState();
+  const v = velocity.clone();
   v.x *= -1;
-  store.setVelocity(v);
+  setVelocity(v);
 }
 
 function handleHitGoalWall(player: boolean) {
@@ -97,9 +100,9 @@ function handleHitGoalWall(player: boolean) {
 }
 
 function handleHitPaddle(mesh: THREE.Mesh) {
-  const store = useStageStore.getState();
+  const { ballSpeed, ballPosition, setBallSpeed, setVelocity } = useStageStore.getState();
   const normalized = THREE.MathUtils.clamp(
-    (store.ballPosition.clone().x - mesh.position.clone().x) / PADDLE_HALF_X,
+    (ballPosition.clone().x - mesh.position.clone().x) / PADDLE_HALF_X,
     -1,
     1
   );
@@ -107,11 +110,12 @@ function handleHitPaddle(mesh: THREE.Mesh) {
   const angle = normalized * maxAngle;
   const dz = mesh.position.z > 0 ? -1 : 1;
   const newVelocity = new THREE.Vector3(
-    store.ballSpeed * Math.sin(angle),
+    ballSpeed * Math.sin(angle),
     0,
-    dz * store.ballSpeed * Math.cos(angle)
+    dz * ballSpeed * Math.cos(angle)
   );
-  store.setVelocity(newVelocity);
+  setBallSpeed(Math.min(ballSpeed + ACCELERATION, BALL_SPEED_MAX))
+  setVelocity(newVelocity);
 }
 
 function PointDisplays() {
@@ -165,6 +169,7 @@ type BlinkingEffect = {
 export default function Stage({isResizing}: StageProps) {
   const { camera } = useThree();
   const { setGameStatus } = useGameStore.getState();
+  const { setBallSpeed } = useStageStore.getState();
 
   useEffect(() => {
     if (!stageGroup.current) return;
@@ -542,6 +547,7 @@ export default function Stage({isResizing}: StageProps) {
               setGameStatus(isFinish ? GameStatus.End :GameStatus.Serving);
             }
           } else if (sleepRef.current === null) {
+            setBallSpeed();
             sleepRef.current = performance.now() + 250;
             if ( matchPoint || isFinish ) {
               const mats = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);

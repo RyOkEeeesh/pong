@@ -13,7 +13,7 @@ type StageStore = {
 
   pointDisplayMats: THREE.MeshStandardMaterial[][];
 
-  setBallSpeed: (sp: number) => void;
+  setBallSpeed: (sp?: number) => void;
   setBallPosition: (pos: THREE.Vector3) => void;
   setVelocity: (vel: THREE.Vector3) => void;
   setPaddlePosition: (isP1: boolean, position: number) => void;

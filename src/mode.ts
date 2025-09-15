@@ -100,9 +100,9 @@ export class SelectingMode extends GameModeHandler {
       for (const obj of this.game.stage.hitObjects) {
         const hit = obj.onHit(raycaster);
         if ( hit ) {
-            this.#cpus.forEach(cpu => cpu.resetPredict());
-            if (manager.gameStatus !== GameStatus.Playing) return;
-            obj.effect?.(hit); // エフェクトfalseの時はやめるようにできたらいいね
+          this.#cpus.forEach(cpu => cpu.resetPredict());
+          if (manager.gameStatus !== GameStatus.Playing) return;
+          obj.effect?.(hit); // エフェクトfalseの時はやめるようにできたらいいね
           break;
         }
       }

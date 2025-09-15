@@ -13,6 +13,7 @@ export const PADDLE_DEPTH = 1;
 
 export const BALL_SIZE = 1;
 export const BALL_SPEED = 28;
+export const BALL_SPEED_MAX = 100;
 export const ACCELERATION = 0.2;
 
 export const PADDLE_POSITION_Z1 = STAGE_HEIGHT / 2 - 1;
