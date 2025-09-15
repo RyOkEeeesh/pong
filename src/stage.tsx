@@ -166,28 +166,6 @@ export default function Stage({isResizing}: StageProps) {
   const { camera } = useThree();
   const { setGameStatus } = useGameStore.getState();
 
-  const matchPoint = useGameStore(s => s.matchPoint);
-  const isFinish = useGameStore(s => s.isFinish);
-
-  useEffect(() => {
-    if ( !matchPoint && !isFinish ) return;
-    const {  pointGetter } = useGameStore.getState();
-    const mats = useStageStore.getState().pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
-    const option = isFinish
-      ? {
-        mat: mats,
-        end: 4000,
-        difference: -0.8,
-        times: 16
-      } : {
-        mat: mats,
-        end: 800,
-        difference: -0.8,
-        times: 4
-      };
-    blinkingEffect(option);
-  }, [matchPoint, isFinish]);
-
   useEffect(() => {
     if (!stageGroup.current) return;
     if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
@@ -524,8 +502,8 @@ export default function Stage({isResizing}: StageProps) {
   }
 
   useFrame((_, delta: number) => {
-    const { setDelta, ballPosition, setBallPosition, velocity, paddlePosition } = useStageStore.getState();
-    const { gameStatus, isFinish, serveHit, setServeHit, pointGetter } = useGameStore.getState();
+    const { setDelta, ballPosition, setBallPosition, velocity, paddlePosition, pointDisplayMats } = useStageStore.getState();
+    const { gameStatus, matchPoint, isFinish, serveHit, setServeHit, pointGetter } = useGameStore.getState();
     setDelta(delta);
 
     switch (gameStatus) {
@@ -565,6 +543,23 @@ export default function Stage({isResizing}: StageProps) {
             }
           } else if (sleepRef.current === null) {
             sleepRef.current = performance.now() + 250;
+            if ( matchPoint || isFinish ) {
+              const mats = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+              const option = isFinish
+                ? {
+                  mat: mats,
+                  end: 4000,
+                  difference: -0.8,
+                  times: 16
+                } : {
+                  mat: mats,
+                  end: 800,
+                  difference: -0.8,
+                  times: 4
+                };
+              blinkingEffect(option);
+            }
+
           }
         }
         break;
