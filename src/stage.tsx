@@ -114,7 +114,7 @@ function handleHitPaddle(mesh: THREE.Mesh) {
     0,
     dz * ballSpeed * Math.cos(angle)
   );
-  setBallSpeed(Math.min(ballSpeed + ACCELERATION, BALL_SPEED_MAX))
+  setBallSpeed(Math.min(ballSpeed + ACCELERATION, BALL_SPEED_MAX));
   setVelocity(newVelocity);
 }
 

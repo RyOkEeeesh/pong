@@ -4,18 +4,13 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { GameCore } from "./server";
-import { Context } from "./serverCore";
-import { GameStatus } from "./constants";
+import { Context, GameCore } from "./serverCore";
 
 export default function PongTest() {
   const coreRef = useRef<GameCore>(new GameCore());
 
   useEffect(() => {
     coreRef.current.start();
-    Context.gameStatus = GameStatus.Playing;
-    Context.setVelocity(new THREE.Vector3(0, 0, -1));
-
     return () => coreRef.current.stop();
   }, []);
 

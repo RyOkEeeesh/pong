@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
-import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, GAME_POINT_MAX, GameStatus, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_WIDTH, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
+import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, GAME_POINT_MAX, GameStatus, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_WIDTH, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants.ts';
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -17,14 +17,14 @@ export class Context {
   static ballSpeed: number = BALL_SPEED
   static ballPosition: THREE.Vector3 = new THREE.Vector3();
   static velocity: THREE.Vector3 = new THREE.Vector3();
-  static paddlePosition: [number, number] = [0, 1]; // [p2, p1]
+  static paddlePosition: [number, number] = [0, 0]; // [p2, p1]
   static pointGetter: boolean = Boolean(Math.round(Math.random()));
   static points: [number, number] = [0, 0];
   static gamePoint: number = GAME_POINT;
   static gamePointMax: number = GAME_POINT_MAX;
   static matchPoint: boolean = false;
   static isFinish: boolean = false;
-  static serveHit: boolean = false;
+  static serveHit: boolean = true; // false
 
   constructor() {}
 
@@ -56,8 +56,8 @@ export class Context {
     Context.paddlePosition = [0, 0];
   }
 
-  static addPoint(isP1: boolean) {
-    Context.points[Number(isP1)]++;
+  static addPoint() {
+    Context.points[Number(Context.pointGetter)]++;
 
     const max = Math.max(...Context.points);
 
@@ -83,14 +83,14 @@ export class Context {
   static resetAll() {
     Context.ballPosition.set(0, 0, 0);
     Context.velocity.set(0, 0, 0);
-    Context.paddlePosition = [0, 0];
+    Context.paddlePosition = [0, 1];
     Context.pointGetter = Boolean(Math.round(Math.random()));
     Context.points = [0, 0];
     Context.gamePoint = GAME_POINT;
     Context.gamePointMax = GAME_POINT_MAX;
     Context.matchPoint = false;
     Context.isFinish = false;
-    Context.serveHit = false;
+    Context.serveHit = true; // false
   }
 }
 
@@ -123,6 +123,7 @@ export class GameCore {
 
   start() {
     this.#interval = setInterval(() => {
+      console.log(Context.gameStatus)
       this.#paddles[0].move();
       this.#paddles[1].move();
 
@@ -138,7 +139,7 @@ export class GameCore {
         case GameStatus.Serving:
           this.#ball.changeServePosition(this.hasService());
           if (Context.serveHit) {
-            Context.serveHit = false;
+            // Context.serveHit = false;
             this.hasService().hitPaddle();
             this.#ball.resetServePosition();
             Context.gameStatus = GameStatus.Playing;
@@ -170,6 +171,7 @@ export class GameCore {
           }
           break;
         case GameStatus.GetPoint:
+          console.log(Context.points)
           if (Context.isFinish) {
             Context.gameStatus = GameStatus.End;
           } else {
@@ -268,6 +270,7 @@ class GoalWall extends HitObject {
     Context.resetVelocity();
     Context.resetBallSpeed();
     Context.pointGetter = this.#mesh.position.z < 0;
+    Context.addPoint();
     Context.gameStatus = GameStatus.GetPoint;
 
     return hit;

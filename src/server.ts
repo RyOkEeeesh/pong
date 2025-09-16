@@ -1,15 +1,18 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
+import { Context } from "./serverCore.ts";
 
 interface ExtWebSocket extends WebSocket {
   id?: string;
   name?: string;
+  role?: 'player' | 'spectator';
+  isP1: number;
 }
 
 export enum MsgType {
   Join,
+  Client,
   Echo,
-  Left,
 };
 
 interface JoinMsg {
@@ -17,7 +20,15 @@ interface JoinMsg {
   data: {
     name: string;
     role: 'player' | 'spectator';
+    isP1: number;
   };
+}
+
+interface ClientMsg {
+  type: MsgType.Client;
+  data: {
+    paddlePos: number;
+  }
 }
 
 interface EchoMsg {
@@ -25,16 +36,13 @@ interface EchoMsg {
   data: {};
 }
 
-interface LeftMsg {
-  type: MsgType.Left;
-  data: {};
-
-}
-
-type Msg = JoinMsg | EchoMsg | LeftMsg;
+type Msg = JoinMsg | ClientMsg | EchoMsg;
 
 const wss = new WebSocketServer({ port: 8080 });
 
+const player: ExtWebSocket[] = [];
+
+let interval: NodeJS.Timeout | null;
 
 wss.on("connection", (ws: ExtWebSocket) => {
   ws.id = randomUUID();
@@ -44,17 +52,43 @@ wss.on("connection", (ws: ExtWebSocket) => {
   ws.on("message", (msg: string) => {
     const message: Msg = JSON.parse(msg);
 
-    switch (message.type) {
-      case MsgType.Join:
-        ws.name = message.data.name;
-        console.log(`ユーザ参加: ${ws.name}`);
-        break;
-      case MsgType.Echo:
-        console.log(`メッセージ: ${message.data}`);
-        break;
-      case MsgType.Left:
-        console.log(`退出: ${message.data ?? "理由なし"}`);
-        break;
+    if (message.type === MsgType.Join) {
+      ws.name = message.data.name;
+      console.log(`${ws.name} join the game.`);
+
+      if (message.data.role === 'player' && player.length !== 2) {
+        player.unshift(ws);
+        ws.role = 'player';
+      } else {
+        ws.role = 'spectator';
+        ws.isP1 = -1;
+        const res = {
+          type: 'init',
+          data: {
+            isP1: -1,
+          }
+        };
+        ws.send(JSON.stringify(res));
+      }
+
+      if (player.length === 2) {
+        player.forEach((ws, i) => {
+          ws.isP1 = i;
+
+          const res = {
+            type: 'init',
+            data: {
+              isP1: i,
+            }
+          };
+          ws.send(JSON.stringify(res));
+        })
+      }
+    } else if (message.type === MsgType.Client) {
+      if (ws.role === 'player') {
+        const paddlePosition = message.data.paddlePos;
+        Context.paddlePosition[ws.isP1] = paddlePosition;
+      }
     }
 
     // 全クライアントにブロードキャスト
@@ -65,9 +99,8 @@ wss.on("connection", (ws: ExtWebSocket) => {
     });
   });
 
-  // 切断
   ws.on("close", () => {
-    console.log("❌ クライアント切断");
+    console.log(`${ws.name} left the game.`)
   });
 });
 
