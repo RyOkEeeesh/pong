@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
-import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_WIDTH, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
+import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, GAME_POINT_MAX, GameStatus, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_WIDTH, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -24,6 +24,7 @@ export class Context {
   static gamePointMax: number = GAME_POINT_MAX;
   static matchPoint: boolean = false;
   static isFinish: boolean = false;
+  static serveHit: boolean = false;
 
   constructor() {}
 
@@ -36,7 +37,6 @@ export class Context {
   }
 
   static updateBallPosition()  {
-    // Context.ballPosition = Context.ballPosition.clone().addScaledVector(Context.velocity, delta);
     Context.ballPosition.addScaledVector(Context.velocity, delta);
   }
 
@@ -79,14 +79,129 @@ export class Context {
     Context.matchPoint = false;
     Context.isFinish = false;
   }
+
+  static resetAll() {
+    Context.ballPosition.set(0, 0, 0);
+    Context.velocity.set(0, 0, 0);
+    Context.paddlePosition = [0, 0];
+    Context.pointGetter = Boolean(Math.round(Math.random()));
+    Context.points = [0, 0];
+    Context.gamePoint = GAME_POINT;
+    Context.gamePointMax = GAME_POINT_MAX;
+    Context.matchPoint = false;
+    Context.isFinish = false;
+    Context.serveHit = false;
+  }
 }
 
-export type Hit = {
+const offsets = [
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.5, 0, 0.5),
+    new THREE.Vector3(-0.5, 0, 0.5),
+    new THREE.Vector3(0.5, 0, -0.5),
+    new THREE.Vector3(-0.5, 0, -0.5)
+  ];
+
+export class GameCore {
+  #Walls = [new SideWall([-STAGE_WIDTH / 2, 0]), new SideWall([STAGE_WIDTH / 2, 0]), new GoalWall([0, STAGE_HEIGHT / 2]), new GoalWall([0, -STAGE_HEIGHT / 2])];
+  #paddles = [new Paddle([0, PADDLE_POSITION_Z2]), new Paddle([0, PADDLE_POSITION_Z1])];
+  #ball = new Ball();
+
+  #interval!: NodeJS.Timeout | null;
+
+  constructor() {}
+
+  hasService() {
+    return this.#paddles[Number(!Context.pointGetter)];
+  }
+
+  moveBallForPaddle() {
+    const position = this.hasService().mesh.position.clone();
+    position.z = position.z - Math.sign(position.z) * 1.2;
+    Context.ballPosition = position;
+  }
+
+  start() {
+    this.#interval = setInterval(() => {
+      this.#paddles[0].move();
+      this.#paddles[1].move();
+
+      switch (Context.gameStatus) {
+        case GameStatus.Waiting:
+          Context.resetAll();
+          Context.gameStatus = GameStatus.First;
+          break;
+        case GameStatus.First:
+          this.moveBallForPaddle();
+          Context.gameStatus = GameStatus.Serving;
+          break;
+        case GameStatus.Serving:
+          this.#ball.changeServePosition(this.hasService());
+          if (Context.serveHit) {
+            Context.serveHit = false;
+            this.hasService().hitPaddle();
+            this.#ball.resetServePosition();
+            Context.gameStatus = GameStatus.Playing;
+          }
+          break;
+        case GameStatus.Playing:
+          {
+            Context.updateBallPosition();
+            const frameVelocity = Context.velocity.clone().multiplyScalar(delta).length();
+            for (const offset of offsets) {
+              const origin = Context.ballPosition.clone().add(offset);
+              const ray = new THREE.Raycaster(
+                origin,
+                Context.velocity.clone().normalize(),
+                0,
+                frameVelocity + 0.09
+              );
+
+              for (const obj of [...this.#paddles, ...this.#Walls]) {
+                const hit = obj.onHit(ray);
+                if (hit) {
+                  if (Context.gameStatus !== GameStatus.Playing) return;
+
+                  // ヒットした値などをクライアントに送信
+                  break;
+                }
+              }
+            }
+          }
+          break;
+        case GameStatus.GetPoint:
+          if (Context.isFinish) {
+            Context.gameStatus = GameStatus.End;
+          } else {
+            this.moveBallForPaddle();
+            Context.gameStatus = GameStatus.Serving;
+          }
+          break;
+        case GameStatus.End:
+        case GameStatus.Pause:
+      }
+
+      this.#ball.setPosition();
+    }, delta * 1000);
+  }
+
+  stop() {
+    if (!this.#interval) return;
+    clearInterval(this.#interval);
+    this.#interval = null;
+  }
+
+  get walls() { return this.#Walls; }
+  get paddles() { return this.#paddles; }
+  get ball() { return this.#ball; }
+}
+
+type Hit = {
   normal: THREE.Vector3,
   hitPoint: THREE.Vector3
 }
 
-export function isHit(ray: THREE.Raycaster, obj: THREE.Mesh): Hit | undefined {
+function isHit(ray: THREE.Raycaster, obj: THREE.Mesh): Hit | undefined {
   const intersects = ray.intersectObject(obj, true);
   if (intersects.length > 0) {
     const normal = intersects[0].face?.normal.clone();
@@ -106,7 +221,7 @@ abstract class HitObject {
   abstract get mesh(): THREE.Mesh;
 }
 
-export class SideWall extends HitObject {
+class SideWall extends HitObject {
   #mesh: THREE.Mesh;
 
   constructor(pos: [number, number]) {
@@ -134,7 +249,7 @@ export class SideWall extends HitObject {
   get mesh() { return this.#mesh; }
 }
 
-export class GoalWall extends HitObject {
+class GoalWall extends HitObject {
   #mesh: THREE.Mesh;
 
   constructor(pos: [number, number]) {
@@ -162,7 +277,7 @@ export class GoalWall extends HitObject {
 
 }
 
-export class Paddle extends HitObject {
+class Paddle extends HitObject {
   #mesh: THREE.Mesh;
 
   constructor(pos: [number, number]) {
@@ -178,28 +293,30 @@ export class Paddle extends HitObject {
     this.#mesh.position.x = Context.paddlePosition[Number(this.#mesh.position.z > 0)];
   }
 
+  hitPaddle() {
+    const normalized = THREE.MathUtils.clamp( (Context.ballPosition.x - this.mesh.position.x) / PADDLE_HALF_X, -1, 1 );
+    const maxAngle = Math.PI / 3;
+    const angle = normalized * maxAngle;
+    const dz = this.mesh.position.z > 0 ? -1 : 1;
+
+    Context.velocity.set(
+      Context.ballSpeed * Math.sin(angle),
+      0,
+      dz * Context.ballSpeed * Math.cos(angle)
+    );
+
+    if (Math.abs(Context.velocity.y) < 0.01) {
+      Context.velocity.y = dz * 0.1;
+      Context.velocity.normalize().multiplyScalar(Context.ballSpeed);
+    }
+  }
+
   onHit(ray: THREE.Raycaster): Hit | undefined {
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
 
-    console.log('paddle hit');
-
     if (hit.normal.z > 0.9 || hit.normal.z < -0.9) {
-      const normalized = THREE.MathUtils.clamp( (Context.ballPosition.x - this.mesh.position.x) / PADDLE_HALF_X, -1, 1 );
-      const maxAngle = Math.PI / 3;
-      const angle = normalized * maxAngle;
-      const dz = this.mesh.position.z > 0 ? -1 : 1;
-  
-      Context.velocity.set(
-        Context.ballSpeed * Math.sin(angle),
-        0,
-        dz * Context.ballSpeed * Math.cos(angle)
-      );
-  
-      if (Math.abs(Context.velocity.y) < 0.01) {
-        Context.velocity.y = dz * 0.1;
-        Context.velocity.normalize().multiplyScalar(Context.ballSpeed);
-      }
+      this.hitPaddle();
     } else {
       const newVel = Context.velocity.clone();
       newVel.x *= -1;
@@ -212,7 +329,7 @@ export class Paddle extends HitObject {
   get mesh() { return this.#mesh; }
 }
 
-export class Ball {
+class Ball {
   #mesh: THREE.Mesh = new THREE.Mesh(
     new THREE.BoxGeometry(BALL_SIZE, BALL_SIZE, BALL_SIZE)
   );
@@ -225,7 +342,7 @@ export class Ball {
   constructor() {}
 
   setPosition(pos: THREE.Vector3 = Context.ballPosition) {
-    this.#mesh.position.copy(Context.ballPosition);
+    this.#mesh.position.copy(pos);
   }
 
   changeServePosition(paddle: Paddle) {
