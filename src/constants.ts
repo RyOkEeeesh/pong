@@ -1,4 +1,6 @@
+import { UUID } from 'crypto';
 import * as THREE from 'three';
+import { Init } from 'v8';
 
 export const STAGE_HEIGHT = 28;
 export const STAGE_WIDTH = 22.4;
@@ -65,3 +67,69 @@ export enum GameStatus {
   End,
   Pause
 };
+
+// role
+
+export enum SendType {
+  Client,
+  Server
+};
+
+export enum RoleStatus {
+  P2,
+  P1,
+  Spectator,
+  WannaPlay
+}
+
+export enum MsgType {
+  Join,
+  Init,
+  Ready,
+  Playing,
+  Exit
+}
+
+export interface JoinMsg {
+  type: MsgType.Join;
+  name?: string;
+}
+
+export interface InitMsg {
+  type: MsgType.Init;
+  role: RoleStatus;
+}
+
+export interface ReadyMsg {
+  type: MsgType.Ready;
+  playerID?: UUID; // サーバが送る
+  readyStatus: boolean;
+}
+
+export interface CliPlayingMsg {
+  type: MsgType.Playing;
+  paddlePosition: number;
+  serveHit?: boolean;
+}
+
+export interface SerPlayingMsg {
+  type: MsgType.Playing;
+  gameStatus: GameStatus;
+  ballPositon: [number, number];
+  paddlePositions: [number, number];
+  ballSpeed?: number;
+  velocity?: [number, number];
+  points?: [number, number];
+  matchPoint?: boolean;
+  isFinish?: boolean;
+  serveHit?: boolean;
+}
+
+export interface ExitMsg {
+  type: MsgType.Exit;
+  playerID?: UUID; // サーバが送る
+  reason?: number;
+}
+
+export type ClientMsg = JoinMsg | InitMsg | ReadyMsg | CliPlayingMsg | ExitMsg ;
+export type ServerMsg = InitMsg | ReadyMsg | SerPlayingMsg | ExitMsg ;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
-import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, GAME_POINT_MAX, GameStatus, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_WIDTH, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants.ts';
+import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, GAME_POINT_MAX, GameStatus, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_WIDTH, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT, BALL_SPEED_MAX } from './constants.ts';
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -29,7 +29,7 @@ export class Context {
   constructor() {}
 
   static accel() {
-    Context.ballSpeed += ACCELERATION;
+    Context.ballSpeed = Math.min(Context.ballSpeed + ACCELERATION, BALL_SPEED_MAX);
   }
 
   static resetBallSpeed() {
