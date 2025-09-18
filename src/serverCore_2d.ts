@@ -131,7 +131,7 @@ interface Hit {
 
 abstract class HitObject {
   constructor(protected context: GameContext) {}
-  abstract onHit(): Hit | undefined ;
+  abstract onHit(): void;
 }
 
 class SideWall extends HitObject {
@@ -145,7 +145,29 @@ class SideWall extends HitObject {
     );
   }
 
-  onHit(): Hit | undefined {
+  onHit(): void {
+    const newVel = this.context.now.velocity.clone();
+    newVel.x *= -1;
+    this.context.setVelocity(newVel);
+  }
+
+  get box() { return this.#box; }
+}
+
+class GOalWall extends HitObject {
+  #box: THREE.Box2;
+
+  constructor(context: GameContext, pos: [number, number]) {
+    super(context);
+    this.#box = new THREE.Box2(
+      new THREE.Vector2(pos[0] - STAGE_WIDTH / 2, pos[1] - STAGE_HEIGHT / 2 - WALL_DEPTH / 2),
+      new THREE.Vector2(pos[0] + STAGE_WIDTH / 2, pos[1] + STAGE_HEIGHT / 2 + WALL_DEPTH / 2)
+    )
+  }
+
+  onHit(): void {
     
   }
+
+  get box() { return this.#box; }
 }
