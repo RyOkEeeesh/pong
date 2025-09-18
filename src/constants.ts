@@ -1,4 +1,3 @@
-import { UUID } from 'crypto';
 import * as THREE from 'three';
 import { Init } from 'v8';
 
@@ -76,33 +75,51 @@ export enum SendType {
 };
 
 export enum RoleStatus {
-  P2,
   P1,
-  Spectator,
-  WannaPlay
+  P2,
+  Spectator, // SerOnly
 }
 
 export enum MsgType {
   Join,
+  RequestRole,
   Init,
   Ready,
   Playing,
   Exit
 }
 
+export enum ServerStatus {
+  Lobby,
+  Game
+}
+
+export type UUID = string;
+
 export interface JoinMsg {
   type: MsgType.Join;
-  name?: string;
+  id?: UUID; // Ser
 }
+
+export interface RequestRoleMsg {
+  type: MsgType.RequestRole;
+  role: RoleStatus;
+}
+
+export type Player = {
+  name: string;
+  id: UUID;
+  role: RoleStatus;
+  ready: boolean;
+};
 
 export interface InitMsg {
   type: MsgType.Init;
-  role: RoleStatus;
+  players: Player[];
 }
 
 export interface ReadyMsg {
   type: MsgType.Ready;
-  playerID?: UUID; // サーバが送る
   readyStatus: boolean;
 }
 
@@ -131,5 +148,5 @@ export interface ExitMsg {
   reason?: number;
 }
 
-export type ClientMsg = JoinMsg | InitMsg | ReadyMsg | CliPlayingMsg | ExitMsg ;
-export type ServerMsg = InitMsg | ReadyMsg | SerPlayingMsg | ExitMsg ;
+export type ClientMsg = RequestRoleMsg | ReadyMsg | CliPlayingMsg | ExitMsg ;
+export type ServerMsg = JoinMsg | InitMsg | SerPlayingMsg | ExitMsg ;

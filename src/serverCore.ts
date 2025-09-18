@@ -13,11 +13,11 @@ import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, PADDLE_POSITION_Z1, PA
 export const delta = 1 / 30;
 
 export class Context {
-  static gameStatus: GameStatus = GameStatus.Waiting;
+  static gameStatus: GameStatus = GameStatus.First;
   static ballSpeed: number = BALL_SPEED
   static ballPosition: THREE.Vector3 = new THREE.Vector3();
   static velocity: THREE.Vector3 = new THREE.Vector3();
-  static paddlePosition: [number, number] = [0, 0]; // [p2, p1]
+  static paddlePosition: [number, number] = [0, 1]; // [p2, p1]
   static pointGetter: boolean = Boolean(Math.round(Math.random()));
   static points: [number, number] = [0, 0];
   static gamePoint: number = GAME_POINT;
@@ -81,6 +81,7 @@ export class Context {
   }
 
   static resetAll() {
+    Context.gameStatus = GameStatus.First;
     Context.ballPosition.set(0, 0, 0);
     Context.velocity.set(0, 0, 0);
     Context.paddlePosition = [0, 1];
@@ -93,6 +94,8 @@ export class Context {
     Context.serveHit = true; // false
   }
 }
+
+Context.resetAll();
 
 const offsets = [
     new THREE.Vector3(0, 0, 0),
@@ -123,15 +126,11 @@ export class GameCore {
 
   start() {
     this.#interval = setInterval(() => {
-      console.log(Context.gameStatus)
+      console.log(Context.ballPosition)
       this.#paddles[0].move();
       this.#paddles[1].move();
 
       switch (Context.gameStatus) {
-        case GameStatus.Waiting:
-          Context.resetAll();
-          Context.gameStatus = GameStatus.First;
-          break;
         case GameStatus.First:
           this.moveBallForPaddle();
           Context.gameStatus = GameStatus.Serving;
@@ -180,7 +179,6 @@ export class GameCore {
           }
           break;
         case GameStatus.End:
-        case GameStatus.Pause:
       }
 
       this.#ball.setPosition();

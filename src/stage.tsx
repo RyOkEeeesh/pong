@@ -511,6 +511,8 @@ export default function Stage({isResizing}: StageProps) {
     const { gameStatus, matchPoint, isFinish, serveHit, setServeHit, pointGetter } = useGameStore.getState();
     setDelta(delta);
 
+    console.log(ballPosition);
+
     switch (gameStatus) {
       case GameStatus.Waiting:
         break;
