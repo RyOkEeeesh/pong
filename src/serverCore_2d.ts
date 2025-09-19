@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
+import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
+
+export const delta = 1 / 30;
 
 interface Hit {
   normal: THREE.Vector2;
@@ -60,7 +62,7 @@ const defGameContext: Context = {
 }
 
 export class GameCore {
-#context: GameContext = {
+  #context: GameContext = {
     now: { ...defGameContext },
     before: {},
 
@@ -116,6 +118,19 @@ export class GameCore {
     if (now.matchPoint !== before.matchPoint) diff.matchPoint = now.matchPoint;
     if (now.isFinish !== before.isFinish) diff.isFinish = now.isFinish;
     if (now.serveHit !== before.serveHit) diff.serveHit = now.serveHit;
+    if (
+      (now.hit === null && before.hit !== null) ||
+      (now.hit !== null && before.hit === null) ||
+      (
+        now.hit !== null &&
+        before.hit !== null &&
+        (!now.hit.normal.equals(before.hit!.normal) ||
+        !now.hit.hitPoint.equals(before.hit!.hitPoint))
+      )) {
+        diff.hit = now.hit
+          ? { normal: now.hit.normal.clone(), hitPoint: now.hit.hitPoint.clone() }
+          : null;
+      }
 
     return diff;
   }
@@ -138,8 +153,15 @@ export class GameCore {
   }
 }
 
+function getBoxWithMargin(box: THREE.Box2, margin: number) {
+  return new THREE.Box2(
+    box.min.clone().subScalar(margin),
+    box.max.clone().subScalar(margin)
+  );
+}
+
 function intersect(a: THREE.Box2, b: THREE.Box2) {
-  if (!a.intersectsBox(b)) return;
+  if (!getBoxWithMargin(a, 0.09).intersectsBox(b)) return;
 
   // 重なり領域を計算
   const overlapMin = new THREE.Vector2(
@@ -229,6 +251,7 @@ class GoalWall extends HitObject {
       this.context.setGameStatus(GameStatus.GetPoint);
     }
   }
+
   get box() { return this.#box; }
 }
 
@@ -236,6 +259,7 @@ class Paddle extends HitObject {
   #box: THREE.Box2;
   #position: [number, number];
   #name: string;
+  #size: THREE.Vector2 = new THREE.Vector2();
 
   constructor(context: GameContext, pos: [number, number]) {
     super(context);
@@ -245,6 +269,12 @@ class Paddle extends HitObject {
       new THREE.Vector2(pos[0] - PADDLE_HALF_X, pos[1] - PADDLE_HEIGHT / 2),
       new THREE.Vector2(pos[0] + PADDLE_HALF_X, pos[1] + PADDLE_HEIGHT / 2)
     );
+    this.#box.getSize(this.#size);
+  }
+
+  move() {
+    const position = this.context.now.paddlePos[Number(this.#position[1] > 0)];
+    this.#box.setFromCenterAndSize(new THREE.Vector2(position, 0), this.#size);
   }
 
   handleHit() {
@@ -279,6 +309,58 @@ class Paddle extends HitObject {
         this.context.setVelocity(vel);
       }
     }
+  }
+
+  get box() { return this.#box; }
+}
+
+class Ball {
+  #box: THREE.Box2 = new THREE.Box2(
+    new THREE.Vector2(-BALL_SIZE / 2, -BALL_SIZE / 2),
+    new THREE.Vector2(BALL_SIZE / 2, BALL_SIZE / 2)
+  );
+  #size: THREE.Vector2 = new THREE.Vector2();
+
+  #serveBeforePaddlePosition: THREE.Vector2 | null = null;
+  #serveBeforeBallPosition: THREE.Vector2 | null = null;
+  #servePaddleVelocity: THREE.Vector2 = new THREE.Vector2();
+  #serveBallVelocity: THREE.Vector2 = new THREE.Vector2();
+
+  constructor(private context: GameContext) {
+    this.#box.getSize(this.#size);
+  }
+
+  move() {
+    this.#box.setFromCenterAndSize(this.context.now.ballPos.clone(), this.#size);
+  }
+
+  changeServePosition() {
+    const paddlePos = new THREE.Vector2(this.context.now.paddlePos[Number(!this.context.now.pointGetter)], 0);
+    const ballPos = this.context.now.ballPos.clone();
+    if (this.#serveBeforePaddlePosition === null || this.#serveBeforeBallPosition === null) {
+      this.#serveBeforePaddlePosition = paddlePos.clone();
+      this.#serveBeforeBallPosition = ballPos.clone();
+      return;
+    }
+    this.#servePaddleVelocity.subVectors(paddlePos.clone(), this.#serveBeforePaddlePosition).divideScalar(delta);
+    this.#serveBallVelocity.subVectors(ballPos.clone(), this.#serveBeforeBallPosition).divideScalar(delta);
+    this.#serveBeforePaddlePosition.copy(paddlePos);
+    this.#serveBeforeBallPosition.copy(ballPos);
+
+    if (this.#servePaddleVelocity.x !== this.#serveBallVelocity.x) {
+      this.#serveBallVelocity.multiplyScalar(FRICTION);
+      if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0);
+      ballPos.x += this.#serveBallVelocity.x * delta;
+      ballPos.x = THREE.MathUtils.clamp(ballPos.x, -STAGE_WIDTH / 2 + 0.8, STAGE_WIDTH / 2 - 0.8);
+    }
+    ballPos.x = THREE.MathUtils.clamp(ballPos.x, paddlePos.x - PADDLE_HALF_X + BALL_SIZE / 2, paddlePos.x + PADDLE_HALF_X - BALL_SIZE / 2); 
+    this.context.setBallPos(ballPos);
+    this.move();
+  }
+
+  resetServePosition() {
+    this.#serveBeforePaddlePosition = null;
+    this.#serveBeforeBallPosition = null;
   }
 
   get box() { return this.#box; }
