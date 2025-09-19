@@ -20,7 +20,8 @@ import {
   PADDLE_POSITION_Z1,
   PADDLE_POSITION_Z2,
   PADDLE_WIDTH,
-  SIDE,
+  SIDE_1,
+  SIDE_2,
   STAGE_HEIGHT,
   STAGE_WIDTH,
   WALL_DEPTH,
@@ -342,48 +343,35 @@ export default function Stage({isResizing}: StageProps) {
     ], []
   );
 
-  const normalMatrix = useMemo(() => new THREE.Matrix3(), []);
-
+  const normalMatrix = new THREE.Matrix3();
 
   function handleHitObj(mesh: THREE.Mesh, hitPoint: THREE.Vector3, normal: THREE.Vector3) {
-    switch (mesh.name) {
-      case PADDLE_1:
-        if (Math.abs(normal.z) > 0.9) {
-          const forEffect = goalWall1Ref.current;
-          const hit = hitPoint.clone();
-          hit.z = forEffect.position.z;
-          stretchEffect(hit, normal, forEffect);
-          handleHitPaddle(mesh);
-        } else {
-          handleHitSideWall();
-        }
-        break
-      case PADDLE_2:
-        if (Math.abs(normal.z) > 0.9) {
-          const forEffect = goalWall2Ref.current;
-          const hit = hitPoint.clone();
-          hit.z = forEffect.position.z;
-          stretchEffect(hit, normal, forEffect);
-          handleHitPaddle(mesh);
-        } else {
-          handleHitSideWall();
-        }
-        break;
-      case SIDE:
-        stretchEffect(hitPoint, normal, mesh);
+    if (mesh.name === PADDLE_1 || mesh.name === PADDLE_2) {
+      if (Math.abs(normal.z) > 0.9) {
+        const forEffect = mesh.name === PADDLE_1
+          ? goalWall1Ref.current
+          : goalWall2Ref.current ;
+        const hit = hitPoint.clone();
+        hit.z = forEffect.position.z;
+        stretchEffect(hit, normal, forEffect);
+        handleHitPaddle(mesh);
+      } else {
         handleHitSideWall();
-        break;
-      case GOAL_1:
-      case GOAL_2:
-        handleHitGoalWall(mesh.name === GOAL_2);
-        blinkingEffect({
-          mat: [wallMat],
-          end: 250,
-          difference: 0.15,
-          times: 2
-        });
-        break;
+      }
+      return;
     }
+    if (mesh.name === SIDE_1 || mesh.name === SIDE_2) {
+      stretchEffect(hitPoint, normal, mesh);
+      handleHitSideWall();
+      return;
+    }
+    handleHitGoalWall(mesh.name === GOAL_2);
+    blinkingEffect({
+      mat: [wallMat],
+      end: 250,
+      difference: 0.15,
+      times: 2
+    });
   }
 
   function checkHit(ray: THREE.Raycaster, obj: THREE.Mesh) {
@@ -511,73 +499,57 @@ export default function Stage({isResizing}: StageProps) {
     const { gameStatus, matchPoint, isFinish, serveHit, setServeHit, pointGetter } = useGameStore.getState();
     setDelta(delta);
 
-    console.log(ballPosition);
+    if (gameStatus === GameStatus.Waiting) {
 
-    switch (gameStatus) {
-      case GameStatus.Waiting:
-        break;
-      case GameStatus.First:
-        {
-          if(moveBallForPaddle()) setGameStatus(GameStatus.Serving);
+    } else if (gameStatus === GameStatus.First) {
+      if(moveBallForPaddle())
+        setGameStatus(GameStatus.Serving);
+    } else if (gameStatus === GameStatus.Serving) {
+      moveBallForServe();
+      if(serveHit) {
+        setServeHit(false);
+        handleHitPaddle(paddleRefs[Number(!pointGetter)].current);
+        resetBeforePositions();
+        setGameStatus(GameStatus.Playing);
+      }
+    } else if (gameStatus === GameStatus.Playing) {
+      const newPos = ballPosition.clone().addScaledVector(velocity, delta);
+      setBallPosition(newPos);
+      checkBallCollision();
+    } else if (gameStatus === GameStatus.GetPoint) {
+      if(sleepRef.current && sleep()) {
+        if(moveBallForPaddle()) {
+          sleepRef.current = null;
+          setGameStatus(isFinish ? GameStatus.End :GameStatus.Serving);
         }
-        break;
-      case GameStatus.Serving:
-        {
-          moveBallForServe();
-          if(serveHit) {
-            setServeHit(false);
-            handleHitPaddle(paddleRefs[Number(!pointGetter)].current);
-            resetBeforePositions();
-            setGameStatus(GameStatus.Playing);
-          }
+      } else if (sleepRef.current === null) {
+        setBallSpeed();
+        sleepRef.current = performance.now() + 250;
+        if ( matchPoint || isFinish ) {
+          const mats = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+          const option = isFinish
+            ? {
+              mat: mats,
+              end: 4000,
+              difference: -0.8,
+              times: 16
+            } : {
+              mat: mats,
+              end: 800,
+              difference: -0.8,
+              times: 4
+            };
+          blinkingEffect(option);
         }
-        break;
-      case GameStatus.Playing:
-        { // playing
-          const newPos = ballPosition.clone().addScaledVector(velocity, delta);
-          setBallPosition(newPos);
-          updateStretchEffect();
-          checkBallCollision();
-        }
-        break;
-      case GameStatus.GetPoint:
-        {
-          updateStretchEffect();
-          if(sleepRef.current && sleep()) {
-            if(moveBallForPaddle()) {
-              sleepRef.current = null;
-              setGameStatus(isFinish ? GameStatus.End :GameStatus.Serving);
-            }
-          } else if (sleepRef.current === null) {
-            setBallSpeed();
-            sleepRef.current = performance.now() + 250;
-            if ( matchPoint || isFinish ) {
-              const mats = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
-              const option = isFinish
-                ? {
-                  mat: mats,
-                  end: 4000,
-                  difference: -0.8,
-                  times: 16
-                } : {
-                  mat: mats,
-                  end: 800,
-                  difference: -0.8,
-                  times: 4
-                };
-              blinkingEffect(option);
-            }
+      }
+    } else if (gameStatus === GameStatus.End) {
 
-          }
-        }
-        break;
-      case GameStatus.End:
-        console.log('Game END');
-        break;
-      case GameStatus.Pause:
-        break;
+    } else { // GameStatus.Pause
+      
     }
 
+
+    updateStretchEffect();
     updateBlinkingEffect();
 
     paddleRefs[0].current.position.x = paddlePosition[0];
@@ -593,13 +565,13 @@ export default function Stage({isResizing}: StageProps) {
       <group ref={stageGroup}>
         <SideWall
           ref={sideWallsRef[0]}
-          name={SIDE}
+          name={SIDE_1}
           position={[-STAGE_WIDTH / 2, 0, 0]}
           material={wallMat}
         />
         <SideWall
           ref={sideWallsRef[1]}
-          name={SIDE}
+          name={SIDE_2}
           position={[STAGE_WIDTH / 2, 0, 0]}
           material={wallMat}
         />

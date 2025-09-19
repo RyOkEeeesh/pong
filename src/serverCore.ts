@@ -306,8 +306,8 @@ class Paddle extends HitObject {
       dz * Context.ballSpeed * Math.cos(angle)
     );
 
-    if (Math.abs(Context.velocity.y) < 0.01) {
-      Context.velocity.y = dz * 0.1;
+    if (Math.abs(Context.velocity.z) < 0.01) {
+      Context.velocity.z = dz * 0.1;
       Context.velocity.normalize().multiplyScalar(Context.ballSpeed);
     }
   }
@@ -316,7 +316,7 @@ class Paddle extends HitObject {
     const hit = isHit(ray, this.#mesh);
     if (!hit) return;
 
-    if (hit.normal.z > 0.9 || hit.normal.z < -0.9) {
+    if (Math.abs(hit.normal.z) > 0.9) {
       this.hitPaddle();
     } else {
       const newVel = Context.velocity.clone();

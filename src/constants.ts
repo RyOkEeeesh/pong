@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { Init } from 'v8';
 
 export const STAGE_HEIGHT = 28;
 export const STAGE_WIDTH = 22.4;
@@ -30,7 +29,8 @@ export const PADDLE_2 = 'paddle2';
 export const GOAL_1 = 'goalWall1';
 export const GOAL_2 = 'goalWall2';
 
-export const SIDE = 'sideWall';
+export const SIDE_1 = 'sideWall1';
+export const SIDE_2 = 'sideWall2';
 
 export const EFFECT_MESH_WIDTH = 1.5;
 

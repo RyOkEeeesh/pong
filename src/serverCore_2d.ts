@@ -1,5 +1,14 @@
 import * as THREE from 'three';
-import { BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameStatus, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
+import { BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
+
+interface Hit {
+  normal: THREE.Vector2;
+  hitPoint: THREE.Vector2;
+}
+
+interface ObjectHit extends Hit {
+  name?: string;
+}
 
 type Context = {
   gameStatus: GameStatus;
@@ -13,6 +22,7 @@ type Context = {
   matchPoint: boolean;
   isFinish: boolean;
   serveHit: boolean;
+  hit: ObjectHit | null;
 }
 
 interface GameContext {
@@ -30,7 +40,8 @@ interface GameContext {
   addGamePoint: () => void;
   setMatchPoint: (s: boolean) => void;
   setIsFinish: () => void;
-  setServeHit: (hit: boolean) => void; 
+  setServeHit: (hit: boolean) => void;
+  setHit: (hit: ObjectHit) => void;
 }
 
 const defGameContext: Context = {
@@ -44,7 +55,8 @@ const defGameContext: Context = {
   gamePoint: GAME_POINT,
   matchPoint: false,
   isFinish: false,
-  serveHit: false
+  serveHit: false,
+  hit: null
 }
 
 export class GameCore {
@@ -81,6 +93,7 @@ export class GameCore {
     setMatchPoint: s => { this.#context.now.matchPoint = s; },
     setIsFinish: () => { this.#context.now.isFinish = true; },
     setServeHit: hit => { this.#context.now.serveHit = hit; },
+    setHit: hit => { this.#context.now.hit = hit; }
   };
 
   constructor() {
@@ -119,54 +132,153 @@ export class GameCore {
       gamePoint: this.#context.now.gamePoint,
       matchPoint: this.#context.now.matchPoint,
       isFinish: this.#context.now.isFinish,
-      serveHit: this.#context.now.serveHit
+      serveHit: this.#context.now.serveHit,
+      hit: this.#context.now.hit
     };
   }
 }
 
-interface Hit {
-  normal: THREE.Vector2;
-  hitPosition: THREE.Vector2;
+function intersect(a: THREE.Box2, b: THREE.Box2) {
+  if (!a.intersectsBox(b)) return;
+
+  // 重なり領域を計算
+  const overlapMin = new THREE.Vector2(
+    Math.max(a.min.x, b.min.x),
+    Math.max(a.min.y, b.min.y)
+  );
+  const overlapMax = new THREE.Vector2(
+    Math.min(a.max.x, b.max.x),
+    Math.min(a.max.y, b.max.y)
+  );
+  const overlap = new THREE.Vector2().subVectors(overlapMax, overlapMin);
+
+  // x衝突
+  if (overlap.x < overlap.y) {
+    const normal = new THREE.Vector2(a.min.x < b.min.x ? -1 : 1, 0);
+    const hitPoint = new THREE.Vector2(
+      normal.x > 0 ? a.max.x : a.min.x, // ボール側の面
+      (overlapMin.y + overlapMax.y) / 2 // 中央
+    );
+    return { normal, hitPoint };
+  } 
+  // y衝突
+  else {
+    const normal = new THREE.Vector2(0, a.min.y < b.min.y ? -1 : 1);
+    const hitPoint = new THREE.Vector2(
+      (overlapMin.x + overlapMax.x) / 2,
+      normal.y > 0 ? a.max.y : a.min.y
+    );
+    return { normal, hitPoint };
+  }
 }
 
 abstract class HitObject {
   constructor(protected context: GameContext) {}
-  abstract onHit(): void;
+  abstract onHit(ball: THREE.Box2): void;
 }
 
 class SideWall extends HitObject {
   #box: THREE.Box2;
+  #name: string;
 
   constructor(context: GameContext, pos: [number, number]) {
     super(context);
+    this.#name = pos[0] < 0 ? SIDE_1 : SIDE_2 ;
     this.#box = new THREE.Box2(
       new THREE.Vector2(pos[0] - WALL_DEPTH / 2, pos[1] - STAGE_HEIGHT / 2),
       new THREE.Vector2(pos[0] + WALL_DEPTH / 2, pos[1] + STAGE_HEIGHT / 2)
     );
   }
 
-  onHit(): void {
-    const newVel = this.context.now.velocity.clone();
-    newVel.x *= -1;
-    this.context.setVelocity(newVel);
+  onHit(ball: THREE.Box2): void {
+    const hit: ObjectHit | undefined = intersect(ball, this.#box);
+    if (hit) {
+      const newVel = this.context.now.velocity.clone();
+      newVel.x *= -1;
+      this.context.setVelocity(newVel);
+      this.context.setBallPos(hit.hitPoint);
+      hit.name = this.#name;
+      this.context.setHit(hit);
+    }
   }
 
   get box() { return this.#box; }
 }
 
-class GOalWall extends HitObject {
+class GoalWall extends HitObject {
   #box: THREE.Box2;
+  #position: [number, number]
 
   constructor(context: GameContext, pos: [number, number]) {
     super(context);
+    this.#position = pos;
     this.#box = new THREE.Box2(
       new THREE.Vector2(pos[0] - STAGE_WIDTH / 2, pos[1] - STAGE_HEIGHT / 2 - WALL_DEPTH / 2),
       new THREE.Vector2(pos[0] + STAGE_WIDTH / 2, pos[1] + STAGE_HEIGHT / 2 + WALL_DEPTH / 2)
     )
   }
 
-  onHit(): void {
-    
+  onHit(ball: THREE.Box2): void {
+    const hit = intersect(ball, this.#box);
+    if (hit) {
+      this.context.setVelocity(new THREE.Vector2());
+      this.context.setBallPos(hit.hitPoint);
+      this.context.setBallSpeed(BALL_SPEED);
+      this.context.setPointGetter(this.#position[1] < 0);
+      this.context.addPoint();
+      this.context.setGameStatus(GameStatus.GetPoint);
+    }
+  }
+  get box() { return this.#box; }
+}
+
+class Paddle extends HitObject {
+  #box: THREE.Box2;
+  #position: [number, number];
+  #name: string;
+
+  constructor(context: GameContext, pos: [number, number]) {
+    super(context);
+    this.#position = pos;
+    this.#name = pos[1] > 0 ? PADDLE_1 : PADDLE_2 ;
+    this.#box = new THREE.Box2(
+      new THREE.Vector2(pos[0] - PADDLE_HALF_X, pos[1] - PADDLE_HEIGHT / 2),
+      new THREE.Vector2(pos[0] + PADDLE_HALF_X, pos[1] + PADDLE_HEIGHT / 2)
+    );
+  }
+
+  handleHit() {
+    const normalized = THREE.MathUtils.clamp((this.context.now.ballPos.x - this.#position[0]) / PADDLE_HALF_X, -1 ,1);
+    const maxAngle = Math.PI / 3;
+    const angle = normalized * maxAngle;
+    const dy = this.#position[1] > 0 ? -1 : 1;
+
+    this.context.setVelocity(new THREE.Vector2(
+      this.context.now.ballSpeed * Math.sin(angle),
+      dy * this.context.now.ballSpeed * Math.cos(angle)
+    ));
+
+    if (Math.abs(this.context.now.velocity.y) < 0.01) {
+      const vel = this.context.now.velocity.clone();
+      vel.y = dy * 0.1;
+      vel.normalize().multiplyScalar(this.context.now.ballSpeed);
+      this.context.setVelocity(vel);
+    }
+  }
+
+  onHit(ball: THREE.Box2): void {
+    const hit: ObjectHit | undefined = intersect(ball, this.#box);
+    if (hit) {
+      if (Math.abs(hit.normal.y) > 0.9) {
+        this.handleHit();
+        hit.name = this.#name;
+        this.context.setHit(hit);
+      } else {
+        const vel = this.context.now.velocity.clone();
+        vel.x *= -1;
+        this.context.setVelocity(vel);
+      }
+    }
   }
 
   get box() { return this.#box; }
