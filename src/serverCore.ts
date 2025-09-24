@@ -98,12 +98,12 @@ export class Context {
 Context.resetAll();
 
 const offsets = [
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0.5, 0, 0.5),
-    new THREE.Vector3(-0.5, 0, 0.5),
-    new THREE.Vector3(0.5, 0, -0.5),
-    new THREE.Vector3(-0.5, 0, -0.5)
-  ];
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0.5, 0, 0.5),
+  new THREE.Vector3(-0.5, 0, 0.5),
+  new THREE.Vector3(0.5, 0, -0.5),
+  new THREE.Vector3(-0.5, 0, -0.5)
+];
 
 export class GameCore {
   #Walls = [new SideWall([-STAGE_WIDTH / 2, 0]), new SideWall([STAGE_WIDTH / 2, 0]), new GoalWall([0, STAGE_HEIGHT / 2]), new GoalWall([0, -STAGE_HEIGHT / 2])];

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
+import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
 
 export const delta = 1 / 30;
 
@@ -59,7 +59,15 @@ const defGameContext: Context = {
   isFinish: false,
   serveHit: false,
   hit: null
-}
+};
+
+const offsets = [
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0.5, 0, 0.5),
+  new THREE.Vector3(-0.5, 0, 0.5),
+  new THREE.Vector3(0.5, 0, -0.5),
+  new THREE.Vector3(-0.5, 0, -0.5)
+];
 
 export class GameCore {
   #context: GameContext = {
@@ -97,6 +105,25 @@ export class GameCore {
     setServeHit: hit => { this.#context.now.serveHit = hit; },
     setHit: hit => { this.#context.now.hit = hit; }
   };
+
+  #done: boolean = false;
+  #accept: boolean = false;
+
+  #walls: (SideWall | GoalWall)[] = [
+    new SideWall(this.#context, [-STAGE_WIDTH / 2, 0]),
+    new SideWall(this.#context, [STAGE_WIDTH / 2, 0]),
+    new GoalWall(this.#context, [0, -STAGE_HEIGHT / 2]),
+    new GoalWall(this.#context, [0, STAGE_HEIGHT / 2])
+  ];
+
+  #paddles: Paddle[] = [
+    new Paddle(this.#context, [0, PADDLE_POSITION_Z1]),
+    new Paddle(this.#context, [0, PADDLE_POSITION_Z2])
+  ];
+
+  #ball: Ball = new Ball(this.#context);
+
+  #interval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.sync();
@@ -151,6 +178,82 @@ export class GameCore {
       hit: this.#context.now.hit
     };
   }
+
+  hasService() {
+    return this.#paddles[Number(!this.#context.now.pointGetter)];
+  }
+
+  moveBallForPaddle() {
+    const position = this.hasService().position.clone();
+    position.y -= Math.sign(position.y) * 1.2;
+    this.#context.setBallPos(position);
+  }
+
+  accept() {
+    this.#accept = true;
+  }
+
+  nextStatus(s: GameStatus) {
+    if (this.#accept) {
+      this.#done = false;
+      this.#accept = false;
+      this.#context.setGameStatus(s);
+    }
+    return this.#accept;
+  }
+
+  start() {
+    this.#interval = setInterval(() => {
+      this.#paddles[0].move();
+      this.#paddles[1].move();
+      if (this.#context.now.gameStatus === GameStatus.First) {
+        if (!this.#done) {
+          this.moveBallForPaddle();
+          this.#done = true;
+        }
+        this.nextStatus(GameStatus.Serving);
+      } else if (this.#context.now.gameStatus === GameStatus.Serving) {
+        this.#ball.changeServePosition();
+        if (this.#context.now.serveHit && !this.#done) {
+          this.#done = true;
+          this.hasService().handleHit();
+          this.#ball.resetServePosition();
+        }
+        if (this.nextStatus(GameStatus.Playing)) {
+          this.#context.setServeHit(false);
+        }
+      } else if (this.#context.now.gameStatus === GameStatus.Playing) {
+        const newBallPos = this.#context.now.ballPos.clone();
+        this.#context.setBallPos(newBallPos.addScaledVector(this.#context.now.velocity, delta));
+        this.#ball.move();
+        for (const obj of [ ...this.#paddles, ...this.#walls ]) {
+          if (obj.onHit(this.#ball.box)) break;
+        }
+        this.#ball.move();
+      } else if (this.#context.now.gameStatus === GameStatus.GetPoint) {
+        if (this.#context.now.isFinish) {
+          this.nextStatus(GameStatus.End);
+        } else {
+          if (!this.#done) this.moveBallForPaddle();
+          this.nextStatus(GameStatus.Serving);
+
+        }
+      } else { // End
+        
+      }
+    }, delta * 1000);
+  }
+
+  stop() {
+    if (this.#interval) clearInterval(this.#interval);
+    this.#interval = null;
+  }
+
+  reset() {
+    this.#accept = false;
+    this.#done = false;
+    this.#context.now = {...defGameContext};
+  }
 }
 
 function getBoxWithMargin(box: THREE.Box2, margin: number) {
@@ -160,7 +263,7 @@ function getBoxWithMargin(box: THREE.Box2, margin: number) {
   );
 }
 
-function intersect(a: THREE.Box2, b: THREE.Box2) {
+function intersect(a: THREE.Box2, b: THREE.Box2): Hit | undefined {
   if (!getBoxWithMargin(a, 0.09).intersectsBox(b)) return;
 
   // 重なり領域を計算
@@ -196,7 +299,7 @@ function intersect(a: THREE.Box2, b: THREE.Box2) {
 
 abstract class HitObject {
   constructor(protected context: GameContext) {}
-  abstract onHit(ball: THREE.Box2): void;
+  abstract onHit(ball: THREE.Box2): boolean;
 }
 
 class SideWall extends HitObject {
@@ -212,7 +315,7 @@ class SideWall extends HitObject {
     );
   }
 
-  onHit(ball: THREE.Box2): void {
+  onHit(ball: THREE.Box2): boolean {
     const hit: ObjectHit | undefined = intersect(ball, this.#box);
     if (hit) {
       const newVel = this.context.now.velocity.clone();
@@ -221,7 +324,9 @@ class SideWall extends HitObject {
       this.context.setBallPos(hit.hitPoint);
       hit.name = this.#name;
       this.context.setHit(hit);
+      return true;
     }
+    return false;
   }
 
   get box() { return this.#box; }
@@ -240,7 +345,7 @@ class GoalWall extends HitObject {
     )
   }
 
-  onHit(ball: THREE.Box2): void {
+  onHit(ball: THREE.Box2): boolean {
     const hit = intersect(ball, this.#box);
     if (hit) {
       this.context.setVelocity(new THREE.Vector2());
@@ -249,7 +354,9 @@ class GoalWall extends HitObject {
       this.context.setPointGetter(this.#position[1] < 0);
       this.context.addPoint();
       this.context.setGameStatus(GameStatus.GetPoint);
+      return true;
     }
+    return false;
   }
 
   get box() { return this.#box; }
@@ -274,7 +381,7 @@ class Paddle extends HitObject {
 
   move() {
     const position = this.context.now.paddlePos[Number(this.#position[1] > 0)];
-    this.#box.setFromCenterAndSize(new THREE.Vector2(position, 0), this.#size);
+    this.#box.setFromCenterAndSize(new THREE.Vector2(position, this.#position[1]), this.#size);
   }
 
   handleHit() {
@@ -296,7 +403,7 @@ class Paddle extends HitObject {
     }
   }
 
-  onHit(ball: THREE.Box2): void {
+  onHit(ball: THREE.Box2): boolean {
     const hit: ObjectHit | undefined = intersect(ball, this.#box);
     if (hit) {
       if (Math.abs(hit.normal.y) > 0.9) {
@@ -308,10 +415,13 @@ class Paddle extends HitObject {
         vel.x *= -1;
         this.context.setVelocity(vel);
       }
+      return true;
     }
+    return false;
   }
 
   get box() { return this.#box; }
+  get position() { return new THREE.Vector2(this.#position[0], this.#position[1]); }
 }
 
 class Ball {
