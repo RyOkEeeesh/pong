@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
-import { Context, GameCore } from "./serverCore.ts";
+import { GameCore } from './serverCore.ts';
 import { ClientMsg, InitMsg, JoinMsg, MsgType, Player, ReadyMsg, RoleStatus, ServerMsg, ServerStatus } from "./constants.ts";
 
 interface BeforeData {
@@ -121,7 +121,7 @@ wss.on("connection", (ws: ExtWebSocket, req) => {
         if (players.filter(p => p.role !== RoleStatus.Spectator && p.ready).length === 2) { // プレイヤー2人が準備完了したのでゲームを開始する
           serverStatus.set(ServerStatus.Game);
           console.log('Game start!');
-          Context.resetAll();
+          game.reset();
           game.start();
         }
       }

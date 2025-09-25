@@ -1,372 +1,475 @@
 import * as THREE from 'three';
-import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
-import { ACCELERATION, BALL_SIZE, BALL_SPEED, GAME_POINT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, GAME_POINT_MAX, GameStatus, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_WIDTH, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT, BALL_SPEED_MAX } from './constants.ts';
+import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
 
-(THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
-  (this as any).boundsTree = new MeshBVH(this);
-};
-(THREE.BufferGeometry.prototype as any).disposeBoundsTree = function () {
-  (this as any).boundsTree = null;
-};
-(THREE.Mesh.prototype as any).raycast = acceleratedRaycast;
+export const delta = 1 / 60;
 
-export const delta = 1 / 30;
-
-export class Context {
-  static gameStatus: GameStatus = GameStatus.First;
-  static ballSpeed: number = BALL_SPEED
-  static ballPosition: THREE.Vector3 = new THREE.Vector3();
-  static velocity: THREE.Vector3 = new THREE.Vector3();
-  static paddlePosition: [number, number] = [0, 1]; // [p2, p1]
-  static pointGetter: boolean = Boolean(Math.round(Math.random()));
-  static points: [number, number] = [0, 0];
-  static gamePoint: number = GAME_POINT;
-  static gamePointMax: number = GAME_POINT_MAX;
-  static matchPoint: boolean = false;
-  static isFinish: boolean = false;
-  static serveHit: boolean = true; // false
-
-  constructor() {}
-
-  static accel() {
-    Context.ballSpeed = Math.min(Context.ballSpeed + ACCELERATION, BALL_SPEED_MAX);
-  }
-
-  static resetBallSpeed() {
-    Context.ballSpeed = BALL_SPEED;
-  }
-
-  static updateBallPosition()  {
-    Context.ballPosition.addScaledVector(Context.velocity, delta);
-  }
-
-  static setVelocity(vel: THREE.Vector3) {
-    Context.velocity = vel.clone().normalize().multiplyScalar(Context.ballSpeed);
-  }
-
-  static resetVelocity() {
-    Context.velocity = new THREE.Vector3();
-  }
-
-  static setPaddlePosition(pos: [number, number]) {
-    Context.paddlePosition = pos;
-  }
-
-  static resetPaddlePosition() {
-    Context.paddlePosition = [0, 0];
-  }
-
-  static addPoint() {
-    Context.points[Number(Context.pointGetter)]++;
-
-    const max = Math.max(...Context.points);
-
-    if (Context.gamePoint - max === 1) {
-      if (Context.points[0] === Context.points[1] && GAME_POINT_MAX - max !== 1) { // デュース
-        Context.gamePoint = Math.min(Context.gamePoint + 1, GAME_POINT_MAX);
-        Context.matchPoint = false;
-        return;
-      } else {
-        Context.matchPoint = true;
-        return;
-      }
-    } else if (Context.gamePoint === max) {
-      Context.matchPoint = false;
-      Context.isFinish = true;
-      return;
-    }
-
-    Context.matchPoint = false;
-    Context.isFinish = false;
-  }
-
-  static resetAll() {
-    Context.gameStatus = GameStatus.First;
-    Context.ballPosition.set(0, 0, 0);
-    Context.velocity.set(0, 0, 0);
-    Context.paddlePosition = [0, 1];
-    Context.pointGetter = Boolean(Math.round(Math.random()));
-    Context.points = [0, 0];
-    Context.gamePoint = GAME_POINT;
-    Context.gamePointMax = GAME_POINT_MAX;
-    Context.matchPoint = false;
-    Context.isFinish = false;
-    Context.serveHit = true; // false
-  }
+interface Hit {
+  normal: THREE.Vector2;
+  hitPoint: THREE.Vector2;
 }
 
-Context.resetAll();
+interface ObjectHit extends Hit {
+  name?: string;
+}
 
-const offsets = [
-  new THREE.Vector3(0, 0, 0),
-  new THREE.Vector3(0.5, 0, 0.5),
-  new THREE.Vector3(-0.5, 0, 0.5),
-  new THREE.Vector3(0.5, 0, -0.5),
-  new THREE.Vector3(-0.5, 0, -0.5)
-];
+type Context = {
+  gameStatus: GameStatus;
+  ballSpeed: number;
+  ballPos: THREE.Vector2;
+  velocity: THREE.Vector2;
+  paddlePos: [number, number];
+  pointGetter: boolean;
+  points: [number, number];
+  gamePoint: number;
+  matchPoint: boolean;
+  isFinish: boolean;
+  serveHit: boolean;
+  hit: ObjectHit | null;
+}
+
+interface GameContext {
+  now: Context;
+  before: Partial<Context>;
+
+  setGameStatus: (s: GameStatus) => void;
+  setBallSpeed: (s: number) => void;
+  setBallPos: (pos: THREE.Vector2) => void;
+  setVelocity: (v: THREE.Vector2) => void;
+  setPaddlePos: (pos: [number, number]) => void;
+  setPointGetter: (isP1: boolean) => void;
+  setPoint: (p: [number, number]) => void;
+  addPoint: () => void;
+  addGamePoint: () => void;
+  setMatchPoint: (s: boolean) => void;
+  setIsFinish: () => void;
+  setServeHit: (hit: boolean) => void;
+  setHit: (hit: ObjectHit) => void;
+}
+
+const defGameContext: Context = {
+  gameStatus: GameStatus.First,
+  ballSpeed: BALL_SPEED,
+  ballPos: new THREE.Vector2(),
+  velocity: new THREE.Vector2(),
+  paddlePos: [0, 1],
+  pointGetter: Boolean(Math.round(Math.random())),
+  points: [0, 0],
+  gamePoint: GAME_POINT,
+  matchPoint: false,
+  isFinish: false,
+  serveHit: false,
+  hit: null
+};
 
 export class GameCore {
-  #Walls = [new SideWall([-STAGE_WIDTH / 2, 0]), new SideWall([STAGE_WIDTH / 2, 0]), new GoalWall([0, STAGE_HEIGHT / 2]), new GoalWall([0, -STAGE_HEIGHT / 2])];
-  #paddles = [new Paddle([0, PADDLE_POSITION_Z2]), new Paddle([0, PADDLE_POSITION_Z1])];
-  #ball = new Ball();
+  #context: GameContext = {
+    now: { ...defGameContext },
+    before: {},
 
-  #interval!: NodeJS.Timeout | null;
+    setGameStatus: s => { this.#context.now.gameStatus = s; },
+    setBallSpeed: s => { this.#context.now.ballSpeed = s; },
+    setBallPos: pos => { this.#context.now.ballPos.copy(pos); },
+    setVelocity: v => { this.#context.now.velocity.copy(v); },
+    setPaddlePos: pos => { this.#context.now.paddlePos = pos; },
+    setPointGetter: isP1 => { this.#context.now.pointGetter = isP1; },
+    setPoint: p => { this.#context.now.points = p; },
+    addPoint: () => {
+      this.#context.now.points[Number(this.#context.now.pointGetter)]++;
+      const max = Math.max( ...this.#context.now.points );
+      if (this.#context.now.gamePoint - max === 1) {
+        if (this.#context.now.points[0] === this.#context.now.points[1] && GAME_POINT_MAX - max === 1) {
+          this.#context.addGamePoint();
+          this.#context.setMatchPoint(false);
+          return;
+        } else {
+          this.#context.setMatchPoint(true);
+          return;
+        }
+      } else if (this.#context.now.gamePoint === max) {
+        this.#context.setMatchPoint(false);
+        this.#context.setIsFinish();
+        return;
+      }
+    },
+    addGamePoint: () => { this.#context.now.gamePoint = Math.min(this.#context.now.gamePoint + 1, GAME_POINT_MAX); },
+    setMatchPoint: s => { this.#context.now.matchPoint = s; },
+    setIsFinish: () => { this.#context.now.isFinish = true; },
+    setServeHit: hit => { this.#context.now.serveHit = hit; },
+    setHit: hit => { this.#context.now.hit = hit; }
+  };
 
-  constructor() {}
+  #done: boolean = false;
+  #accept: boolean = false;
+
+  #walls: (SideWall | GoalWall)[] = [
+    new SideWall(this.#context, [-STAGE_WIDTH / 2, 0]),
+    new SideWall(this.#context, [STAGE_WIDTH / 2, 0]),
+    new GoalWall(this.#context, [0, -STAGE_HEIGHT / 2]),
+    new GoalWall(this.#context, [0, STAGE_HEIGHT / 2])
+  ];
+
+  #paddles: Paddle[] = [
+    new Paddle(this.#context, [0, PADDLE_POSITION_Z2]),
+    new Paddle(this.#context, [0, PADDLE_POSITION_Z1])
+  ];
+
+  #ball: Ball = new Ball(this.#context);
+
+  #interval: NodeJS.Timeout | null = null;
+
+  constructor() {
+    this.sync();
+  }
+
+  getDiff(): Partial<Context> {
+    const diff: Partial<Context> = {};
+    const now = this.#context.now;
+    const before = this.#context.before;
+
+    if (now.gameStatus !== before.gameStatus) diff.gameStatus = now.gameStatus;
+    if (now.ballSpeed !== before.ballSpeed) diff.ballSpeed = now.ballSpeed;
+    if (!now.ballPos.equals(before.ballPos ?? new THREE.Vector2())) diff.ballPos = now.ballPos.clone();
+    if (!now.velocity.equals(before.velocity ?? new THREE.Vector2())) diff.velocity = now.velocity.clone();
+    if (!before.paddlePos || !now.paddlePos.every((v,i)=>v === before.paddlePos![i])) diff.paddlePos = now.paddlePos;
+    if (now.pointGetter !== before.pointGetter) diff.pointGetter = now.pointGetter;
+    if (!before.points || !now.points.every((v,i)=>v === before.points![i])) diff.points = [...now.points];
+    if (now.gamePoint !== before.gamePoint) diff.gamePoint = now.gamePoint;
+    if (now.matchPoint !== before.matchPoint) diff.matchPoint = now.matchPoint;
+    if (now.isFinish !== before.isFinish) diff.isFinish = now.isFinish;
+    if (now.serveHit !== before.serveHit) diff.serveHit = now.serveHit;
+    if (
+      (now.hit === null && before.hit !== null) ||
+      (now.hit !== null && before.hit === null) ||
+      (
+        now.hit !== null &&
+        before.hit !== null &&
+        (!now.hit.normal.equals(before.hit!.normal) ||
+        !now.hit.hitPoint.equals(before.hit!.hitPoint))
+      )) {
+        diff.hit = now.hit
+          ? { normal: now.hit.normal.clone(), hitPoint: now.hit.hitPoint.clone() }
+          : null;
+      }
+
+    return diff;
+  }
+
+  sync() {
+    this.#context.before = {
+      gameStatus: this.#context.now.gameStatus,
+      ballSpeed: this.#context.now.ballSpeed,
+      ballPos: this.#context.now.ballPos.clone(),
+      velocity: this.#context.now.velocity.clone(),
+      paddlePos: [...this.#context.now.paddlePos],
+      pointGetter: this.#context.now.pointGetter,
+      points: [...this.#context.now.points],
+      gamePoint: this.#context.now.gamePoint,
+      matchPoint: this.#context.now.matchPoint,
+      isFinish: this.#context.now.isFinish,
+      serveHit: this.#context.now.serveHit,
+      hit: this.#context.now.hit
+    };
+  }
 
   hasService() {
-    return this.#paddles[Number(!Context.pointGetter)];
+    return this.#paddles[Number(!this.#context.now.pointGetter)];
   }
 
   moveBallForPaddle() {
-    const position = this.hasService().mesh.position.clone();
-    position.z = position.z - Math.sign(position.z) * 1.2;
-    Context.ballPosition = position;
+    const position = this.hasService().position.clone();
+    position.y -= Math.sign(position.y) * 1.2;
+    this.#context.setBallPos(position);
+  }
+
+  accept() {
+    this.#accept = true;
+  }
+
+  nextStatus(s: GameStatus) {
+    if (this.#accept) {
+      this.#done = false;
+      this.#accept = false;
+      this.#context.setGameStatus(s);
+    }
+    return this.#accept;
   }
 
   start() {
     this.#interval = setInterval(() => {
-      console.log(Context.ballPosition)
+      this.accept();
+      this.#context.setServeHit(true);
+
       this.#paddles[0].move();
       this.#paddles[1].move();
-
-      switch (Context.gameStatus) {
-        case GameStatus.First:
+      if (this.#context.now.gameStatus === GameStatus.First) {
+        if (!this.#done) {
           this.moveBallForPaddle();
-          Context.gameStatus = GameStatus.Serving;
-          break;
-        case GameStatus.Serving:
-          this.#ball.changeServePosition(this.hasService());
-          if (Context.serveHit) {
-            // Context.serveHit = false;
-            this.hasService().hitPaddle();
-            this.#ball.resetServePosition();
-            Context.gameStatus = GameStatus.Playing;
-          }
-          break;
-        case GameStatus.Playing:
-          {
-            Context.updateBallPosition();
-            const frameVelocity = Context.velocity.clone().multiplyScalar(delta).length();
-            for (const offset of offsets) {
-              const origin = Context.ballPosition.clone().add(offset);
-              const ray = new THREE.Raycaster(
-                origin,
-                Context.velocity.clone().normalize(),
-                0,
-                frameVelocity + 0.09
-              );
+          this.#done = true;
+        }
+        this.nextStatus(GameStatus.Serving);
+      } else if (this.#context.now.gameStatus === GameStatus.Serving) {
+        this.#ball.changeServePosition();
+        if (this.#context.now.serveHit && !this.#done) {
+          this.#done = true;
+          this.hasService().handleHit();
+          this.#ball.resetServePosition();
+        }
+        if (this.nextStatus(GameStatus.Playing)) {
+          this.#context.setServeHit(false);
+        }
+      } else if (this.#context.now.gameStatus === GameStatus.Playing) {
+        const newBallPos = this.#context.now.ballPos.clone();
+        this.#context.setBallPos(newBallPos.addScaledVector(this.#context.now.velocity, delta));
+        this.#ball.move();
+        for (const obj of [ ...this.#paddles, ...this.#walls ]) {
+          if (obj.onHit(this.#ball.box)) break;
+        }
+        this.#ball.move();
+      } else if (this.#context.now.gameStatus === GameStatus.GetPoint) {
+        if (this.#context.now.isFinish) {
+          this.nextStatus(GameStatus.End);
+        } else {
+          if (!this.#done) this.moveBallForPaddle();
+          this.nextStatus(GameStatus.Serving);
 
-              for (const obj of [...this.#paddles, ...this.#Walls]) {
-                const hit = obj.onHit(ray);
-                if (hit) {
-                  if (Context.gameStatus !== GameStatus.Playing) return;
-
-                  // ヒットした値などをクライアントに送信
-                  break;
-                }
-              }
-            }
-          }
-          break;
-        case GameStatus.GetPoint:
-          console.log(Context.points)
-          if (Context.isFinish) {
-            Context.gameStatus = GameStatus.End;
-          } else {
-            this.moveBallForPaddle();
-            Context.gameStatus = GameStatus.Serving;
-          }
-          break;
-        case GameStatus.End:
+        }
+      } else { // End
+        
       }
-
-      this.#ball.setPosition();
     }, delta * 1000);
   }
 
   stop() {
-    if (!this.#interval) return;
-    clearInterval(this.#interval);
+    if (this.#interval) clearInterval(this.#interval);
     this.#interval = null;
   }
 
-  get walls() { return this.#Walls; }
+  reset() {
+    this.stop();
+    this.#accept = false;
+    this.#done = false;
+    this.#context.now = { ...defGameContext };
+  }
+
+  get context() { return this.#context; }
+  get walls() { return this.#walls; }
   get paddles() { return this.#paddles; }
   get ball() { return this.#ball; }
 }
 
-type Hit = {
-  normal: THREE.Vector3,
-  hitPoint: THREE.Vector3
+function getBoxWithMargin(box: THREE.Box2, margin: number) {
+  return new THREE.Box2(
+    box.min.clone().subScalar(margin),
+    box.max.clone().subScalar(margin)
+  );
 }
 
-function isHit(ray: THREE.Raycaster, obj: THREE.Mesh): Hit | undefined {
-  const intersects = ray.intersectObject(obj, true);
-  if (intersects.length > 0) {
-    const normal = intersects[0].face?.normal.clone();
-    if (normal) return {
-      normal: normal.transformDirection(obj.matrixWorld).clone(),
-      hitPoint: intersects[0].point.clone()
-    };
+function intersect(a: THREE.Box2, b: THREE.Box2): Hit | undefined {
+  if (!getBoxWithMargin(a, 0.09).intersectsBox(b)) return;
+
+  // 重なり領域を計算
+  const overlapMin = new THREE.Vector2(
+    Math.max(a.min.x, b.min.x),
+    Math.max(a.min.y, b.min.y)
+  );
+  const overlapMax = new THREE.Vector2(
+    Math.min(a.max.x, b.max.x),
+    Math.min(a.max.y, b.max.y)
+  );
+  const overlap = new THREE.Vector2().subVectors(overlapMax, overlapMin);
+
+  // x衝突
+  if (overlap.x < overlap.y) {
+    const normal = new THREE.Vector2(a.min.x < b.min.x ? -1 : 1, 0);
+    const hitPoint = new THREE.Vector2(
+      normal.x > 0 ? a.max.x : a.min.x, // ボール側の面
+      (overlapMin.y + overlapMax.y) / 2 // 中央
+    );
+    console.log(normal, hitPoint);
+    return { normal, hitPoint };
+  } 
+  // y衝突
+  else {
+    const normal = new THREE.Vector2(0, a.min.y < b.min.y ? -1 : 1);
+    const hitPoint = new THREE.Vector2(
+      (overlapMin.x + overlapMax.x) / 2,
+      normal.y > 0 ? a.max.y : a.min.y
+    );
+    console.log(normal, hitPoint);
+    return { normal, hitPoint };
   }
-  return;
-};
+}
 
 abstract class HitObject {
-  constructor(mesh: THREE.Mesh) {
-    mesh.geometry.computeBoundsTree();
-  }
-  abstract onHit(ray: THREE.Raycaster): Hit | undefined;
-  abstract get mesh(): THREE.Mesh;
+  constructor(protected context: GameContext) {}
+  abstract onHit(ball: THREE.Box2): boolean;
 }
 
 class SideWall extends HitObject {
-  #mesh: THREE.Mesh;
+  #box: THREE.Box2;
+  #name: string;
 
-  constructor(pos: [number, number]) {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(STAGE_HEIGHT + WALL_DEPTH, WALL_HEIGHT, WALL_DEPTH)
+  constructor(context: GameContext, pos: [number, number]) {
+    super(context);
+    this.#name = pos[0] < 0 ? SIDE_1 : SIDE_2 ;
+    this.#box = new THREE.Box2(
+      new THREE.Vector2(pos[0] - WALL_DEPTH / 2, pos[1] - STAGE_HEIGHT / 2),
+      new THREE.Vector2(pos[0] + WALL_DEPTH / 2, pos[1] + STAGE_HEIGHT / 2)
     );
-    super(mesh);
-    this.#mesh = mesh;
-
-    this.#mesh.position.set(pos[0], 0, pos[1]);
-    this.#mesh.rotateY(Math.PI / 2);
   }
 
-  onHit(ray: THREE.Raycaster): Hit | undefined {
-    const hit = isHit(ray, this.#mesh);
-    if (!hit) return;
-
-    const newVel = Context.velocity.clone();
-    newVel.x *= -1;
-    Context.velocity = newVel;
-
-    return hit;
+  onHit(ball: THREE.Box2): boolean {
+    const hit: ObjectHit | undefined = intersect(ball, this.#box);
+    if (hit) {
+      const newVel = this.context.now.velocity.clone();
+      newVel.x *= -1;
+      this.context.setVelocity(newVel);
+      this.context.setBallPos(hit.hitPoint);
+      hit.name = this.#name;
+      this.context.setHit(hit);
+      return true;
+    }
+    return false;
   }
 
-  get mesh() { return this.#mesh; }
+  get box() { return this.#box; }
 }
 
 class GoalWall extends HitObject {
-  #mesh: THREE.Mesh;
+  #box: THREE.Box2;
+  #position: [number, number]
 
-  constructor(pos: [number, number]) {
-    const mesh =  new THREE.Mesh(
-      new THREE.BoxGeometry(STAGE_WIDTH + WALL_DEPTH, WALL_HEIGHT, WALL_DEPTH)
-    );
-    super(mesh);
-    this.#mesh = mesh;
-    this.#mesh.position.set(pos[0], 0, pos[1]);
+  constructor(context: GameContext, pos: [number, number]) {
+    super(context);
+    this.#position = pos;
+    this.#box = new THREE.Box2(
+      new THREE.Vector2(pos[0] - STAGE_WIDTH / 2, pos[1] - WALL_DEPTH / 2),
+      new THREE.Vector2(pos[0] + STAGE_WIDTH / 2, pos[1] + WALL_DEPTH / 2)
+    )
   }
 
-  onHit(ray: THREE.Raycaster): Hit | undefined {
-    const hit = isHit(ray, this.#mesh);
-    if (!hit) return;
-
-    Context.resetVelocity();
-    Context.resetBallSpeed();
-    Context.pointGetter = this.#mesh.position.z < 0;
-    Context.addPoint();
-    Context.gameStatus = GameStatus.GetPoint;
-
-    return hit;
+  onHit(ball: THREE.Box2): boolean {
+    const hit = intersect(ball, this.#box);
+    if (hit) {
+      this.context.setVelocity(new THREE.Vector2());
+      this.context.setBallPos(hit.hitPoint);
+      this.context.setBallSpeed(BALL_SPEED);
+      this.context.setPointGetter(this.#position[1] < 0);
+      this.context.addPoint();
+      this.context.setGameStatus(GameStatus.GetPoint);
+      return true;
+    }
+    return false;
   }
 
-  get mesh() { return this.#mesh; }
-
+  get box() { return this.#box; }
 }
 
 class Paddle extends HitObject {
-  #mesh: THREE.Mesh;
+  #box: THREE.Box2;
+  #position: [number, number];
+  #name: string;
+  #size: THREE.Vector2 = new THREE.Vector2();
 
-  constructor(pos: [number, number]) {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_HEIGHT)
+  constructor(context: GameContext, pos: [number, number]) {
+    super(context);
+    this.#position = pos;
+    this.#name = pos[1] > 0 ? PADDLE_1 : PADDLE_2 ;
+    this.#box = new THREE.Box2(
+      new THREE.Vector2(pos[0] - PADDLE_HALF_X, pos[1] - PADDLE_HEIGHT / 2),
+      new THREE.Vector2(pos[0] + PADDLE_HALF_X, pos[1] + PADDLE_HEIGHT / 2)
     );
-    super(mesh);
-    this.#mesh = mesh;+
-    this.#mesh.position.set(pos[0], 0, pos[1]);
+    this.#box.getSize(this.#size);
   }
 
   move() {
-    this.#mesh.position.x = Context.paddlePosition[Number(this.#mesh.position.z > 0)];
+    this.#position[0] = this.context.now.paddlePos[Number(this.#position[1] > 0)];
+    this.#box.setFromCenterAndSize(new THREE.Vector2(this.#position[0], this.#position[1]), this.#size);
   }
 
-  hitPaddle() {
-    const normalized = THREE.MathUtils.clamp( (Context.ballPosition.x - this.mesh.position.x) / PADDLE_HALF_X, -1, 1 );
+  handleHit() {
+    const normalized = THREE.MathUtils.clamp((this.context.now.ballPos.x - this.#position[0]) / PADDLE_HALF_X, -1 ,1);
     const maxAngle = Math.PI / 3;
     const angle = normalized * maxAngle;
-    const dz = this.mesh.position.z > 0 ? -1 : 1;
+    const dy = this.#position[1] > 0 ? -1 : 1;
 
-    Context.velocity.set(
-      Context.ballSpeed * Math.sin(angle),
-      0,
-      dz * Context.ballSpeed * Math.cos(angle)
-    );
+    this.context.setVelocity(new THREE.Vector2(
+      this.context.now.ballSpeed * Math.sin(angle),
+      dy * this.context.now.ballSpeed * Math.cos(angle)
+    ));
 
-    if (Math.abs(Context.velocity.z) < 0.01) {
-      Context.velocity.z = dz * 0.1;
-      Context.velocity.normalize().multiplyScalar(Context.ballSpeed);
+    if (Math.abs(this.context.now.velocity.y) < 0.01) {
+      const vel = this.context.now.velocity.clone();
+      vel.y = dy * 0.1;
+      vel.normalize().multiplyScalar(this.context.now.ballSpeed);
+      this.context.setVelocity(vel);
     }
   }
 
-  onHit(ray: THREE.Raycaster): Hit | undefined {
-    const hit = isHit(ray, this.#mesh);
-    if (!hit) return;
-
-    if (Math.abs(hit.normal.z) > 0.9) {
-      this.hitPaddle();
-    } else {
-      const newVel = Context.velocity.clone();
-      newVel.x *= -1;
-      Context.velocity = newVel;
+  onHit(ball: THREE.Box2): boolean {
+    const hit: ObjectHit | undefined = intersect(ball, this.#box);
+    if (hit) {
+      this.context.setBallPos(hit.hitPoint);
+      if (Math.abs(hit.normal.y) > 0.9) {
+        this.handleHit();
+        hit.name = this.#name;
+        this.context.setHit(hit);
+      } else {
+        const vel = this.context.now.velocity.clone();
+        vel.x *= -1;
+        this.context.setVelocity(vel);
+      }
+      return true;
     }
-
-    return hit;
+    return false;
   }
 
-  get mesh() { return this.#mesh; }
+  get box() { return this.#box; }
+  get position() { return new THREE.Vector2(this.#position[0], this.#position[1]); }
 }
 
 class Ball {
-  #mesh: THREE.Mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(BALL_SIZE, BALL_SIZE, BALL_SIZE)
+  #box: THREE.Box2 = new THREE.Box2(
+    new THREE.Vector2(-BALL_SIZE / 2, -BALL_SIZE / 2),
+    new THREE.Vector2(BALL_SIZE / 2, BALL_SIZE / 2)
   );
+  #size: THREE.Vector2 = new THREE.Vector2();
 
-  #serveBeforePaddlePosition: THREE.Vector3 | null = null;
-  #serveBeforeBallPosition: THREE.Vector3 | null = null;
-  #servePaddleVelocity: THREE.Vector3 = new THREE.Vector3();
-  #serveBallVelocity: THREE.Vector3 = new THREE.Vector3();
+  #serveBeforePaddlePosition: THREE.Vector2 | null = null;
+  #serveBeforeBallPosition: THREE.Vector2 | null = null;
+  #servePaddleVelocity: THREE.Vector2 = new THREE.Vector2();
+  #serveBallVelocity: THREE.Vector2 = new THREE.Vector2();
 
-  constructor() {}
-
-  setPosition(pos: THREE.Vector3 = Context.ballPosition) {
-    this.#mesh.position.copy(pos);
+  constructor(private context: GameContext) {
+    this.#box.getSize(this.#size);
   }
 
-  changeServePosition(paddle: Paddle) {
+  move() {
+    this.#box.setFromCenterAndSize(this.context.now.ballPos.clone(), this.#size);
+  }
+
+  changeServePosition() {
+    const paddlePos = new THREE.Vector2(this.context.now.paddlePos[Number(!this.context.now.pointGetter)], 0);
+    const ballPos = this.context.now.ballPos.clone();
     if (this.#serveBeforePaddlePosition === null || this.#serveBeforeBallPosition === null) {
-      this.#serveBeforePaddlePosition = paddle.mesh.position.clone();
-      this.#serveBeforeBallPosition = this.#mesh.position.clone();
+      this.#serveBeforePaddlePosition = paddlePos.clone();
+      this.#serveBeforeBallPosition = ballPos.clone();
       return;
     }
-    this.#servePaddleVelocity.subVectors(paddle.mesh.position.clone(), this.#serveBeforePaddlePosition).divideScalar(delta);
-    this.#serveBallVelocity.subVectors(this.#mesh.position.clone(), this.#serveBeforeBallPosition).divideScalar(delta);
-    this.#serveBeforePaddlePosition.copy(paddle.mesh.position);
-    this.#serveBeforeBallPosition.copy(this.#mesh.position);
-
-    const friction = 0.965;
+    this.#servePaddleVelocity.subVectors(paddlePos.clone(), this.#serveBeforePaddlePosition).divideScalar(delta);
+    this.#serveBallVelocity.subVectors(ballPos.clone(), this.#serveBeforeBallPosition).divideScalar(delta);
+    this.#serveBeforePaddlePosition.copy(paddlePos);
+    this.#serveBeforeBallPosition.copy(ballPos);
 
     if (this.#servePaddleVelocity.x !== this.#serveBallVelocity.x) {
-      this.#serveBallVelocity.multiplyScalar(friction);
-      if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0, 0);
-      this.#mesh.position.x += this.#serveBallVelocity.x * delta;
-      this.#mesh.position.x = THREE.MathUtils.clamp(this.#mesh.position.x, -STAGE_WIDTH / 2 + 0.8, STAGE_WIDTH / 2 - 0.8);
+      this.#serveBallVelocity.multiplyScalar(FRICTION);
+      if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0);
+      ballPos.x += this.#serveBallVelocity.x * delta;
+      ballPos.x = THREE.MathUtils.clamp(ballPos.x, -STAGE_WIDTH / 2 + 0.8, STAGE_WIDTH / 2 - 0.8);
     }
-
-    this.#mesh.position.x = THREE.MathUtils.clamp(this.#mesh.position.x, paddle.mesh.position.x - PADDLE_HALF_X + BALL_SIZE / 2, paddle.mesh.position.x + PADDLE_HALF_X - BALL_SIZE / 2);
+    ballPos.x = THREE.MathUtils.clamp(ballPos.x, paddlePos.x - PADDLE_HALF_X + BALL_SIZE / 2, paddlePos.x + PADDLE_HALF_X - BALL_SIZE / 2); 
+    this.context.setBallPos(ballPos);
+    this.move();
   }
 
   resetServePosition() {
@@ -374,5 +477,5 @@ class Ball {
     this.#serveBeforeBallPosition = null;
   }
 
-  get mesh() { return this.#mesh; }
+  get box() { return this.#box; }
 }
