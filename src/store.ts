@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as THREE from 'three';
-import { BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameStatus } from './constants';
+import { BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameMode, GameStatus, RoleStatus } from './constants';
 
 type StageStore = {
   ballSpeed: number,
@@ -64,7 +64,9 @@ export const useStageStore = create<StageStore>(set => ({
 }));
 
 type GameStore = {
+  gameMode: GameMode;
   gameStatus: GameStatus;
+  role: RoleStatus;
 
   point1: number;
   point2: number;
@@ -76,10 +78,11 @@ type GameStore = {
 
   pointGetter: boolean;
 
-  serveHit : boolean;
+  serveHit: boolean;
 
-
+  setGameMode: (gameMode: GameMode) => void;
   setGameStatus: (gameStatus: GameStatus) => void;
+  setRole: (role: RoleStatus) => void;
 
   setPoint1: (num: number) => void;
   setPoint2: (num: number) => void;
@@ -95,7 +98,9 @@ type GameStore = {
 
 // レンダー用
 export const useGameStore = create<GameStore>(set => ({
+  gameMode: GameMode.Selecting,
   gameStatus: GameStatus.First,
+  role: RoleStatus.Spectator,
 
   point1: 0,
   point2: 0,
@@ -109,8 +114,9 @@ export const useGameStore = create<GameStore>(set => ({
 
   serveHit: false,
 
-  setGameStatus: gameStatus =>
-    set({gameStatus}),
+  setGameMode: gameMode => set({gameMode}),
+  setGameStatus: gameStatus => set({gameStatus}),
+  setRole: role => set({role}),
 
   setPoint1: num => set({point1: num}),
   setPoint2: num => set({point2: num}),
@@ -149,6 +155,37 @@ export const useGameStore = create<GameStore>(set => ({
 
   setServeHit: serveHit =>
     set({ serveHit }),
+}));
+
+// camera
+
+export enum CameraWork {
+  Motion,
+  Orbit
+}
+
+type CameraStore = {
+  cameras: THREE.PerspectiveCamera[];
+  camNo: number;
+  motionCamera: THREE.PerspectiveCamera;
+  camWork: CameraWork;
+
+  setCamNo: (camNo: number) => void;
+  setComWork: (camWork: CameraWork) => void;
+}
+
+export const useCameraStore = create<CameraStore>(set => ({
+  cameras: [
+    new THREE.PerspectiveCamera(),
+    new THREE.PerspectiveCamera(),
+    new THREE.PerspectiveCamera()
+  ],
+  camNo: 0,
+  motionCamera: new THREE.PerspectiveCamera(),
+  camWork: CameraWork.Motion,
+
+  setCamNo: camNo => set({camNo}),
+  setComWork: camWork => set({camWork})
 }));
 
 // controller

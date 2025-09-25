@@ -1,7 +1,6 @@
 import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { fitObject } from './ThreeModule';
 import { acceleratedRaycast, MeshBVH } from 'three-mesh-bvh';
 import {
   ACCELERATION,
@@ -10,6 +9,7 @@ import {
   CPUMode,
   EFFECT_MATERIAL_ARGS,
   EFFECT_MESH_WIDTH,
+  FRICTION,
   GameStatus,
   GOAL_1,
   GOAL_2,
@@ -30,6 +30,7 @@ import {
 import { useGameStore, useStageStore } from './store';
 import { PointDisplay } from './point.tsx';
 import { PaddleController } from './controller.tsx';
+import { fitObject } from './CameraControl.tsx';
 
 (THREE.BufferGeometry.prototype as any).computeBoundsTree = function () {
   (this as any).boundsTree = new MeshBVH(this);
@@ -464,11 +465,10 @@ export default function Stage({isResizing}: StageProps) {
     beforeBallPosition.current?.copy(ballPosition);
     beforePaddlePosition.current?.copy(paddle.current.position);
 
-    const friction = 0.965;
     const newPos = ballPosition.clone();
 
     if (paddleVelocity.current.x !== ballVelocity.current.x) {
-      ballVelocity.current.multiplyScalar(friction);
+      ballVelocity.current.multiplyScalar(FRICTION);
       if(ballVelocity.current.lengthSq() < 0.0001) ballVelocity.current.set(0, 0, 0);
       newPos.x += ballVelocity.current.x * delta;
       newPos.x = THREE.MathUtils.clamp(newPos.x, -STAGE_WIDTH / 2 + 0.8, STAGE_WIDTH / 2 - 0.8);
