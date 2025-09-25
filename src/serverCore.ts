@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants';
+import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants.ts';
 
-export const delta = 1 / 60;
+export const delta = 1 / 30;
 
 interface Hit {
   normal: THREE.Vector2;
@@ -198,6 +198,8 @@ export class GameCore {
     this.#interval = setInterval(() => {
       this.accept();
       this.#context.setServeHit(true);
+
+      console.log(this.#context.now.ballPos);
 
       this.#paddles[0].move();
       this.#paddles[1].move();

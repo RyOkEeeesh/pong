@@ -68,8 +68,7 @@ type GameStore = {
   gameStatus: GameStatus;
   role: RoleStatus;
 
-  point1: number;
-  point2: number;
+  points: [ number, number ];
 
   gamePoint: number;
 
@@ -84,8 +83,6 @@ type GameStore = {
   setGameStatus: (gameStatus: GameStatus) => void;
   setRole: (role: RoleStatus) => void;
 
-  setPoint1: (num: number) => void;
-  setPoint2: (num: number) => void;
   addPoint: (isP1: boolean) => void;
   resetPoint: () => void;
 
@@ -102,8 +99,7 @@ export const useGameStore = create<GameStore>(set => ({
   gameStatus: GameStatus.First,
   role: RoleStatus.Spectator,
 
-  point1: 0,
-  point2: 0,
+  points: [0, 0],
 
   gamePoint: GAME_POINT,
 
@@ -118,22 +114,18 @@ export const useGameStore = create<GameStore>(set => ({
   setGameStatus: gameStatus => set({gameStatus}),
   setRole: role => set({role}),
 
-  setPoint1: num => set({point1: num}),
-  setPoint2: num => set({point2: num}),
   addPoint: isP1 => set(s => {
-    const key = isP1 ? "point1" : "point2";
-    return { [key]: s[key] + 1 };
+    const points = [ ...s.points ] as [number, number];
+    points[Number(isP1)]++; 
+    return { points };
   }),
-  resetPoint: () => set({
-    point1: 0,
-    point2: 0
-  }),
+  resetPoint: () => set({ points: [0, 0] }),
 
   processAddPoint: () =>
     set(s => {
-      const max = Math.max(s.point1, s.point2);
+      const max = Math.max(...s.points);
       if (s.gamePoint - max === 1) {
-        if (s.point1 === s.point2 && GAME_POINT_MAX - max !== 1) { // デュース
+        if (s.points[0] === s.points[1] && GAME_POINT_MAX - max !== 1) { // デュース
           return ({
             gamePoint: Math.min(s.gamePoint + 1, GAME_POINT_MAX),
             matchPoint: false
@@ -159,33 +151,24 @@ export const useGameStore = create<GameStore>(set => ({
 
 // camera
 
-export enum CameraWork {
-  Motion,
-  Orbit
-}
-
 type CameraStore = {
   cameras: THREE.PerspectiveCamera[];
   camNo: number;
   motionCamera: THREE.PerspectiveCamera;
-  camWork: CameraWork;
 
+  pushCamera: (...cams: THREE.PerspectiveCamera[]) => void;
   setCamNo: (camNo: number) => void;
-  setComWork: (camWork: CameraWork) => void;
+  setMotionCamera: (motionCamera: THREE.PerspectiveCamera) => void;
 }
 
 export const useCameraStore = create<CameraStore>(set => ({
-  cameras: [
-    new THREE.PerspectiveCamera(),
-    new THREE.PerspectiveCamera(),
-    new THREE.PerspectiveCamera()
-  ],
+  cameras: [],
   camNo: 0,
-  motionCamera: new THREE.PerspectiveCamera(),
-  camWork: CameraWork.Motion,
+  motionCamera: null!,
 
+  pushCamera: (...cams) => set(s => ({cameras: [...s.cameras, ...cams]})),
   setCamNo: camNo => set({camNo}),
-  setComWork: camWork => set({camWork})
+  setMotionCamera: motionCamera => set({motionCamera})
 }));
 
 // controller

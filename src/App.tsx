@@ -38,9 +38,22 @@ function ComposerSetup() {
 
 function Camera() {
   const role = useGameStore(s => s.role);
-  const 
+  const camsRef = useRef<THREE.PerspectiveCamera[]>([]);
 
-  return null;
+  // ここから
+  useEffect(() => {
+    if (camsRef.current.length !== 3) return;
+
+  }, [])
+
+
+  return (
+    <>
+      <PerspectiveCamera makeDefault ref={e => { if (e) camsRef.current[0] = e;}} position={[0, 17, 10]} fov={75} />
+      <PerspectiveCamera makeDefault ref={e => { if (e) camsRef.current[1] = e;}} position={[0, 1, 0]} fov={45} />
+      <PerspectiveCamera makeDefault ref={e => { if (e) camsRef.current[2] = e;}} position={[0, 1, 0]} fov={45} />
+    </>
+  );
 }
 
 export default function App() {

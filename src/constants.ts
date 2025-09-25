@@ -19,8 +19,8 @@ export const ACCELERATION = 0.2;
 export const PADDLE_POSITION_Z1 = STAGE_HEIGHT / 2 - 1;
 export const PADDLE_POSITION_Z2 = -STAGE_HEIGHT / 2 + 1;
 
-export const GAME_POINT = 3;
-export const GAME_POINT_MAX = 6;
+export const GAME_POINT = 5;
+export const GAME_POINT_MAX = 9;
 
 export const FRICTION = 0.965;
 
@@ -79,7 +79,7 @@ export enum SendType {
 export enum RoleStatus {
   P1,
   P2,
-  Spectator, // SerOnly
+  Spectator
 }
 
 export enum MsgType {
@@ -93,7 +93,8 @@ export enum MsgType {
 
 export enum ServerStatus {
   Lobby,
-  Game
+  Game,
+  Result
 }
 
 export type UUID = string;

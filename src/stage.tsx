@@ -121,8 +121,8 @@ function handleHitPaddle(mesh: THREE.Mesh) {
 }
 
 function PointDisplays() {
-  const point1 = useGameStore(s => s.point1);
-  const point2 = useGameStore(s => s.point2);
+  const point1 = useGameStore(s => s.points[1]);
+  const point2 = useGameStore(s => s.points[0]);
 
   const groupRef = useRef<THREE.Group>(null!);
 
@@ -407,9 +407,9 @@ export default function Stage({isResizing}: StageProps) {
         if (hitPoint && normal) {
           handleHitObj(obj, hitPoint, normal);
 
-          const pushBack = normal.clone().multiplyScalar(0.25);
-          const newPos = ballPosition.clone().add(pushBack);
-          setBallPosition(newPos);
+          // const pushBack = normal.clone().multiplyScalar(0.1);
+          // const newPos = ballPosition.clone().add(pushBack);
+          // setBallPosition(newPos);
 
           return;
         }
@@ -496,7 +496,7 @@ export default function Stage({isResizing}: StageProps) {
 
   useFrame((_, delta: number) => {
     const { setDelta, ballPosition, setBallPosition, velocity, paddlePosition, pointDisplayMats } = useStageStore.getState();
-    const { gameStatus, matchPoint, isFinish, serveHit, setServeHit, pointGetter } = useGameStore.getState();
+    const { gameStatus, matchPoint, isFinish, serveHit, setServeHit, pointGetter, points } = useGameStore.getState();
     setDelta(delta);
 
     if (gameStatus === GameStatus.Waiting) {
@@ -525,7 +525,7 @@ export default function Stage({isResizing}: StageProps) {
       } else if (sleepRef.current === null) {
         setBallSpeed();
         sleepRef.current = performance.now() + 250;
-        if ( matchPoint || isFinish ) {
+        if ( Math.max(...points) === points[Number(pointGetter)] && (matchPoint || isFinish) ) {
           const mats = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
           const option = isFinish
             ? {
