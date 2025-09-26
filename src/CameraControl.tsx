@@ -29,10 +29,8 @@ export function fitObject(camera: THREE.PerspectiveCamera, object: THREE.Object3
     new THREE.Vector3(box.max.x, box.max.y, box.max.z),
   ];
 
-  // カメラ視線方向
   const dir = new THREE.Vector3().subVectors(camera.position, center).normalize();
 
-  // 距離を二分探索で調整
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
   const fov = THREE.MathUtils.degToRad(camera.fov);
@@ -51,7 +49,6 @@ export function fitObject(camera: THREE.PerspectiveCamera, object: THREE.Object3
     camera.position.copy(testPos);
     camera.lookAt(center);
 
-    // NDCでチェック
     let fits = true;
     for (const v of vertices) {
       const p = v.clone().project(camera);

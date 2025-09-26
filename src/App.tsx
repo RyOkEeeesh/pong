@@ -4,8 +4,10 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import Stage from './stage';
-import { useGameStore, useUserSetting } from './store';
+import { useCameraStore, useGameStore, useUserSetting } from './store';
 import { trackingLookAt } from './CameraControl';
+import { RoleStatus } from './constants';
+import { useShallow } from 'zustand/shallow';
 
 declare const __APP_VERSION__: string;
 
@@ -37,21 +39,64 @@ function ComposerSetup() {
 }
 
 function Camera() {
+  const { set } = useThree();
   const role = useGameStore(s => s.role);
+  const beforeRoleRef = useRef<RoleStatus>(role);
+  const [ cameras, camNo, motionCamera, isObjectFit ] = useCameraStore(useShallow(s => [s.cameras, s.camNo, s.motionCamera, s.isObjectFit]));
+  const { pushCamera, setMotionCamera } = useCameraStore.getState();
+
+  const motionRef = useRef<THREE.PerspectiveCamera>(null!);
   const camsRef = useRef<THREE.PerspectiveCamera[]>([]);
 
-  // ここから
   useEffect(() => {
-    if (camsRef.current.length !== 3) return;
-
+    if (motionRef.current && camsRef.current.length !== 3) return;
+    setMotionCamera(motionRef.current);
+    pushCamera(...camsRef.current);
+    camsRef.current[2].up.y = -1;
   }, [])
+
+  useEffect(() => {
+    if (!isObjectFit && cameras.length !== 3 && !motionCamera) return;7
+
+    // fitObjectやるためにモーションカメラは指定のところに置いといて、切り替わった時とかは切り替わる前のポジションとかコピーして指定の場所までモーション移動
+    // nextのステータスでもストアに保持しとこうかな
+    if (role === RoleStatus.Spectator) {
+      set({camera: motionCamera});
+
+    } else {
+      if (beforeRoleRef.current !== RoleStatus.Spectator) {
+        const camera = cameras[camNo];
+        set({camera});
+
+        if (role === RoleStatus.P1) {
+          cameras[0].position.z = Math.abs(camsRef.current[0].position.z);
+          cameras[1].up.z = 1;
+        } else {
+          cameras[0].position.z = -Math.abs(camsRef.current[0].position.z);
+          cameras[1].up.z = -1;
+        }
+      } else {
+        // 今の位置から使用するカメラに移動する
+      }
+    }
+
+    // if (role === RoleStatus.Spectator) {
+    //   const cam = cameras[camNo];
+    //   motionRef.current.position.copy(cam.position);
+    //   motionRef.current.rotation.copy(cam.rotation);
+    //   motionRef.current.fov = cam.fov;
+    //   return;
+    // }
+
+  }, [role, cameras, motionCamera, camNo]);
 
 
   return (
     <>
-      <PerspectiveCamera makeDefault ref={e => { if (e) camsRef.current[0] = e;}} position={[0, 17, 10]} fov={75} />
-      <PerspectiveCamera makeDefault ref={e => { if (e) camsRef.current[1] = e;}} position={[0, 1, 0]} fov={45} />
-      <PerspectiveCamera makeDefault ref={e => { if (e) camsRef.current[2] = e;}} position={[0, 1, 0]} fov={45} />
+      <PerspectiveCamera visible={role === RoleStatus.Spectator} ref={motionRef} position={[0, 17, 10]} fov={75} />
+      <PerspectiveCamera visible={role !== RoleStatus.Spectator} ref={e => { if (e) camsRef.current[0] = e;}} position={[0, 17, 10]} fov={75} />
+      <PerspectiveCamera visible={role !== RoleStatus.Spectator} ref={e => { if (e) camsRef.current[1] = e;}} position={[0, 1, 0]} fov={45} />
+      <PerspectiveCamera visible={role !== RoleStatus.Spectator} ref={e => { if (e) camsRef.current[2] = e;}} position={[0, 1, 0]} fov={45} />
     </>
   );
 }

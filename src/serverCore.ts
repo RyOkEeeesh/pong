@@ -196,8 +196,8 @@ export class GameCore {
 
   start() {
     this.#interval = setInterval(() => {
-      this.accept();
-      this.#context.setServeHit(true);
+      // this.accept();
+      // this.#context.setServeHit(true);
 
       console.log(this.#context.now.ballPos);
 

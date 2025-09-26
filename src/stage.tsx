@@ -27,7 +27,7 @@ import {
   WALL_DEPTH,
   WALL_HEIGHT
 } from './constants';
-import { useGameStore, useStageStore } from './store';
+import { useCameraStore, useGameStore, useStageStore } from './store';
 import { PointDisplay } from './point.tsx';
 import { PaddleController } from './controller.tsx';
 import { fitObject } from './CameraControl.tsx';
@@ -172,10 +172,13 @@ export default function Stage({isResizing}: StageProps) {
   const { camera } = useThree();
   const { setGameStatus } = useGameStore.getState();
   const { setBallSpeed } = useStageStore.getState();
+  const { setIsObjectFit } = useCameraStore.getState();
 
   useEffect(() => {
     if (!stageGroup.current) return;
-    if (!isResizing) fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
+    if (isResizing) return setIsObjectFit(false);
+    fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
+    setIsObjectFit(true);
   }, [isResizing, camera]);
 
   const stageGroup = useRef<THREE.Group>(null!);

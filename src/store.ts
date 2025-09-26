@@ -155,20 +155,24 @@ type CameraStore = {
   cameras: THREE.PerspectiveCamera[];
   camNo: number;
   motionCamera: THREE.PerspectiveCamera;
+  isObjectFit: boolean;
 
   pushCamera: (...cams: THREE.PerspectiveCamera[]) => void;
   setCamNo: (camNo: number) => void;
   setMotionCamera: (motionCamera: THREE.PerspectiveCamera) => void;
+  setIsObjectFit: (isObjectFit: boolean) => void;
 }
 
 export const useCameraStore = create<CameraStore>(set => ({
   cameras: [],
   camNo: 0,
   motionCamera: null!,
+  isObjectFit: false,
 
   pushCamera: (...cams) => set(s => ({cameras: [...s.cameras, ...cams]})),
   setCamNo: camNo => set({camNo}),
-  setMotionCamera: motionCamera => set({motionCamera})
+  setMotionCamera: motionCamera => set({motionCamera}),
+  setIsObjectFit: isObjectFit => set({isObjectFit})
 }));
 
 // controller
