@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import Stage from './stage';
 import { useCameraStore, useGameStore, useUserSetting } from './store';
 import { trackingLookAt } from './CameraControl';
-import { RoleStatus } from './constants';
+import { RoleStatus, STAGE_WIDTH } from './constants';
 import { useShallow } from 'zustand/shallow';
 
 declare const __APP_VERSION__: string;
@@ -52,11 +52,10 @@ function Camera() {
     if (motionRef.current && camsRef.current.length !== 3) return;
     setMotionCamera(motionRef.current);
     pushCamera(...camsRef.current);
-    camsRef.current[2].up.y = -1;
   }, [])
 
   useEffect(() => {
-    if (!isObjectFit && cameras.length !== 3 && !motionCamera) return;7
+    if (!isObjectFit && cameras.length !== 3 && !motionCamera) return;
 
     // fitObjectやるためにモーションカメラは指定のところに置いといて、切り替わった時とかは切り替わる前のポジションとかコピーして指定の場所までモーション移動
     // nextのステータスでもストアに保持しとこうかな
@@ -88,15 +87,15 @@ function Camera() {
     //   return;
     // }
 
-  }, [role, cameras, motionCamera, camNo]);
+  }, [role, cameras, motionCamera, camNo, isObjectFit]);
 
 
   return (
     <>
-      <PerspectiveCamera visible={role === RoleStatus.Spectator} ref={motionRef} position={[0, 17, 10]} fov={75} />
+      <PerspectiveCamera visible={role === RoleStatus.Spectator} ref={motionRef} position={[STAGE_WIDTH / 2, 17, 0]} fov={75} up={[0, -1, 0]} />
       <PerspectiveCamera visible={role !== RoleStatus.Spectator} ref={e => { if (e) camsRef.current[0] = e;}} position={[0, 17, 10]} fov={75} />
       <PerspectiveCamera visible={role !== RoleStatus.Spectator} ref={e => { if (e) camsRef.current[1] = e;}} position={[0, 1, 0]} fov={45} />
-      <PerspectiveCamera visible={role !== RoleStatus.Spectator} ref={e => { if (e) camsRef.current[2] = e;}} position={[0, 1, 0]} fov={45} />
+      <PerspectiveCamera visible={role !== RoleStatus.Spectator} ref={e => { if (e) camsRef.current[2] = e;}} position={[0, 1, 0]} fov={45} up={[0, -1, 0]} />
     </>
   );
 }
