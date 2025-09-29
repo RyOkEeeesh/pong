@@ -34,9 +34,7 @@ function Box2View({ box, color = "yellow" }: { box: THREE.Box2; color?: string }
   );
 }
 
-// Canvas 内でゲームロジックを処理するコンポーネント
 function PongScene({ coreRef }: { coreRef: React.RefObject<GameCore> }) {
-  // 毎フレームゲームロジックを更新
   useFrame((_, delta) => {
     coreRef.current.process(delta);
   });
