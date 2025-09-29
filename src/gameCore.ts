@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants.ts';
 
-export const delta = 1 / 30;
-
 interface Hit {
   normal: THREE.Vector2;
   hitPoint: THREE.Vector2;
@@ -28,6 +26,7 @@ type Context = {
 }
 
 interface GameContext {
+  delta: number;
   now: Context;
   before: Partial<Context>;
 
@@ -63,6 +62,7 @@ const defGameContext: Context = {
 
 export class GameCore {
   #context: GameContext = {
+    delta: 0,
     now: { ...defGameContext },
     before: {},
 
@@ -114,8 +114,6 @@ export class GameCore {
   ];
 
   #ball: Ball = new Ball(this.#context);
-
-  #interval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.sync();
@@ -194,60 +192,54 @@ export class GameCore {
     return this.#accept;
   }
 
-  start() {
-    this.#interval = setInterval(() => {
-      // this.accept();
-      // this.#context.setServeHit(true);
+  process(d: number) {
+    this.#context.delta = d;
 
-      console.log(this.#context.now.ballPos);
+    this.accept();
+    this.#context.setServeHit(true);
 
-      this.#paddles[0].move();
-      this.#paddles[1].move();
-      if (this.#context.now.gameStatus === GameStatus.First) {
-        if (!this.#done) {
-          this.moveBallForPaddle();
-          this.#done = true;
-        }
-        this.nextStatus(GameStatus.Serving);
-      } else if (this.#context.now.gameStatus === GameStatus.Serving) {
-        this.#ball.changeServePosition();
-        if (this.#context.now.serveHit && !this.#done) {
-          this.#done = true;
-          this.hasService().handleHit();
-          this.#ball.resetServePosition();
-        }
-        if (this.nextStatus(GameStatus.Playing)) {
-          this.#context.setServeHit(false);
-        }
-      } else if (this.#context.now.gameStatus === GameStatus.Playing) {
-        const newBallPos = this.#context.now.ballPos.clone();
-        this.#context.setBallPos(newBallPos.addScaledVector(this.#context.now.velocity, delta));
-        this.#ball.move();
-        for (const obj of [ ...this.#paddles, ...this.#walls ]) {
-          if (obj.onHit(this.#ball.box)) break;
-        }
-        this.#ball.move();
-      } else if (this.#context.now.gameStatus === GameStatus.GetPoint) {
-        if (this.#context.now.isFinish) {
-          this.nextStatus(GameStatus.End);
-        } else {
-          if (!this.#done) this.moveBallForPaddle();
-          this.nextStatus(GameStatus.Serving);
+    console.log(this.#context.now.ballPos);
 
-        }
-      } else { // End
-        
+    this.#paddles[0].move();
+    this.#paddles[1].move();
+    if (this.#context.now.gameStatus === GameStatus.First) {
+      if (!this.#done) {
+        this.moveBallForPaddle();
+        this.#done = true;
       }
-    }, delta * 1000);
-  }
+      this.nextStatus(GameStatus.Serving);
+    } else if (this.#context.now.gameStatus === GameStatus.Serving) {
+      this.#ball.changeServePosition();
+      if (this.#context.now.serveHit && !this.#done) {
+        this.#done = true;
+        this.hasService().handleHit();
+        this.#ball.resetServePosition();
+      }
+      if (this.nextStatus(GameStatus.Playing)) {
+        this.#context.setServeHit(false);
+      }
+    } else if (this.#context.now.gameStatus === GameStatus.Playing) {
+      const newBallPos = this.#context.now.ballPos.clone();
+      this.#context.setBallPos(newBallPos.addScaledVector(this.#context.now.velocity, this.context.delta));
+      this.#ball.move();
+      for (const obj of [ ...this.#paddles, ...this.#walls ]) {
+        if (obj.onHit(this.#ball.box)) break;
+      }
+      this.#ball.move();
+    } else if (this.#context.now.gameStatus === GameStatus.GetPoint) {
+      if (this.#context.now.isFinish) {
+        this.nextStatus(GameStatus.End);
+      } else {
+        if (!this.#done) this.moveBallForPaddle();
+        this.nextStatus(GameStatus.Serving);
 
-  stop() {
-    if (this.#interval) clearInterval(this.#interval);
-    this.#interval = null;
+      }
+    } else { // End
+      
+    }
   }
 
   reset() {
-    this.stop();
     this.#accept = false;
     this.#done = false;
     this.#context.now = { ...defGameContext };
@@ -269,7 +261,6 @@ function getBoxWithMargin(box: THREE.Box2, margin: number) {
 function intersect(a: THREE.Box2, b: THREE.Box2): Hit | undefined {
   if (!getBoxWithMargin(a, 0.09).intersectsBox(b)) return;
 
-  // 重なり領域を計算
   const overlapMin = new THREE.Vector2(
     Math.max(a.min.x, b.min.x),
     Math.max(a.min.y, b.min.y)
@@ -280,18 +271,15 @@ function intersect(a: THREE.Box2, b: THREE.Box2): Hit | undefined {
   );
   const overlap = new THREE.Vector2().subVectors(overlapMax, overlapMin);
 
-  // x衝突
   if (overlap.x < overlap.y) {
     const normal = new THREE.Vector2(a.min.x < b.min.x ? -1 : 1, 0);
     const hitPoint = new THREE.Vector2(
-      normal.x > 0 ? a.max.x : a.min.x, // ボール側の面
-      (overlapMin.y + overlapMax.y) / 2 // 中央
+      normal.x > 0 ? a.max.x : a.min.x,
+      (overlapMin.y + overlapMax.y) / 2
     );
     console.log(normal, hitPoint);
     return { normal, hitPoint };
-  } 
-  // y衝突
-  else {
+  } else {
     const normal = new THREE.Vector2(0, a.min.y < b.min.y ? -1 : 1);
     const hitPoint = new THREE.Vector2(
       (overlapMin.x + overlapMax.x) / 2,
@@ -458,15 +446,15 @@ class Ball {
       this.#serveBeforeBallPosition = ballPos.clone();
       return;
     }
-    this.#servePaddleVelocity.subVectors(paddlePos.clone(), this.#serveBeforePaddlePosition).divideScalar(delta);
-    this.#serveBallVelocity.subVectors(ballPos.clone(), this.#serveBeforeBallPosition).divideScalar(delta);
+    this.#servePaddleVelocity.subVectors(paddlePos.clone(), this.#serveBeforePaddlePosition).divideScalar(this.context.delta);
+    this.#serveBallVelocity.subVectors(ballPos.clone(), this.#serveBeforeBallPosition).divideScalar(this.context.delta);
     this.#serveBeforePaddlePosition.copy(paddlePos);
     this.#serveBeforeBallPosition.copy(ballPos);
 
     if (this.#servePaddleVelocity.x !== this.#serveBallVelocity.x) {
       this.#serveBallVelocity.multiplyScalar(FRICTION);
       if (this.#serveBallVelocity.lengthSq() < 0.0001) this.#serveBallVelocity.set(0, 0);
-      ballPos.x += this.#serveBallVelocity.x * delta;
+      ballPos.x += this.#serveBallVelocity.x * this.context.delta;
       ballPos.x = THREE.MathUtils.clamp(ballPos.x, -STAGE_WIDTH / 2 + 0.8, STAGE_WIDTH / 2 - 0.8);
     }
     ballPos.x = THREE.MathUtils.clamp(ballPos.x, paddlePos.x - PADDLE_HALF_X + BALL_SIZE / 2, paddlePos.x + PADDLE_HALF_X - BALL_SIZE / 2); 

@@ -48,6 +48,7 @@ function Camera() {
   const motionRef = useRef<THREE.PerspectiveCamera>(null!);
   const camsRef = useRef<THREE.PerspectiveCamera[]>([]);
 
+  // カメラ初期設定
   useEffect(() => {
     if (motionRef.current && camsRef.current.length !== 3) return;
     setMotionCamera(motionRef.current);

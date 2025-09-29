@@ -2,10 +2,11 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import * as THREE from "three";
-import { GameCore } from "./serverCore";
+import { GameCore } from "./gameCore";
 
+// Box2 の中心とサイズを取得
 function box2ToCenterSize(box: THREE.Box2) {
   const size = new THREE.Vector2();
   const center = new THREE.Vector2();
@@ -15,13 +16,14 @@ function box2ToCenterSize(box: THREE.Box2) {
   return { center, size };
 }
 
-function Box2View({ box, color = "yellow" }: { box: THREE.Box2, color?: string }) {
+// Box2 を3Dで可視化するコンポーネント
+function Box2View({ box, color = "yellow" }: { box: THREE.Box2; color?: string }) {
   const ref = useRef<THREE.Mesh>(null!);
 
   useFrame(() => {
     const { center, size } = box2ToCenterSize(box);
-    ref.current.position.set(center.x, 0, center.y); // Box2 の y → 3D では z に置き換える
-    ref.current.scale.set(size.x, 1, size.y);        // 高さは固定 1
+    ref.current.position.set(center.x, 0, center.y);
+    ref.current.scale.set(size.x, 1, size.y);
   });
 
   return (
@@ -32,20 +34,15 @@ function Box2View({ box, color = "yellow" }: { box: THREE.Box2, color?: string }
   );
 }
 
-export default function PongTest() {
-  const coreRef = useRef<GameCore>(new GameCore());
-
-  useEffect(() => {
-    coreRef.current.start();
-    return () => coreRef.current.stop();
-  }, []);
+// Canvas 内でゲームロジックを処理するコンポーネント
+function PongScene({ coreRef }: { coreRef: React.RefObject<GameCore> }) {
+  // 毎フレームゲームロジックを更新
+  useFrame((_, delta) => {
+    coreRef.current.process(delta);
+  });
 
   return (
-    <Canvas camera={{ position: [0, 20, 30], fov: 50 }}>
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[10, 20, 10]} intensity={1} />
-      <OrbitControls />
-
+    <>
       {coreRef.current.walls.map((w, i) => (
         <Box2View key={i} box={w.box} color="lime" />
       ))}
@@ -53,6 +50,20 @@ export default function PongTest() {
         <Box2View key={i} box={p.box} color="cyan" />
       ))}
       <Box2View box={coreRef.current.ball.box} color="magenta" />
+    </>
+  );
+}
+
+// メインコンポーネント
+export default function PongTest() {
+  const coreRef = useRef<GameCore>(new GameCore());
+
+  return (
+    <Canvas camera={{ position: [0, 20, 30], fov: 50 }}>
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[10, 20, 10]} intensity={1} />
+      <OrbitControls />
+      <PongScene coreRef={coreRef} />
     </Canvas>
   );
 }

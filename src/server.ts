@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
-import { GameCore } from './serverCore.ts';
+import { GameCore } from './gameCore.ts';
 import { ClientMsg, InitMsg, JoinMsg, MsgType, Player, ReadyMsg, RoleStatus, ServerMsg, ServerStatus } from "./constants.ts";
 
 interface BeforeData {
@@ -8,6 +8,8 @@ interface BeforeData {
 }
 
 interface ExtWebSocket extends WebSocket, BeforeData, Player{};
+
+const delta = 1 / 30;
 
 const wss = new WebSocketServer({ host: '0.0.0.0', port: 8080 });
 
@@ -122,7 +124,7 @@ wss.on("connection", (ws: ExtWebSocket, req) => {
           serverStatus.set(ServerStatus.Game);
           console.log('Game start!');
           game.reset();
-          game.start();
+          // game.start();
         }
       }
     }
