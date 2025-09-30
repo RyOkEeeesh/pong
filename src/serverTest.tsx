@@ -4,7 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import React, { useRef } from "react";
 import * as THREE from "three";
-import { GameCore } from "./gameCore";
+import { SerGameCore } from "./serverCore";
 
 // Box2 の中心とサイズを取得
 function box2ToCenterSize(box: THREE.Box2) {
@@ -34,7 +34,7 @@ function Box2View({ box, color = "yellow" }: { box: THREE.Box2; color?: string }
   );
 }
 
-function PongScene({ coreRef }: { coreRef: React.RefObject<GameCore> }) {
+function PongScene({ coreRef }: { coreRef: React.RefObject<SerGameCore> }) {
   useFrame((_, delta) => {
     coreRef.current.process(delta);
   });
@@ -54,7 +54,7 @@ function PongScene({ coreRef }: { coreRef: React.RefObject<GameCore> }) {
 
 // メインコンポーネント
 export default function PongTest() {
-  const coreRef = useRef<GameCore>(new GameCore());
+  const coreRef = useRef<SerGameCore>(new SerGameCore());
 
   return (
     <Canvas camera={{ position: [0, 20, 30], fov: 50 }}>

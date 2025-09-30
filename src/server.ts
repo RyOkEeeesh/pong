@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
-import { GameCore } from './gameCore.ts';
+import { SerGameCore } from './serverCore.ts';
 import { ClientMsg, InitMsg, JoinMsg, MsgType, Player, ReadyMsg, RoleStatus, ServerMsg, ServerStatus } from "./constants.ts";
 
 interface BeforeData {
@@ -13,7 +13,7 @@ const delta = 1 / 30;
 
 const wss = new WebSocketServer({ host: '0.0.0.0', port: 8080 });
 
-const game = new GameCore();
+const game = new SerGameCore();
 
 const serverStatus: {
   now: ServerStatus,

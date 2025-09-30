@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants.ts';
+import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_DEPTH, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants.ts';
 
 interface Hit {
   normal: THREE.Vector2;
@@ -60,7 +60,7 @@ const defGameContext: Context = {
   hit: null
 };
 
-export class GameCore {
+export class SerGameCore {
   #context: GameContext = {
     delta: 0,
     now: { ...defGameContext },
@@ -323,15 +323,18 @@ class SideWall extends HitObject {
   }
 
   get box() { return this.#box; }
+  get name() { return this.#name; }
 }
 
 class GoalWall extends HitObject {
   #box: THREE.Box2;
+  #name: string;
   #position: [number, number]
 
   constructor(context: GameContext, pos: [number, number]) {
     super(context);
     this.#position = pos;
+    this.#name = pos[1] > 0 ? GOAL_1 : GOAL_2 ;
     this.#box = new THREE.Box2(
       new THREE.Vector2(pos[0] - STAGE_WIDTH / 2, pos[1] - WALL_DEPTH / 2),
       new THREE.Vector2(pos[0] + STAGE_WIDTH / 2, pos[1] + WALL_DEPTH / 2)
@@ -353,6 +356,7 @@ class GoalWall extends HitObject {
   }
 
   get box() { return this.#box; }
+  get name() { return this.#name; }
 }
 
 class Paddle extends HitObject {
@@ -366,8 +370,8 @@ class Paddle extends HitObject {
     this.#position = pos;
     this.#name = pos[1] > 0 ? PADDLE_1 : PADDLE_2 ;
     this.#box = new THREE.Box2(
-      new THREE.Vector2(pos[0] - PADDLE_HALF_X, pos[1] - PADDLE_HEIGHT / 2),
-      new THREE.Vector2(pos[0] + PADDLE_HALF_X, pos[1] + PADDLE_HEIGHT / 2)
+      new THREE.Vector2(pos[0] - PADDLE_HALF_X, pos[1] - PADDLE_DEPTH / 2),
+      new THREE.Vector2(pos[0] + PADDLE_HALF_X, pos[1] + PADDLE_DEPTH / 2)
     );
     this.#box.getSize(this.#size);
   }
@@ -415,6 +419,7 @@ class Paddle extends HitObject {
   }
 
   get box() { return this.#box; }
+  get name() { return this.#name; }
   get position() { return new THREE.Vector2(this.#position[0], this.#position[1]); }
 }
 
