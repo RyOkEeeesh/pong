@@ -93,11 +93,11 @@ function handleHitSideWall() {
 }
 
 function handleHitGoalWall(player: boolean) {
-  useStageStore.getState().setVelocity(new THREE.Vector3());
+  useStageStore.getState().setVelocity(new THREE.Vector2());
   const { setGameStatus, addPoint, processAddPoint, setPointGetter } = useGameStore.getState();
-  addPoint(player);
-  processAddPoint();
   setPointGetter(player);
+  addPoint();
+  processAddPoint();
   setGameStatus(GameStatus.GetPoint);
 }
 
@@ -111,9 +111,8 @@ function handleHitPaddle(mesh: THREE.Mesh) {
   const maxAngle = Math.PI / 3;
   const angle = normalized * maxAngle;
   const dz = mesh.position.z > 0 ? -1 : 1;
-  const newVelocity = new THREE.Vector3(
+  const newVelocity = new THREE.Vector2(
     ballSpeed * Math.sin(angle),
-    0,
     dz * ballSpeed * Math.cos(angle)
   );
   setBallSpeed(Math.min(ballSpeed + ACCELERATION, BALL_SPEED_MAX));

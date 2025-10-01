@@ -1,20 +1,18 @@
 import * as THREE from 'three';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
-import { BALL_SIZE, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
-import { useGameStore, useStageStore } from './store';
+import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
+import { Position, useGameStore, useStageStore } from './store';
 import { Hit, intersect } from './core';
-
-type Position2d = [number, number];
 
 type Object2d = { name: string; ref: React.RefObject<THREE.Box2> }
 
 type ObjectProps = {
-  position?: Position2d;
+  position?: Position;
   args: ConstructorParameters<typeof THREE.Box2>;
 }
 
-function move(box: THREE.Box2, position: Position2d) {
+function move(box: THREE.Box2, position: Position) {
   const size = new THREE.Vector2();
   box.getSize(size);
   box.setFromCenterAndSize(new THREE.Vector2(position[0], position[1]), size);
@@ -53,17 +51,59 @@ const goalWallArgs: ConstructorParameters<typeof THREE.Box2> = [
 ];
 
 function handleHitPaddle() {
-  
+  const { ballSpeed, ballPosition, paddlesPosition, setBallSpeed, setVelocity } = useStageStore.getState();
+  const paddlePos = paddlesPosition[Number(ballPosition.y > 0)];
+
+  const normalized = THREE.MathUtils.clamp(
+    (ballPosition.clone().x - paddlePos) / PADDLE_HALF_X,
+    -1,
+    1
+  );
+  const maxAngle = Math.PI / 3;
+  const angle = normalized * maxAngle;
+  const newVelocity = new THREE.Vector2(
+    ballSpeed * Math.sin(angle),
+    -Math.sign(ballPosition.y) * ballSpeed * Math.cos(angle)
+  );
+  setBallSpeed(Math.min(ballSpeed + ACCELERATION, BALL_SPEED_MAX));
+  setVelocity(newVelocity);
+}
+
+function handleHitSideWall() {
+  const { velocity, setVelocity } = useStageStore.getState();
+  const v = velocity.clone();
+  v.x *= -1;
+  setVelocity(v);
+}
+
+function handleHitGoalWall() {
+  const { ballPosition, setVelocity } = useStageStore.getState();
+  const { setGameStatus, addPoint, processAddPoint, setPointGetter } = useGameStore.getState();
+  const pointGetter = ballPosition.y < 0;
+  setVelocity(new THREE.Vector2());
+  setPointGetter(pointGetter);
+  addPoint();
+  processAddPoint();
+  setGameStatus(GameStatus.GetPoint);
 }
 
 function handleHit(obj: Object2d, hit: Hit) {
+  const { setHit } = useGameStore.getState();
   if (obj.name === PADDLE_1 || obj.name === PADDLE_2) {
+    if (Math.abs(hit.normal.y) > 0.9) {
+      handleHitPaddle();
+      setHit(obj.name, hit.hitPoint);
+    return;
+    }
+    handleHitSideWall();
     return;
   }
   if (obj.name === SIDE_1 || obj.name === SIDE_2) {
+    handleHitSideWall();
+    setHit(obj.name, hit.hitPoint);
     return;
   }
-  // goalWall
+  handleHitGoalWall();
 }
 
 function onHit(ball: THREE.Box2, obj: Object2d): boolean {
@@ -75,7 +115,7 @@ function onHit(ball: THREE.Box2, obj: Object2d): boolean {
   return false;
 }
 
-function CliGameCore () {
+function CliGameCore() {
   const ballRef = useRef<THREE.Box2>(null!);
   const paddles: [Object2d, Object2d] = [
     { name: PADDLE_2, ref: useRef<THREE.Box2>(null!) },
@@ -87,6 +127,18 @@ function CliGameCore () {
     { name: GOAL_1, ref: useRef<THREE.Box2>(null!) },
     { name: GOAL_2, ref: useRef<THREE.Box2>(null!) }
   ];
+
+  const done = useRef<boolean>(false);
+
+  function accept(): Boolean {
+    const { acceptNextStatus, setAcceptNextStatus } = useGameStore.getState();
+    if (acceptNextStatus) {
+      setAcceptNextStatus(false);
+      done.current = false;
+      return true;
+    }
+    return false;
+  }
 
   useFrame((_, delta) => {
     const { setDelta } = useStageStore.getState();
@@ -103,7 +155,7 @@ function CliGameCore () {
           [0, PADDLE_POSITION_Z2],
           [0, PADDLE_POSITION_Z1]
         ].map((position, i) =>
-          <Box2 ref={paddles[i].ref} args={paddleArgs} position={position as Position2d} />
+          <Box2 ref={paddles[i].ref} args={paddleArgs} position={position as Position} />
         )
       } { // walls
         [
@@ -112,7 +164,7 @@ function CliGameCore () {
           [0, -STAGE_HEIGHT / 2],
           [0, STAGE_HEIGHT / 2]
         ].map((position, i) =>
-          <Box2 ref={walls[i].ref} args={(i < 2 ? sideWallArgs : goalWallArgs)} position={position as Position2d} />
+          <Box2 ref={walls[i].ref} args={(i < 2 ? sideWallArgs : goalWallArgs)} position={position as Position} />
         )
       }
     </>
