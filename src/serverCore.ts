@@ -1,10 +1,7 @@
 import * as THREE from 'three';
 import { BALL_SIZE, BALL_SPEED, FRICTION, GAME_POINT, GAME_POINT_MAX, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_HALF_X, PADDLE_DEPTH, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH } from './constants.ts';
+import { Hit, intersect } from './core.ts';
 
-interface Hit {
-  normal: THREE.Vector2;
-  hitPoint: THREE.Vector2;
-}
 
 interface ObjectHit extends Hit {
   name?: string;
@@ -251,44 +248,7 @@ export class SerGameCore {
   get ball() { return this.#ball; }
 }
 
-function getBoxWithMargin(box: THREE.Box2, margin: number) {
-  return new THREE.Box2(
-    box.min.clone().subScalar(margin),
-    box.max.clone().subScalar(margin)
-  );
-}
 
-function intersect(a: THREE.Box2, b: THREE.Box2): Hit | undefined {
-  if (!getBoxWithMargin(a, 0.09).intersectsBox(b)) return;
-
-  const overlapMin = new THREE.Vector2(
-    Math.max(a.min.x, b.min.x),
-    Math.max(a.min.y, b.min.y)
-  );
-  const overlapMax = new THREE.Vector2(
-    Math.min(a.max.x, b.max.x),
-    Math.min(a.max.y, b.max.y)
-  );
-  const overlap = new THREE.Vector2().subVectors(overlapMax, overlapMin);
-
-  if (overlap.x < overlap.y) {
-    const normal = new THREE.Vector2(a.min.x < b.min.x ? -1 : 1, 0);
-    const hitPoint = new THREE.Vector2(
-      normal.x > 0 ? a.max.x : a.min.x,
-      (overlapMin.y + overlapMax.y) / 2
-    );
-    console.log(normal, hitPoint);
-    return { normal, hitPoint };
-  } else {
-    const normal = new THREE.Vector2(0, a.min.y < b.min.y ? -1 : 1);
-    const hitPoint = new THREE.Vector2(
-      (overlapMin.x + overlapMax.x) / 2,
-      normal.y > 0 ? a.max.y : a.min.y
-    );
-    console.log(normal, hitPoint);
-    return { normal, hitPoint };
-  }
-}
 
 abstract class HitObject {
   constructor(protected context: GameContext) {}

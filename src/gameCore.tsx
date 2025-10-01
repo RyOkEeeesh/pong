@@ -3,6 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { BALL_SIZE, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
 import { useGameStore, useStageStore } from './store';
+import { Hit, intersect } from './core';
 
 type Position2d = [number, number];
 
@@ -50,6 +51,29 @@ const goalWallArgs: ConstructorParameters<typeof THREE.Box2> = [
   new THREE.Vector2(-STAGE_WIDTH / 2, -WALL_DEPTH / 2),
   new THREE.Vector2(STAGE_WIDTH / 2, WALL_DEPTH / 2)
 ];
+
+function handleHitPaddle() {
+  
+}
+
+function handleHit(obj: Object2d, hit: Hit) {
+  if (obj.name === PADDLE_1 || obj.name === PADDLE_2) {
+    return;
+  }
+  if (obj.name === SIDE_1 || obj.name === SIDE_2) {
+    return;
+  }
+  // goalWall
+}
+
+function onHit(ball: THREE.Box2, obj: Object2d): boolean {
+  const hit = intersect(ball, obj.ref.current);
+  if (hit) {
+    handleHit(obj, hit)
+    return true;
+  }
+  return false;
+}
 
 function CliGameCore () {
   const ballRef = useRef<THREE.Box2>(null!);
