@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
-import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
+import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, FramePriority, FRICTION, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
 import { Position, useGameStore, useStageStore } from './store';
 import { Hit, intersect } from './core';
 
@@ -12,22 +12,24 @@ type ObjectProps = {
   args: ConstructorParameters<typeof THREE.Box2>;
 }
 
-function move(box: THREE.Box2, position: Position) {
-  const size = new THREE.Vector2();
+const size = new THREE.Vector2();
+
+function move(box: THREE.Box2, position: THREE.Vector2) {
   box.getSize(size);
-  box.setFromCenterAndSize(new THREE.Vector2(position[0], position[1]), size);
+  box.setFromCenterAndSize(position, size);
 }
 
 const Box2 = forwardRef<THREE.Box2, ObjectProps>((props, ref) => {
-  const ballRef = useRef<THREE.Box2>(null!);
-  useImperativeHandle(ref, () => ballRef.current);
+  const tmpVec2 = useRef<THREE.Vector2>(new THREE.Vector2());
+  const boxRef = useRef<THREE.Box2>(null!);
+  useImperativeHandle(ref, () => boxRef.current);
 
   useEffect(() => {
-    if (!ballRef.current) return;
-    if (props.position) move(ballRef.current, props.position);
+    if (!boxRef.current) return;
+    if (props.position) move(boxRef.current, tmpVec2.current.set(props.position[0], props.position[1]));
   }, []);
 
-  return <box2 {...props} />;
+  return <box2 ref={boxRef} {...props} />;
 });
 
 const ballArgs: ConstructorParameters<typeof THREE.Box2> = [
@@ -37,7 +39,7 @@ const ballArgs: ConstructorParameters<typeof THREE.Box2> = [
 
 const paddleArgs: ConstructorParameters<typeof THREE.Box2> = [
   new THREE.Vector2(-PADDLE_HALF_X, -PADDLE_DEPTH / 2),
-    new THREE.Vector2(PADDLE_HALF_X, PADDLE_DEPTH / 2)
+  new THREE.Vector2(PADDLE_HALF_X, PADDLE_DEPTH / 2)
 ];
 
 const sideWallArgs: ConstructorParameters<typeof THREE.Box2> = [
@@ -55,7 +57,7 @@ function handleHitPaddle() {
   const paddlePos = paddlesPosition[Number(ballPosition.y > 0)];
 
   const normalized = THREE.MathUtils.clamp(
-    (ballPosition.clone().x - paddlePos) / PADDLE_HALF_X,
+    (ballPosition.x - paddlePos) / PADDLE_HALF_X,
     -1,
     1
   );
@@ -115,7 +117,7 @@ function onHit(ball: THREE.Box2, obj: Object2d): boolean {
   return false;
 }
 
-function CliGameCore() {
+export function CliGameCore() {
   const ballRef = useRef<THREE.Box2>(null!);
   const paddles: [Object2d, Object2d] = [
     { name: PADDLE_2, ref: useRef<THREE.Box2>(null!) },
@@ -130,7 +132,7 @@ function CliGameCore() {
 
   const done = useRef<boolean>(false);
 
-  function accept(): Boolean {
+  function accept(): boolean {
     const { acceptNextStatus, setAcceptNextStatus } = useGameStore.getState();
     if (acceptNextStatus) {
       setAcceptNextStatus(false);
@@ -140,12 +142,111 @@ function CliGameCore() {
     return false;
   }
 
-  useFrame((_, delta) => {
-    const { setDelta } = useStageStore.getState();
-    setDelta(delta);
+  const tmpVec2 = useRef<THREE.Vector2>(new THREE.Vector2());
 
-    // 処理続きから
-  })
+  function moveBallForPaddle() {
+    const { paddlesPosition, setBallPosition } = useStageStore.getState();
+    const { pointGetter } = useGameStore.getState();
+    const posY = pointGetter ? PADDLE_POSITION_Z2 : PADDLE_POSITION_Z1;
+    setBallPosition(tmpVec2.current.set(
+      paddlesPosition[Number(!pointGetter)],
+      posY - Math.sign(posY) * 1.2
+    ));
+  }
+
+  const beforeBallPosition = useRef<THREE.Vector2 | null>(null);
+  const beforePaddlePosition = useRef<THREE.Vector2 | null>(null);
+  const ballVelocity = useRef<THREE.Vector2>(new THREE.Vector2());
+  const paddleVelocity = useRef<THREE.Vector2>(new THREE.Vector2());
+
+  function changeServePosition() {
+    const { delta, ballPosition, paddlesPosition, setBallPosition } = useStageStore.getState();
+    const newBallPos = ballPosition.clone();
+    const paddlePos = new THREE.Vector2(paddlesPosition[Number(!useGameStore.getState().pointGetter)], 0);
+
+    if ( !beforeBallPosition.current || !beforePaddlePosition.current ) {
+      beforeBallPosition.current = newBallPos;
+      beforePaddlePosition.current = paddlePos;
+      return;
+    }
+
+    ballVelocity.current.subVectors(newBallPos, beforeBallPosition.current).divideScalar(delta);
+    paddleVelocity.current.subVectors(paddlePos, beforePaddlePosition.current!).divideScalar(delta);
+    beforeBallPosition.current?.copy(ballPosition);
+    beforePaddlePosition.current?.copy(paddlePos);
+
+    if (paddleVelocity.current.x !== ballVelocity.current.x) {
+      ballVelocity.current.multiplyScalar(FRICTION);
+      if(ballVelocity.current.lengthSq() < 0.0001) ballVelocity.current.set(0, 0);
+      newBallPos.x += ballVelocity.current.x * delta;
+      newBallPos.x = THREE.MathUtils.clamp(newBallPos.x, -STAGE_WIDTH / 2 + 0.8, STAGE_WIDTH / 2 - 0.8);
+    }
+
+    newBallPos.x = THREE.MathUtils.clamp(
+      newBallPos.x,
+      paddlePos.x - PADDLE_HALF_X + BALL_SIZE / 2,
+      paddlePos.x + PADDLE_HALF_X - BALL_SIZE / 2
+    );
+    setBallPosition(newBallPos);
+  }
+
+  function resetBeforePositions() {
+    beforeBallPosition.current = null;
+    beforePaddlePosition.current = null;
+  }
+
+  useFrame((_, delta) => {
+    const { ballPosition, velocity, paddlesPosition, setBallSpeed, setDelta, setBallPosition } = useStageStore.getState();
+    const { gameStatus, isFinish, serveHit, setGameStatus, setServeHit } = useGameStore.getState();
+    if (gameStatus === GameStatus.Pause) {
+      setDelta(0);
+      return;
+    }
+
+    setDelta(delta);
+    move(paddles[0].ref.current, tmpVec2.current.set(paddlesPosition[0] ,PADDLE_POSITION_Z2));
+    move(paddles[1].ref.current, tmpVec2.current.set(paddlesPosition[1] ,PADDLE_POSITION_Z1));
+
+    if (gameStatus === GameStatus.First) {
+      if (!done.current) {
+        done.current = true;
+        moveBallForPaddle();
+      } else if (accept()) {
+        setGameStatus(GameStatus.Serving);
+      }
+    } else if (gameStatus === GameStatus.Serving) {
+      changeServePosition();
+      if(serveHit) {
+        setServeHit(false);
+        handleHitPaddle();
+        resetBeforePositions();
+        setGameStatus(GameStatus.Playing);
+      }
+    } else if (gameStatus === GameStatus.Playing) {
+      setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
+      move(ballRef.current, useStageStore.getState().ballPosition);
+      for (const obj of [ ...paddles, ...walls ]) {
+        if (onHit(ballRef.current, obj)) break;
+      }
+    } else if (gameStatus === GameStatus.GetPoint) {
+      if (!done.current) {
+        done.current = true;
+        setBallSpeed();
+        isFinish
+          ? setBallPosition(tmpVec2.current.set(0, 0))
+          : moveBallForPaddle();
+      } else if (accept()) {
+        setGameStatus(isFinish ? GameStatus.End : GameStatus.Serving);
+      }
+    } else { // GameStatus.End
+      if (accept()) {
+        // reset all してから
+        // setGameStatus(GameStatus.First);
+      }
+    }
+
+    move(ballRef.current, useStageStore.getState().ballPosition);
+  }, FramePriority.GameCore);
 
   return (
     <>

@@ -46,6 +46,14 @@ export const EFFECT_MATERIAL_ARGS = {
   depthWrite: false
 };
 
+export enum FramePriority {
+  Pallde,
+  GameCore,
+  Stage,
+  Effect,
+  Camera
+}
+
 export enum CPUMode {
   Easy,
   Normal,

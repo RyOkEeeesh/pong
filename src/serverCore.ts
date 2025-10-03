@@ -185,17 +185,18 @@ export class SerGameCore {
       this.#done = false;
       this.#accept = false;
       this.#context.setGameStatus(s);
+      return true;
     }
-    return this.#accept;
+    return false;
   }
 
   process(d: number) {
     this.#context.delta = d;
 
-    this.accept();
-    this.#context.setServeHit(true);
+    // this.accept();
+    // this.#context.setServeHit(true);
 
-    console.log(this.#context.now.ballPos);
+    // console.log(this.#context.now.ballPos);
 
     this.#paddles[0].move();
     this.#paddles[1].move();
@@ -247,8 +248,6 @@ export class SerGameCore {
   get paddles() { return this.#paddles; }
   get ball() { return this.#ball; }
 }
-
-
 
 abstract class HitObject {
   constructor(protected context: GameContext) {}

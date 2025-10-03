@@ -59,12 +59,12 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   };
 
   function handleCPUServe() {
-    const { pointGetter } = useGameStore.getState();
+    const { pointGetter,serveHit } = useGameStore.getState();
     if(
       !moveCenter() ||
       pointGetter === isP1 ||
       serveTime.current !== null ||
-      useGameStore.getState().serveHit
+      serveHit
     ) return;
     serveTime.current = setTimeout(triggerServe, Math.random() * 1000 + 50);
   }
@@ -162,7 +162,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
 
   const [handleControls, handleServe] = cpuMode === null ? [handlePlayerControl, handlePlayerServe] : [handleCPUControl, handleCPUServe];
 
-  const prevVel = useRef(new THREE.Vector3());
+  const prevVel = useRef(new THREE.Vector2());
 
   useFrame(() => {
     const { velocity } = useStageStore.getState();
