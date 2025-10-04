@@ -8,6 +8,7 @@ import { PaddleController } from './controller.tsx';
 import { fitObject } from './CameraControl.tsx';
 import { CliGameCore } from './gameCore.tsx';
 import { TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
+import { useShallow } from 'zustand/shallow.js';
 
 type MeshProps = {
   name: string;
@@ -103,10 +104,37 @@ export default function Stage({isResizing}: StageProps) {
   function toVec3(vec2: THREE.Vector2) {
     return tmpVec3.current.set(vec2.x, 0, vec2.y);
   }
-
   function toVec2(vec3: THREE.Vector3) {
     return tmpVec2.current.set(vec3.x, vec3.z);
   }
+
+  const [ matchPoint, isFinish ] = useGameStore(useShallow(s => [s.matchPoint, s.isFinish]));
+
+  useEffect(() => {
+    if(!matchPoint) return;
+    const { pointDisplayMats } = useStageStore.getState();
+    const { pointGetter } = useGameStore.getState();
+    const mat = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+    setTriggerBlinkingEffect({
+      mat,
+      end: 800,
+      difference: -0.8,
+      times: 4
+    });
+  }, [matchPoint])
+
+  useEffect(() => {
+    if(!isFinish) return;
+    const { pointDisplayMats } = useStageStore.getState();
+    const { pointGetter } = useGameStore.getState();
+    const mat = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+    setTriggerBlinkingEffect({
+      mat,
+      end: 4000,
+      difference: -0.8,
+      times: 16
+    });
+  }, [isFinish])
 
 
   const wallMat = useMemo(() =>
@@ -174,6 +202,12 @@ export default function Stage({isResizing}: StageProps) {
         }
       } else if (sleepRef.current === null) {
         setSleep(250);
+        setTriggerBlinkingEffect({
+          mat: [wallMat],
+          end: 250,
+          difference: 0.15,
+          times: 2
+        });
       }
     }
 
