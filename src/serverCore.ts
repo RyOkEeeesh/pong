@@ -139,10 +139,10 @@ export class SerGameCore {
         now.hit !== null &&
         before.hit !== null &&
         (!now.hit.normal.equals(before.hit!.normal) ||
-        !now.hit.hitPoint.equals(before.hit!.hitPoint))
+        !now.hit.point.equals(before.hit!.point))
       )) {
         diff.hit = now.hit
-          ? { normal: now.hit.normal.clone(), hitPoint: now.hit.hitPoint.clone() }
+          ? { normal: now.hit.normal.clone(), point: now.hit.point.clone() }
           : null;
       }
 
@@ -268,12 +268,12 @@ class SideWall extends HitObject {
   }
 
   onHit(ball: THREE.Box2): boolean {
-    const hit: ObjectHit | undefined = intersect(ball, this.#box);
+    const hit: ObjectHit | null = intersect(ball, this.#box);
     if (hit) {
       const newVel = this.context.now.velocity.clone();
       newVel.x *= -1;
       this.context.setVelocity(newVel);
-      this.context.setBallPos(hit.hitPoint);
+      this.context.setBallPos(hit.point);
       hit.name = this.#name;
       this.context.setHit(hit);
       return true;
@@ -304,7 +304,7 @@ class GoalWall extends HitObject {
     const hit = intersect(ball, this.#box);
     if (hit) {
       this.context.setVelocity(new THREE.Vector2());
-      this.context.setBallPos(hit.hitPoint);
+      this.context.setBallPos(hit.point);
       this.context.setBallSpeed(BALL_SPEED);
       this.context.setPointGetter(this.#position[1] < 0);
       this.context.addPoint();
@@ -360,9 +360,9 @@ class Paddle extends HitObject {
   }
 
   onHit(ball: THREE.Box2): boolean {
-    const hit: ObjectHit | undefined = intersect(ball, this.#box);
+    const hit: ObjectHit | null = intersect(ball, this.#box);
     if (hit) {
-      this.context.setBallPos(hit.hitPoint);
+      this.context.setBallPos(hit.point);
       if (Math.abs(hit.normal.y) > 0.9) {
         this.handleHit();
         hit.name = this.#name;

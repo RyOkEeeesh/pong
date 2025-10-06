@@ -109,9 +109,10 @@ function handleHit(obj: Object2d, hit: Hit) {
 }
 
 function onHit(ball: THREE.Box2, obj: Object2d): boolean {
+  console.log('onHit')
   const hit = intersect(ball, obj.ref.current);
   if (hit) {
-    handleHit(obj, hit)
+    handleHit(obj, hit);
     return true;
   }
   return false;
@@ -226,7 +227,10 @@ export function CliGameCore() {
       setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
       move(ballRef.current, useStageStore.getState().ballPosition);
       for (const obj of [ ...paddles, ...walls ]) {
-        if (onHit(ballRef.current, obj)) break;
+        if (onHit(ballRef.current, obj)) {
+          console.log('hit');
+          break;
+        };
       }
     } else if (gameStatus === GameStatus.GetPoint) {
       if (!done.current) {
