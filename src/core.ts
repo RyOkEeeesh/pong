@@ -8,10 +8,9 @@ function getBoxWithMargin(box: THREE.Box2, margin: number) {
 }
 
 export interface Hit {
+  point: THREE.Vector2;
   normal: THREE.Vector2;
-  hitPoint: THREE.Vector2;
 }
-
 
 export function intersect(a: THREE.Box2, b: THREE.Box2): Hit | undefined {
   if (!getBoxWithMargin(a, 0.09).intersectsBox(b)) return;
@@ -28,19 +27,19 @@ export function intersect(a: THREE.Box2, b: THREE.Box2): Hit | undefined {
 
   if (overlap.x < overlap.y) {
     const normal = new THREE.Vector2(a.min.x < b.min.x ? -1 : 1, 0);
-    const hitPoint = new THREE.Vector2(
+    const point = new THREE.Vector2(
       normal.x > 0 ? a.max.x : a.min.x,
       (overlapMin.y + overlapMax.y) / 2
     );
-    console.log(normal, hitPoint);
-    return { normal, hitPoint };
+    console.log(point, normal);
+    return { point, normal };
   } else {
     const normal = new THREE.Vector2(0, a.min.y < b.min.y ? -1 : 1);
-    const hitPoint = new THREE.Vector2(
+    const point = new THREE.Vector2(
       (overlapMin.x + overlapMax.x) / 2,
       normal.y > 0 ? a.max.y : a.min.y
     );
-    console.log(normal, hitPoint);
-    return { normal, hitPoint };
+    console.log(point, normal);
+    return { point, normal };
   }
 }

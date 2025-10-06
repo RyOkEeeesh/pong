@@ -7,8 +7,8 @@ import { PointDisplay } from './point.tsx';
 import { PaddleController } from './controller.tsx';
 import { fitObject } from './CameraControl.tsx';
 import { CliGameCore } from './gameCore.tsx';
-import { TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
-import { useShallow } from 'zustand/shallow.js';
+import { Effect, TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
+import { useShallow } from 'zustand/shallow';
 
 type MeshProps = {
   name: string;
@@ -55,17 +55,15 @@ function Floor() {
   );
 }
 
-function PointDisplays() {
-  const point1 = useGameStore(s => s.points[1]);
-  const point2 = useGameStore(s => s.points[0]);
+type PointDisplaysPropos = {
+  points: [number, number];
+}
 
+function PointDisplays({points}: PointDisplaysPropos) {
   const groupRef = useRef<THREE.Group>(null!);
 
   useEffect(() => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.x = -Math.PI / 2;
-    groupRef.current.rotation.z = Math.PI / 2;
-    groupRef.current.scale.set(0.4, 0.4, 0.4);
     const box = new THREE.Box3().setFromObject(groupRef.current);
     const center = box.getCenter(new THREE.Vector3());
     groupRef.current.position.sub(center);
@@ -74,9 +72,9 @@ function PointDisplays() {
   }, []);
 
   return (
-    <group ref={groupRef}>
-      <PointDisplay position={[0, 0, 0]} num={point1} isP1={true} />
-      <PointDisplay position={[20, 0, 0]} num={point2} isP1={false} />
+    <group ref={groupRef} rotation={[-Math.PI / 2, 0, Math.PI / 2]} scale={0.4}>
+      <PointDisplay position={[0, 0, 0]} num={points[1]} isP1={true} />
+      <PointDisplay position={[20, 0, 0]} num={points[0]} isP1={false} />
     </group>
   )
 }
@@ -90,25 +88,40 @@ export default function Stage({isResizing}: StageProps) {
   const { setIsObjectFit } = useCameraStore.getState();
   const [triggerStretchEffect, setTriggerStretchEffect] = useState<TriggerStretchEffect | null>(null);
   const [triggerBlinkingEffect, setTriggerBlinkingEffect] = useState<TriggerBlinkingEffect | null>(null);
+
+  const wallMat = useMemo(() =>
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.3
+    }), []
+  );
   const stageGroup = useRef<THREE.Group>(null!);
   const ballRef = useRef<THREE.Mesh>(null!);
   const paddleRefs = [ useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!) ];
   const goalWall1Ref = useRef<THREE.Mesh>(null!);
   const goalWall2Ref = useRef<THREE.Mesh>(null!);
-  const sideWallsRef = [useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!)];
+  const sideWallsRef = [ useRef<THREE.Mesh>(null!), useRef<THREE.Mesh>(null!) ];
 
-  const tmpVec2 = useRef<THREE.Vector2>(new THREE.Vector2());
-  const tmpVec3 = useRef<THREE.Vector3>(new THREE.Vector3());
-  const saved = useRef<boolean>(false);
-
-  function toVec3(vec2: THREE.Vector2) {
-    return tmpVec3.current.set(vec2.x, 0, vec2.y);
-  }
-  function toVec2(vec3: THREE.Vector3) {
-    return tmpVec2.current.set(vec3.x, vec3.z);
+  function toVec3(vec2: THREE.Vector2, out: THREE.Vector3 = new THREE.Vector3()) {
+    return out.set(vec2.x, 0, vec2.y);
   }
 
-  const [ matchPoint, isFinish ] = useGameStore(useShallow(s => [s.matchPoint, s.isFinish]));
+  function toVec2(vec3: THREE.Vector3, out: THREE.Vector2 = new THREE.Vector2()) {
+    return out.set(vec3.x, vec3.z);
+  }
+
+  const [ points, matchPoint, isFinish, hit ] = useGameStore(useShallow(s => [s.points, s.matchPoint, s.isFinish, s.hit]));
+
+  useEffect(() => {
+    if (!points[0] && !points[1]) return;
+    setTriggerBlinkingEffect({
+      mat: [wallMat],
+      end: 250,
+      difference: 0.15,
+      times: 2
+    });
+  }, [points])
 
   useEffect(() => {
     if(!matchPoint) return;
@@ -134,16 +147,21 @@ export default function Stage({isResizing}: StageProps) {
       difference: -0.8,
       times: 16
     });
-  }, [isFinish])
+  }, [isFinish]);
 
-
-  const wallMat = useMemo(() =>
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: 0xffffff,
-      emissiveIntensity: 0.3
-    }), []
-  );
+  useEffect(() => {
+    if (!hit) return;
+    const { name, point, normal } = hit;
+    if (name === SIDE_1 || name === SIDE_2) {
+      const wall = sideWallsRef.filter(sideref => sideref.current.name === name)[0].current;
+      setTriggerStretchEffect({wall, point: toVec3(point), normal: toVec3(normal)})
+      return;
+    }
+    const wall = name === PADDLE_1 ? goalWall1Ref.current : goalWall2Ref.current;
+    const p = toVec3(point);
+    p.z = wall.position.z;
+    setTriggerStretchEffect({wall, point: p, normal: toVec3(normal)})
+  }, [hit])
 
   useEffect(() => {
     if (!stageGroup.current) return;
@@ -152,26 +170,23 @@ export default function Stage({isResizing}: StageProps) {
     setIsObjectFit(true);
   }, [isResizing, camera]);
 
-
-
   function moveBall(pos: THREE.Vector2) {
     const speed = 20;
     const { ballPosition, setBallPosition, delta } = useStageStore.getState();
-
     for (const axis of ['y', 'x'] as ('x' | 'y')[]) {
       const dir = pos[axis] - ballPosition[axis];
       if (Math.abs(dir) > 0.001) {
         const step = Math.sign(dir) * speed * delta;
         ballPosition[axis] += Math.abs(dir) > Math.abs(step) ? step : dir;
         setBallPosition(ballPosition);
+        console.log(ballPosition);
         return false;
       }
     }
-
     return true;
   }
 
-  const sleepRef = useRef<number | null>(null); // ms
+  const sleepRef = useRef<number | null>(null);
   function setSleep(ms: number) {
     sleepRef.current = performance.now() + ms;
   }
@@ -180,38 +195,49 @@ export default function Stage({isResizing}: StageProps) {
     return sleepRef.current <= performance.now();
   }
 
+  const forSaveVec2Ref = useRef<THREE.Vector2>(new THREE.Vector2());
+  const saved = useRef<boolean>(false);
+
   useFrame(() => {
-    const { delta, ballPosition, setBallPosition, velocity, paddlesPosition, pointDisplayMats } = useStageStore.getState();
-    const { gameStatus, matchPoint, isFinish, serveHit, setServeHit, pointGetter, points, setAcceptNextStatus } = useGameStore.getState();
+    const { paddlesPosition } = useStageStore.getState();
+    const { gameStatus, setAcceptNextStatus } = useGameStore.getState();
+    console.log(gameStatus);
 
     paddleRefs[0].current.position.x = paddlesPosition[0];
     paddleRefs[1].current.position.x = paddlesPosition[1];
 
     if (gameStatus === GameStatus.First) {
-      if (!saved.current) tmpVec2.current.copy(ballPosition);
-      if (moveBall(tmpVec2.current)) {
+      const { ballPosition, setBallPosition } = useStageStore.getState();
+      if (!saved.current) {
+        saved.current = true;
+        forSaveVec2Ref.current.copy(ballPosition.clone());
+        setBallPosition(toVec2(ballRef.current.position));
+      }
+      if (moveBall(forSaveVec2Ref.current)) {
         saved.current = false;
         setAcceptNextStatus(true);
       }
     } else if (gameStatus === GameStatus.GetPoint) {
       if (sleep()) {
-        if (!saved.current) tmpVec2.current.copy(ballPosition);
-        if (moveBall(tmpVec2.current)) {
+      const { ballPosition } = useStageStore.getState();
+        if (!saved.current) forSaveVec2Ref.current.copy(ballPosition);
+        if (moveBall(forSaveVec2Ref.current)) {
           saved.current = false;
           setAcceptNextStatus(true);
         }
       } else if (sleepRef.current === null) {
         setSleep(250);
-        setTriggerBlinkingEffect({
-          mat: [wallMat],
-          end: 250,
-          difference: 0.15,
-          times: 2
-        });
+        // setTriggerBlinkingEffect({
+        //   mat: [wallMat],
+        //   end: 250,
+        //   difference: 0.15,
+        //   times: 2
+        // });
       }
     }
 
-    ballRef.current.position.copy(toVec3(ballPosition))
+    const { ballPosition } = useStageStore.getState();
+    ballRef.current.position.set(ballPosition.x, 0, ballPosition.y)
   }, FramePriority.Stage);
 
   return (
@@ -262,8 +288,9 @@ export default function Stage({isResizing}: StageProps) {
       <Ball ref={ballRef} material={wallMat.clone()} />
       <Floor />
 
-      <PointDisplays />
+      <PointDisplays points={points} />
 
+      <Effect triggerStretchEffect={triggerStretchEffect} triggerBlinkingEffect={triggerBlinkingEffect} />
     </>
   );
 }

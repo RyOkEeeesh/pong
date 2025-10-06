@@ -47,7 +47,7 @@ export const EFFECT_MATERIAL_ARGS = {
 };
 
 export enum FramePriority {
-  Pallde,
+  Paddle,
   GameCore,
   Stage,
   Effect,

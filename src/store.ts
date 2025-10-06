@@ -73,7 +73,8 @@ type GameStore = {
   serveHit: boolean;
   hit: {
     name: string;
-    point: THREE.Vector2
+    point: THREE.Vector2;
+    normal: THREE.Vector2;
   } | null;
   acceptNextStatus: boolean;
 
@@ -85,7 +86,7 @@ type GameStore = {
   processAddPoint: () => void;
   setPointGetter: (isP1: boolean) => void;
   setServeHit: (serveHit: boolean) => void;
-  setHit: (name: string, point: THREE.Vector2) => void;
+  setHit: (name: string, point: THREE.Vector2, normal: THREE.Vector2) => void;
   resetHit: () => void;
   setAcceptNextStatus: (acceptNextStatus: boolean) => void;
 }
@@ -95,7 +96,7 @@ export const useGameStore = create<GameStore>(set => ({
   gameMode: GameMode.Selecting,
   gameStatus: GameStatus.First,
   role: RoleStatus.Spectator,
-  points: [0, 0],
+  points: [0, 0] as Position,
   gamePoint: GAME_POINT,
   matchPoint: false,
   isFinish: false,
@@ -135,10 +136,11 @@ export const useGameStore = create<GameStore>(set => ({
     }),
   setPointGetter: isP1 => set({ pointGetter: isP1 }),
   setServeHit: serveHit => set({ serveHit }),
-  setHit: (name, point) => set({
+  setHit: (name, point, normal) => set({
     hit: {
       name,
-      point: point.clone()
+      point: point.clone(),
+      normal: normal.clone()
     }
   }),
   resetHit: () => set({ hit: null }),

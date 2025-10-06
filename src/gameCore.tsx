@@ -94,7 +94,7 @@ function handleHit(obj: Object2d, hit: Hit) {
   if (obj.name === PADDLE_1 || obj.name === PADDLE_2) {
     if (Math.abs(hit.normal.y) > 0.9) {
       handleHitPaddle();
-      setHit(obj.name, hit.hitPoint);
+      setHit(obj.name, hit.point, hit.normal);
     return;
     }
     handleHitSideWall();
@@ -102,7 +102,7 @@ function handleHit(obj: Object2d, hit: Hit) {
   }
   if (obj.name === SIDE_1 || obj.name === SIDE_2) {
     handleHitSideWall();
-    setHit(obj.name, hit.hitPoint);
+    setHit(obj.name, hit.point, hit.normal);
     return;
   }
   handleHitGoalWall();
@@ -256,7 +256,7 @@ export function CliGameCore() {
           [0, PADDLE_POSITION_Z2],
           [0, PADDLE_POSITION_Z1]
         ].map((position, i) =>
-          <Box2 ref={paddles[i].ref} args={paddleArgs} position={position as Position} />
+          <Box2 key={i} ref={paddles[i].ref} args={paddleArgs} position={position as Position} />
         )
       } { // walls
         [
@@ -265,7 +265,7 @@ export function CliGameCore() {
           [0, -STAGE_HEIGHT / 2],
           [0, STAGE_HEIGHT / 2]
         ].map((position, i) =>
-          <Box2 ref={walls[i].ref} args={(i < 2 ? sideWallArgs : goalWallArgs)} position={position as Position} />
+          <Box2 key={i} ref={walls[i].ref} args={(i < 2 ? sideWallArgs : goalWallArgs)} position={position as Position} />
         )
       }
     </>

@@ -2,7 +2,7 @@ import { useKeyboardControls } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { useGameStore, useStageStore, useUserSetting } from './store';
-import { BALL_SPEED, CPUMode, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from './constants';
+import { BALL_SPEED, CPUMode, FramePriority, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from './constants';
 import * as THREE from 'three';
 
 
@@ -16,7 +16,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   const [_, get] = useKeyboardControls();
   const { setPaddlePosition } = useStageStore.getState();
 
-  function getPaddlePosition() { return useStageStore.getState().paddlePosition[Number(isP1)] };
+  function getPaddlePosition() { return useStageStore.getState().paddlesPosition[Number(isP1)] };
 
   const paddleZ = isP1 ? PADDLE_POSITION_Z1 : PADDLE_POSITION_Z2;
 
@@ -84,7 +84,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
       return;
     }
 
-    const timeToReach = Math.abs((paddleZ - ballPosition.z) / velocity.z);
+    const timeToReach = Math.abs((paddleZ - ballPosition.y) / velocity.y);
     const noise =
       Math.random() < state?.missChance ? (Math.random() - 0.5) * state?.precision : 0;
     const randomHitOffset = (Math.random() * 2 - 1) * PADDLE_HALF_X;
@@ -121,7 +121,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     const { ballPosition, velocity, delta } = useStageStore.getState();
 
     const speed = state.speed * delta;
-    const isBallMovingAway = (ballPosition.z - paddleZ) * velocity.z > 0;
+    const isBallMovingAway = (ballPosition.y - paddleZ) * velocity.y > 0;
 
     if (isBallMovingAway) {
       if (cpuMode === CPUMode.Hard) {
@@ -194,7 +194,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
       case GameStatus.Pause:
         break;
     }
-  });
+  }, FramePriority.Paddle);
 
   return null;
 }

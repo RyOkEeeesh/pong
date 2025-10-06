@@ -9,7 +9,7 @@ type StretchEffect = {
   startTime: number;
   side: -1 | 1;
   normal: THREE.Vector3;
-  center: THREE.Vector3;
+  point: THREE.Vector3;
   wall: THREE.Mesh;
 };
 
@@ -19,13 +19,13 @@ type BlinkingEffect = {
   end: number;
   difference: number;
   times: number;
-  defEmissiveIntensity?: number[];
+  defEmissiveIntensity: number[];
 }
 
 export type TriggerStretchEffect = {
-  center: THREE.Vector3;
-  normal: THREE.Vector3;
   wall: THREE.Mesh;
+  point: THREE.Vector3;
+  normal: THREE.Vector3;
 };
 
 export type TriggerBlinkingEffect = {  
@@ -33,21 +33,16 @@ export type TriggerBlinkingEffect = {
   end: number;
   difference: number;
   times: number;
-  defEmissiveIntensity?: number[];
 };
 
 type EffectProps = {
   triggerStretchEffect: TriggerStretchEffect | null;
-  setTriggerStretchEffect: React.Dispatch<React.SetStateAction<TriggerStretchEffect | null>>;
   triggerBlinkingEffect: TriggerBlinkingEffect | null;
-  setTriggerBlinkingEffect:  React.Dispatch<React.SetStateAction<TriggerBlinkingEffect | null>>;
 }
 
 export function Effect({
   triggerStretchEffect,
-  setTriggerStretchEffect,
   triggerBlinkingEffect,
-  setTriggerBlinkingEffect
 }: EffectProps) {
   const [ effectPool, setEffectPool ] = useState<THREE.Mesh[]>(Array.from({ length: 4 }, () => {
     const mesh = new THREE.Mesh(
@@ -57,6 +52,16 @@ export function Effect({
     mesh.visible = false;
     return mesh;
   }));
+
+  useEffect(() => {
+    if (!triggerStretchEffect) return;
+    stretchEffect(triggerStretchEffect)
+  }, [triggerStretchEffect])
+
+  useEffect(() => {
+    if (!triggerBlinkingEffect) return;
+    blinkingEffect(triggerBlinkingEffect);
+  }, [triggerBlinkingEffect])
 
   function getEffectMesh() {
     const mesh = effectPool.find(m => !m.visible);
@@ -75,17 +80,14 @@ export function Effect({
 
   const stretchEffectsRef = useRef<StretchEffect[]>([]);
 
-  function stretchEffect(center: THREE.Vector3, normal: THREE.Vector3, wall: THREE.Mesh) {
-    const sideOptions: (-1 | 1)[] = [-1, 1];
-
-    const newEffects = sideOptions.map(side => {
+  function stretchEffect(props: TriggerStretchEffect) {
+    const {point, normal, wall} = props;
+    const newEffects = ([-1, 1] as (-1 | 1)[]).map(side => {
       const mesh = getEffectMesh();
       mesh.visible = true;
       mesh.rotation.copy(wall.rotation);
-
-      return { mesh, startTime: performance.now(), side, normal, center, wall };
+      return { mesh, startTime: performance.now(), side, normal, point, wall };
     });
-
     stretchEffectsRef.current.push(...newEffects);
   }
 
@@ -109,15 +111,15 @@ export function Effect({
       effect.wall.geometry.computeBoundingBox();
       effect.wall.geometry.boundingBox?.getSize(wallSize);
 
-      const wallCenter = new THREE.Vector3();
-      effect.wall.getWorldPosition(wallCenter);
+      const wallpoint = new THREE.Vector3();
+      effect.wall.getWorldPosition(wallpoint);
 
       const wallDirection = wallTangent.clone();
       const halfLength = wallSize.x / 2;
-      const wallStart = wallCenter.clone().add(wallDirection.clone().multiplyScalar(-halfLength));
-      const wallEnd = wallCenter.clone().add(wallDirection.clone().multiplyScalar(halfLength));
+      const wallStart = wallpoint.clone().add(wallDirection.clone().multiplyScalar(-halfLength));
+      const wallEnd = wallpoint.clone().add(wallDirection.clone().multiplyScalar(halfLength));
 
-      const basePosition = effect.center.clone().add(effect.normal.clone().multiplyScalar(0.06));
+      const basePosition = effect.point.clone().add(effect.normal.clone().multiplyScalar(0.06));
       let effectPos = basePosition.clone().add(wallTangent.clone().multiplyScalar(6 * progress * effect.side));
 
       const localOffset = effectPos.clone().sub(wallStart);
@@ -141,7 +143,7 @@ export function Effect({
 
   const blinkingEffectRef = useRef<BlinkingEffect[]>([]);
 
-  function blinkingEffect(option: BlinkingEffect) {
+  function blinkingEffect(option: TriggerBlinkingEffect) {
     blinkingEffectRef.current.push({
       ...option,
       start: performance.now(),
