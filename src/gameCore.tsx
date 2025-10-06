@@ -12,22 +12,34 @@ type ObjectProps = {
   args: ConstructorParameters<typeof THREE.Box2>;
 }
 
+const sizeMap: <{
+  name: string;
+  size: THREE.Vector2;
+}[]> = [];
 
+function getSize(obj: Object2d): THREE.Vector2 {
+  const objSize = sizeMap.filter(s => s.name === obj.name)[0];
+  if (!objSize) {
+    const sz = new THREE.Vector2();
+    obj.ref.current.getSize(sz);
+    sizeMap.push({name: obj.name, size: sz});
+    return sz;
+  }
+  return objSize.size
+}
 
-function move(box: THREE.Box2, position: THREE.Vector2) {
-  const size = new THREE.Vector2(); // 修正多分これで治るんじゃないかな
-  box.getSize(size);
+function move(obj: Object2d, position: THREE.Vector2) {
+  const size = getSize(obj);
   box.setFromCenterAndSize(position, size);
 }
 
 const Box2 = forwardRef<THREE.Box2, ObjectProps>((props, ref) => {
-  const tmpVec2 = useRef<THREE.Vector2>(new THREE.Vector2());
   const boxRef = useRef<THREE.Box2>(null!);
   useImperativeHandle(ref, () => boxRef.current);
 
   useEffect(() => {
     if (!boxRef.current) return;
-    if (props.position) move(boxRef.current, tmpVec2.current.set(props.position[0], props.position[1]));
+    if (props.position) move(boxRef.current, new THREE.Vector2(props.position[0], props.position[1]));
   }, []);
 
   return <box2 ref={boxRef} {...props} />;
