@@ -12,9 +12,10 @@ type ObjectProps = {
   args: ConstructorParameters<typeof THREE.Box2>;
 }
 
-const size = new THREE.Vector2();
+
 
 function move(box: THREE.Box2, position: THREE.Vector2) {
+  const size = new THREE.Vector2(); // 修正多分これで治るんじゃないかな
   box.getSize(size);
   box.setFromCenterAndSize(position, size);
 }
