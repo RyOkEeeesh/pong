@@ -1,50 +1,9 @@
 import * as THREE from 'three';
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, FramePriority, FRICTION, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
 import { useGameStore, useStageStore } from './store';
 import { Hit, intersect } from './core';
-import { Line } from '@react-three/drei';
-
-type Box2HelperProps = {
-  boxRef: React.RefObject<THREE.Box2>;
-  color?: string;
-};
-
-function Box2Helper({ boxRef, color = 'lime' }: Box2HelperProps) {
-  const points = useRef<THREE.Vector3[]>([]);
-  const [ready, setReady] = useState(false);
-
-  useFrame(() => {
-    if (!boxRef.current) return;
-
-    const min = boxRef.current.min;
-    const max = boxRef.current.max;
-
-    // 4頂点＋ループ閉じ用
-    points.current = [
-      new THREE.Vector3(min.x, min.y, 0),
-      new THREE.Vector3(max.x, min.y, 0),
-      new THREE.Vector3(max.x, max.y, 0),
-      new THREE.Vector3(min.x, max.y, 0),
-      new THREE.Vector3(min.x, min.y, 0),
-    ];
-
-    // 初回のみ ready にする
-    if (!ready) setReady(true);
-  });
-
-  if (!ready) return null; // ← これ大事！
-
-  return (
-    <Line
-      points={points.current}
-      color={color}
-      lineWidth={1}
-      dashed={false}
-    />
-  );
-}
 
 type Object2d = { name: string; ref: React.RefObject<THREE.Box2> }
 
@@ -62,38 +21,42 @@ const Box2 = forwardRef<THREE.Box2, ObjectProps>((props, ref) =>
   <box2 ref={ref} {...props} />
 );
 
-function cloneArgs(args: ConstructorParameters<typeof THREE.Box2>) {
-  return [args[0]!.clone(), args[1]!.clone()] as ConstructorParameters<typeof THREE.Box2>;
+function ballArgs(): ConstructorParameters<typeof THREE.Box2> {
+  return [
+    new THREE.Vector2(-BALL_SIZE / 2, -BALL_SIZE / 2),
+    new THREE.Vector2(BALL_SIZE / 2, BALL_SIZE / 2)
+  ];
 }
 
-const ballArgs: ConstructorParameters<typeof THREE.Box2> = [
-  new THREE.Vector2(-BALL_SIZE / 2, -BALL_SIZE / 2),
-  new THREE.Vector2(BALL_SIZE / 2, BALL_SIZE / 2)
-];
+function paddleArgs(): ConstructorParameters<typeof THREE.Box2> {
+  return [
+    new THREE.Vector2(-PADDLE_HALF_X, -PADDLE_DEPTH / 2),
+    new THREE.Vector2(PADDLE_HALF_X, PADDLE_DEPTH / 2)
+  ];
+}
 
-const paddleArgs: ConstructorParameters<typeof THREE.Box2> = [
-  new THREE.Vector2(-PADDLE_HALF_X, -PADDLE_DEPTH / 2),
-  new THREE.Vector2(PADDLE_HALF_X, PADDLE_DEPTH / 2)
-];
+function sideWallArgs(): ConstructorParameters<typeof THREE.Box2> {
+  return [
+    new THREE.Vector2(-WALL_DEPTH / 2, -STAGE_HEIGHT / 2),
+    new THREE.Vector2(WALL_DEPTH / 2, STAGE_HEIGHT / 2)
+  ];
+}
 
-const sideWallArgs: ConstructorParameters<typeof THREE.Box2> = [
-  new THREE.Vector2(-WALL_DEPTH / 2, -STAGE_HEIGHT / 2),
-  new THREE.Vector2(WALL_DEPTH / 2, STAGE_HEIGHT / 2)
-];
-
-const goalWallArgs: ConstructorParameters<typeof THREE.Box2> = [
-  new THREE.Vector2(-STAGE_WIDTH / 2, -WALL_DEPTH / 2),
-  new THREE.Vector2(STAGE_WIDTH / 2, WALL_DEPTH / 2)
-];
+function goalWallArgs(): ConstructorParameters<typeof THREE.Box2>{
+  return [
+    new THREE.Vector2(-STAGE_WIDTH / 2, -WALL_DEPTH / 2),
+    new THREE.Vector2(STAGE_WIDTH / 2, WALL_DEPTH / 2)
+  ];
+}
 
 const argsList = [
-  cloneArgs(ballArgs),
-  cloneArgs(paddleArgs),
-  cloneArgs(paddleArgs),
-  cloneArgs(sideWallArgs),
-  cloneArgs(sideWallArgs),
-  cloneArgs(goalWallArgs),
-  cloneArgs(goalWallArgs)
+  ballArgs(),
+  paddleArgs(),
+  paddleArgs(),
+  sideWallArgs(),
+  sideWallArgs(),
+  goalWallArgs(),
+  goalWallArgs()
 ];
 
 function handleHitPaddle() {
@@ -315,16 +278,9 @@ export function CliGameCore() {
 
   return (
     <>
-      { [ball, ...paddles, ...walls].map((obj, i) =>
+      {[ball, ...paddles, ...walls].map((obj, i) =>
         <Box2 key={i} ref={obj.ref} args={argsList[i]} />
       )}
-      <Box2Helper boxRef={ball.ref} color="yellow" />
-      <Box2Helper boxRef={paddles[0].ref} color="cyan" />
-      <Box2Helper boxRef={paddles[1].ref} color="magenta" />
-      <Box2Helper boxRef={walls[0].ref} color="orange" />
-      <Box2Helper boxRef={walls[1].ref} color="orange" />
-      <Box2Helper boxRef={walls[2].ref} color="red" />
-      <Box2Helper boxRef={walls[3].ref} color="red" />
     </>
   )
 }

@@ -155,7 +155,9 @@ export default function Stage({isResizing}: StageProps) {
     const { name, point, normal } = hit;
     if (name === SIDE_1 || name === SIDE_2) {
       const wall = sideWallsRef.filter(sideref => sideref.current.name === name)[0].current;
-      setTriggerStretchEffect({wall, point: toVec3(point), normal: toVec3(normal)})
+      const p = point.clone();
+      p.x = wall.position.x;
+      setTriggerStretchEffect({wall, point: toVec3(p), normal: toVec3(normal)})
       return;
     }
     const wall = name === PADDLE_1 ? goalWall1Ref.current : goalWall2Ref.current;
