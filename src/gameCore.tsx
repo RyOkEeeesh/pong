@@ -64,20 +64,24 @@ function getSize(obj: Object2d): THREE.Vector2 {
   return sizeMap[obj.name];
 }
 
-function move(obj: Object2d, position: THREE.Vector2) {
-  const size = getSize(obj);
-  obj.ref.current.setFromCenterAndSize(position, size);
-}
-
 // function move(obj: Object2d, position: THREE.Vector2) {
-//   const size = new THREE.Vector2();
-//   obj.ref.current.getSize(size);
+//   const size = getSize(obj);
 //   obj.ref.current.setFromCenterAndSize(position, size);
 // }
+
+function move(obj: Object2d, position: THREE.Vector2) {
+  const size = new THREE.Vector2();
+  obj.ref.current.getSize(size);
+  obj.ref.current.setFromCenterAndSize(position, size);
+}
 
 const Box2 = forwardRef<THREE.Box2, ObjectProps>((props, ref) => 
   <box2 ref={ref} {...props} />
 );
+
+function cloneArgs(args: ConstructorParameters<typeof THREE.Box2>) {
+  return [args[0]!.clone(), args[1]!.clone()] as ConstructorParameters<typeof THREE.Box2>;
+}
 
 const ballArgs: ConstructorParameters<typeof THREE.Box2> = [
   new THREE.Vector2(-BALL_SIZE / 2, -BALL_SIZE / 2),
@@ -97,6 +101,16 @@ const sideWallArgs: ConstructorParameters<typeof THREE.Box2> = [
 const goalWallArgs: ConstructorParameters<typeof THREE.Box2> = [
   new THREE.Vector2(-STAGE_WIDTH / 2, -WALL_DEPTH / 2),
   new THREE.Vector2(STAGE_WIDTH / 2, WALL_DEPTH / 2)
+];
+
+const argsList = [
+  cloneArgs(ballArgs),
+  cloneArgs(paddleArgs),
+  cloneArgs(paddleArgs),
+  cloneArgs(sideWallArgs),
+  cloneArgs(sideWallArgs),
+  cloneArgs(goalWallArgs),
+  cloneArgs(goalWallArgs)
 ];
 
 function handleHitPaddle() {
@@ -318,23 +332,9 @@ export function CliGameCore() {
 
   return (
     <>
-      {
-        [
-          ball, // 0
-          ...paddles, // 1,2
-          ...walls // side ... 3,4 goal ... 5,6
-        ].map((obj, i) =>
-          <Box2 key={i} ref={obj.ref} args={
-            !i
-              ? ballArgs
-              : i < 3
-                ? paddleArgs
-                : i < 5
-                  ? sideWallArgs
-                  : goalWallArgs
-          } />
-        )
-      }
+      { [ball, ...paddles, ...walls].map((obj, i) =>
+        <Box2 key={i} ref={obj.ref} args={argsList[i]} />
+      )}
       <Box2Helper boxRef={ball.ref} color="yellow" />
       <Box2Helper boxRef={paddles[0].ref} color="cyan" />
       <Box2Helper boxRef={paddles[1].ref} color="magenta" />

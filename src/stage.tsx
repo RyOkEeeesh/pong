@@ -247,7 +247,7 @@ export default function Stage({isResizing}: StageProps) {
       <CliGameCore />
       <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
       <PaddleController isP1={true} />
-      <group visible={false} ref={stageGroup}>
+      <group visible={true} ref={stageGroup}>
         <SideWall
           ref={sideWallsRef[0]}
           name={SIDE_1}
@@ -274,7 +274,7 @@ export default function Stage({isResizing}: StageProps) {
         />
       </group>
 
-      <group visible={false}>
+      <group visible={true}>
         <Paddle
           ref={paddleRefs[1]}
           name={PADDLE_1}
@@ -295,7 +295,7 @@ export default function Stage({isResizing}: StageProps) {
       
 
 
-      {/* <Effect triggerStretchEffect={triggerStretchEffect} triggerBlinkingEffect={triggerBlinkingEffect} /> */}
+      <Effect triggerStretchEffect={triggerStretchEffect} triggerBlinkingEffect={triggerBlinkingEffect} />
     </>
   );
 }
