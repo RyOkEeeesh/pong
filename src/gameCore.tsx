@@ -52,23 +52,6 @@ type ObjectProps = {
   args: ConstructorParameters<typeof THREE.Box2>;
 }
 
-const sizeMap: Record<string, THREE.Vector2> = {};
-
-function getSize(obj: Object2d): THREE.Vector2 {
-  const objSize = sizeMap[obj.name];
-  if (!objSize) {
-    const sz = new THREE.Vector2();
-    obj.ref.current.getSize(sz);
-    sizeMap[obj.name] = sz;
-  }
-  return sizeMap[obj.name];
-}
-
-// function move(obj: Object2d, position: THREE.Vector2) {
-//   const size = getSize(obj);
-//   obj.ref.current.setFromCenterAndSize(position, size);
-// }
-
 function move(obj: Object2d, position: THREE.Vector2) {
   const size = new THREE.Vector2();
   obj.ref.current.getSize(size);
