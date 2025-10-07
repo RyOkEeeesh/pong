@@ -9,6 +9,7 @@ import { fitObject } from './CameraControl.tsx';
 import { CliGameCore } from './gameCore.tsx';
 import { Effect, TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
 import { useShallow } from 'zustand/shallow';
+import { OrbitControls } from '@react-three/drei';
 
 type MeshProps = {
   name: string;
@@ -242,10 +243,11 @@ export default function Stage({isResizing}: StageProps) {
 
   return (
     <>
+      <OrbitControls />
       <CliGameCore />
       <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
       <PaddleController isP1={true} />
-      <group ref={stageGroup}>
+      <group visible={false} ref={stageGroup}>
         <SideWall
           ref={sideWallsRef[0]}
           name={SIDE_1}
@@ -272,25 +274,28 @@ export default function Stage({isResizing}: StageProps) {
         />
       </group>
 
-      <Paddle
-        ref={paddleRefs[1]}
-        name={PADDLE_1}
-        position={[0, 0, PADDLE_POSITION_Z1]}
-        material={wallMat.clone()}
-      />
-      <Paddle
-        ref={paddleRefs[0]}
-        name={PADDLE_2}
-        position={[0, 0, PADDLE_POSITION_Z2]}
-        material={wallMat.clone()}
-      />
+      <group visible={false}>
+        <Paddle
+          ref={paddleRefs[1]}
+          name={PADDLE_1}
+          position={[0, 0, PADDLE_POSITION_Z1]}
+          material={wallMat.clone()}
+        />
+        <Paddle
+          ref={paddleRefs[0]}
+          name={PADDLE_2}
+          position={[0, 0, PADDLE_POSITION_Z2]}
+          material={wallMat.clone()}
+        />
 
-      <Ball ref={ballRef} material={wallMat.clone()} />
-      <Floor />
+        <Ball ref={ballRef} material={wallMat.clone()} />
+        <Floor />
+        <PointDisplays points={points} />
+      </group>
+      
 
-      <PointDisplays points={points} />
 
-      <Effect triggerStretchEffect={triggerStretchEffect} triggerBlinkingEffect={triggerBlinkingEffect} />
+      {/* <Effect triggerStretchEffect={triggerStretchEffect} triggerBlinkingEffect={triggerBlinkingEffect} /> */}
     </>
   );
 }

@@ -1,49 +1,83 @@
 import * as THREE from 'three';
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, FramePriority, FRICTION, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
-import { Position, useGameStore, useStageStore } from './store';
+import { useGameStore, useStageStore } from './store';
 import { Hit, intersect } from './core';
+import { Line } from '@react-three/drei';
+
+type Box2HelperProps = {
+  boxRef: React.RefObject<THREE.Box2>;
+  color?: string;
+};
+
+function Box2Helper({ boxRef, color = 'lime' }: Box2HelperProps) {
+  const points = useRef<THREE.Vector3[]>([]);
+  const [ready, setReady] = useState(false);
+
+  useFrame(() => {
+    if (!boxRef.current) return;
+
+    const min = boxRef.current.min;
+    const max = boxRef.current.max;
+
+    // 4頂点＋ループ閉じ用
+    points.current = [
+      new THREE.Vector3(min.x, min.y, 0),
+      new THREE.Vector3(max.x, min.y, 0),
+      new THREE.Vector3(max.x, max.y, 0),
+      new THREE.Vector3(min.x, max.y, 0),
+      new THREE.Vector3(min.x, min.y, 0),
+    ];
+
+    // 初回のみ ready にする
+    if (!ready) setReady(true);
+  });
+
+  if (!ready) return null; // ← これ大事！
+
+  return (
+    <Line
+      points={points.current}
+      color={color}
+      lineWidth={1}
+      dashed={false}
+    />
+  );
+}
 
 type Object2d = { name: string; ref: React.RefObject<THREE.Box2> }
 
 type ObjectProps = {
-  position?: Position;
   args: ConstructorParameters<typeof THREE.Box2>;
 }
 
-const sizeMap: <{
-  name: string;
-  size: THREE.Vector2;
-}[]> = [];
+const sizeMap: Record<string, THREE.Vector2> = {};
 
 function getSize(obj: Object2d): THREE.Vector2 {
-  const objSize = sizeMap.filter(s => s.name === obj.name)[0];
+  const objSize = sizeMap[obj.name];
   if (!objSize) {
     const sz = new THREE.Vector2();
     obj.ref.current.getSize(sz);
-    sizeMap.push({name: obj.name, size: sz});
-    return sz;
+    sizeMap[obj.name] = sz;
   }
-  return objSize.size
+  return sizeMap[obj.name];
 }
 
 function move(obj: Object2d, position: THREE.Vector2) {
   const size = getSize(obj);
-  box.setFromCenterAndSize(position, size);
+  obj.ref.current.setFromCenterAndSize(position, size);
 }
 
-const Box2 = forwardRef<THREE.Box2, ObjectProps>((props, ref) => {
-  const boxRef = useRef<THREE.Box2>(null!);
-  useImperativeHandle(ref, () => boxRef.current);
+// function move(obj: Object2d, position: THREE.Vector2) {
+//   const size = new THREE.Vector2();
+//   obj.ref.current.getSize(size);
+//   obj.ref.current.setFromCenterAndSize(position, size);
+// }
 
-  useEffect(() => {
-    if (!boxRef.current) return;
-    if (props.position) move(boxRef.current, new THREE.Vector2(props.position[0], props.position[1]));
-  }, []);
-
-  return <box2 ref={boxRef} {...props} />;
-});
+const Box2 = forwardRef<THREE.Box2, ObjectProps>((props, ref) => 
+  <box2 ref={ref} {...props} />
+);
 
 const ballArgs: ConstructorParameters<typeof THREE.Box2> = [
   new THREE.Vector2(-BALL_SIZE / 2, -BALL_SIZE / 2),
@@ -132,7 +166,7 @@ function onHit(ball: THREE.Box2, obj: Object2d): boolean {
 }
 
 export function CliGameCore() {
-  const ballRef = useRef<THREE.Box2>(null!);
+  const ball = { name: 'ball', ref: useRef<THREE.Box2>(null!) };
   const paddles: [Object2d, Object2d] = [
     { name: PADDLE_2, ref: useRef<THREE.Box2>(null!) },
     { name: PADDLE_1, ref: useRef<THREE.Box2>(null!) }
@@ -143,6 +177,23 @@ export function CliGameCore() {
     { name: GOAL_1, ref: useRef<THREE.Box2>(null!) },
     { name: GOAL_2, ref: useRef<THREE.Box2>(null!) }
   ];
+
+  useEffect(() => {
+    if (
+      !paddles[0].ref.current ||
+      !paddles[1].ref.current ||
+      !walls[0].ref.current ||
+      !walls[1].ref.current ||
+      !walls[2].ref.current ||
+      !walls[3].ref.current
+    ) return;
+    move(paddles[0], new THREE.Vector2(0, PADDLE_POSITION_Z2));
+    move(paddles[1], new THREE.Vector2(0, PADDLE_POSITION_Z1));
+    move(walls[0], new THREE.Vector2(-STAGE_WIDTH / 2, 0));
+    move(walls[1], new THREE.Vector2(STAGE_WIDTH / 2, 0));
+    move(walls[2], new THREE.Vector2(0, -STAGE_HEIGHT / 2));
+    move(walls[3], new THREE.Vector2(0, STAGE_HEIGHT / 2));
+  }, []);
 
   const done = useRef<boolean>(false);
 
@@ -218,8 +269,8 @@ export function CliGameCore() {
     }
 
     setDelta(delta);
-    move(paddles[0].ref.current, tmpVec2.current.set(paddlesPosition[0] ,PADDLE_POSITION_Z2));
-    move(paddles[1].ref.current, tmpVec2.current.set(paddlesPosition[1] ,PADDLE_POSITION_Z1));
+    move(paddles[0], tmpVec2.current.set(paddlesPosition[0] ,PADDLE_POSITION_Z2));
+    move(paddles[1], tmpVec2.current.set(paddlesPosition[1] ,PADDLE_POSITION_Z1));
 
     if (gameStatus === GameStatus.First) {
       if (!done.current) {
@@ -238,9 +289,9 @@ export function CliGameCore() {
       }
     } else if (gameStatus === GameStatus.Playing) {
       setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
-      move(ballRef.current, useStageStore.getState().ballPosition);
+      move(ball, useStageStore.getState().ballPosition);
       for (const obj of [ ...paddles, ...walls ]) {
-        if (onHit(ballRef.current, obj)) {
+        if (onHit(ball.ref.current, obj)) {
           console.log('hit');
           break;
         };
@@ -262,29 +313,35 @@ export function CliGameCore() {
       }
     }
 
-    move(ballRef.current, useStageStore.getState().ballPosition);
+    move(ball, useStageStore.getState().ballPosition);
   }, FramePriority.GameCore);
 
   return (
     <>
-      <Box2 ref={ballRef} args={ballArgs} />
-      { // paddles
+      {
         [
-          [0, PADDLE_POSITION_Z2],
-          [0, PADDLE_POSITION_Z1]
-        ].map((position, i) =>
-          <Box2 key={i} ref={paddles[i].ref} args={paddleArgs} position={position as Position} />
-        )
-      } { // walls
-        [
-          [-STAGE_WIDTH / 2, 0],
-          [STAGE_WIDTH / 2, 0],
-          [0, -STAGE_HEIGHT / 2],
-          [0, STAGE_HEIGHT / 2]
-        ].map((position, i) =>
-          <Box2 key={i} ref={walls[i].ref} args={(i < 2 ? sideWallArgs : goalWallArgs)} position={position as Position} />
+          ball, // 0
+          ...paddles, // 1,2
+          ...walls // side ... 3,4 goal ... 5,6
+        ].map((obj, i) =>
+          <Box2 key={i} ref={obj.ref} args={
+            !i
+              ? ballArgs
+              : i < 3
+                ? paddleArgs
+                : i < 5
+                  ? sideWallArgs
+                  : goalWallArgs
+          } />
         )
       }
+      <Box2Helper boxRef={ball.ref} color="yellow" />
+      <Box2Helper boxRef={paddles[0].ref} color="cyan" />
+      <Box2Helper boxRef={paddles[1].ref} color="magenta" />
+      <Box2Helper boxRef={walls[0].ref} color="orange" />
+      <Box2Helper boxRef={walls[1].ref} color="orange" />
+      <Box2Helper boxRef={walls[2].ref} color="red" />
+      <Box2Helper boxRef={walls[3].ref} color="red" />
     </>
   )
 }
