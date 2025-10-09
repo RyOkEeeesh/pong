@@ -13,7 +13,7 @@ export interface Hit {
 }
 
 export function intersect(a: THREE.Box2, b: THREE.Box2): Hit | null {
-  if (!getBoxWithMargin(a, 0.09).intersectsBox(b)) return null;
+  if (!getBoxWithMargin(a, 0.2).intersectsBox(b)) return null;
 
   const overlapMin = new THREE.Vector2(
     Math.max(a.min.x, b.min.x),
@@ -31,7 +31,6 @@ export function intersect(a: THREE.Box2, b: THREE.Box2): Hit | null {
       normal.x > 0 ? a.max.x : a.min.x,
       (overlapMin.y + overlapMax.y) / 2
     );
-    console.log(point, normal);
     return { point, normal };
   } else {
     const normal = new THREE.Vector2(0, a.min.y < b.min.y ? -1 : 1);
@@ -39,7 +38,6 @@ export function intersect(a: THREE.Box2, b: THREE.Box2): Hit | null {
       (overlapMin.x + overlapMax.x) / 2,
       normal.y > 0 ? a.max.y : a.min.y
     );
-    console.log(point, normal);
     return { point, normal };
   }
 }

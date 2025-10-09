@@ -251,10 +251,7 @@ export function CliGameCore() {
       setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
       move(ball, useStageStore.getState().ballPosition);
       for (const obj of [ ...paddles, ...walls ]) {
-        if (onHit(ball.ref.current, obj)) {
-          console.log('hit');
-          break;
-        };
+        if (onHit(ball.ref.current, obj)) break;
       }
     } else if (gameStatus === GameStatus.GetPoint) {
       if (!done.current) {

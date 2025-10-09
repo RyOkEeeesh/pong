@@ -9,7 +9,7 @@ import { fitObject } from './CameraControl.tsx';
 import { CliGameCore } from './gameCore.tsx';
 import { Effect, TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
 import { useShallow } from 'zustand/shallow';
-import { OrbitControls } from '@react-three/drei';
+import { log } from 'console';
 
 type MeshProps = {
   name: string;
@@ -172,6 +172,17 @@ export default function Stage({isResizing}: StageProps) {
     fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
     setIsObjectFit(true);
   }, [isResizing, camera]);
+  
+  function setPaddlesPosition() {
+    const { paddlesPosition } = useStageStore.getState();
+    paddleRefs[0].current.position.x = paddlesPosition[0];
+    paddleRefs[1].current.position.x = paddlesPosition[1];
+  }
+
+  function setBallPosition() {
+    const { ballPosition } = useStageStore.getState();
+    ballRef.current.position.set(ballPosition.x, 0, ballPosition.y)
+  }
 
   function moveBall(pos: THREE.Vector2) {
     const speed = 20;
@@ -190,62 +201,71 @@ export default function Stage({isResizing}: StageProps) {
   }
 
   const sleepRef = useRef<number | null>(null);
+  const sleepStartRef = useRef<number | null>(null);
+
   function setSleep(ms: number) {
-    sleepRef.current = performance.now() + ms;
+    sleepStartRef.current = performance.now();
+    sleepRef.current = ms;
   }
-  function sleep() {
-    if(!sleepRef.current) return false;
-    return sleepRef.current <= performance.now();
+
+  function sleep(): boolean {
+    if (!sleepRef.current || !sleepStartRef.current) return false;
+    const elapsed = performance.now() - sleepStartRef.current;
+    return elapsed >= (sleepRef.current ?? 0);
+  }
+
+  function resetSleep() {
+    sleepRef.current = null;
+    sleepStartRef.current = null;
   }
 
   const forSaveVec2Ref = useRef<THREE.Vector2>(new THREE.Vector2());
   const saved = useRef<boolean>(false);
 
-  useFrame(() => {
-    const { paddlesPosition } = useStageStore.getState();
-    const { gameStatus, setAcceptNextStatus } = useGameStore.getState();
-    console.log(gameStatus);
-
-    paddleRefs[0].current.position.x = paddlesPosition[0];
-    paddleRefs[1].current.position.x = paddlesPosition[1];
-
-    if (gameStatus === GameStatus.First) {
+  function isntSaveProcess() {
+    if (!saved.current) {
       const { ballPosition, setBallPosition } = useStageStore.getState();
-      if (!saved.current) {
-        saved.current = true;
-        forSaveVec2Ref.current.copy(ballPosition.clone());
-        setBallPosition(toVec2(ballRef.current.position));
-      }
-      if (moveBall(forSaveVec2Ref.current)) {
-        saved.current = false;
-        setAcceptNextStatus(true);
-      }
+      saved.current = true;
+      forSaveVec2Ref.current.copy(ballPosition);
+      setBallPosition(toVec2(ballRef.current.position));
+    }
+  }
+
+  function processMoveBall() {
+    if (!saved.current) return;
+    const { setAcceptNextStatus } = useGameStore.getState();
+    if (moveBall(forSaveVec2Ref.current)) {
+      saved.current = false;
+      setAcceptNextStatus(true);
+      return true;
+    }
+    return false;
+  }
+
+  useFrame(() => {
+    const { gameStatus } = useGameStore.getState();
+    setPaddlesPosition();
+    if (gameStatus === GameStatus.First) {
+      isntSaveProcess();
+      processMoveBall();
     } else if (gameStatus === GameStatus.GetPoint) {
-      if (sleep()) {
-      const { ballPosition } = useStageStore.getState();
-        if (!saved.current) forSaveVec2Ref.current.copy(ballPosition);
-        if (moveBall(forSaveVec2Ref.current)) {
-          saved.current = false;
-          setAcceptNextStatus(true);
-        }
-      } else if (sleepRef.current === null) {
+      isntSaveProcess();
+      if (!sleepRef.current || !sleepStartRef.current) {
+        console.log('sleep start');
         setSleep(250);
-        // setTriggerBlinkingEffect({
-        //   mat: [wallMat],
-        //   end: 250,
-        //   difference: 0.15,
-        //   times: 2
-        // });
+      } else if (sleep()) {
+        console.log('sleep done');
+        if (processMoveBall()) { // ここ直して
+          console.log('reset');
+          resetSleep();
+        }
       }
     }
-
-    const { ballPosition } = useStageStore.getState();
-    ballRef.current.position.set(ballPosition.x, 0, ballPosition.y)
+    setBallPosition();
   }, FramePriority.Stage);
 
   return (
     <>
-      <OrbitControls />
       <CliGameCore />
       <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
       <PaddleController isP1={true} />
