@@ -50,7 +50,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     if(pointGetter === isP1) return;
     const keys = get();
 
-    // if(serveTime.current === null) serveTime.current = setTimeout(triggerServe, 10000);
+    if(serveTime.current === null) serveTime.current = setTimeout(triggerServe, 10000);
 
     if ((isP1 && keys.S1) || (!isP1 && keys.S2)) {
       triggerServe();

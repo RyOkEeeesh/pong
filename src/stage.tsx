@@ -157,7 +157,7 @@ export default function Stage({isResizing}: StageProps) {
       const wall = sideWallsRef.filter(sideref => sideref.current.name === name)[0].current;
       const p = point.clone();
       p.x = wall.position.x;
-      setTriggerStretchEffect({wall, point: toVec3(p), normal: toVec3(normal)})
+      setTriggerStretchEffect( {wall, point: toVec3(p), normal: toVec3(normal) });
       return;
     }
     const wall = name === PADDLE_1 ? goalWall1Ref.current : goalWall2Ref.current;
@@ -228,7 +228,6 @@ export default function Stage({isResizing}: StageProps) {
       saved.current = true;
       forSaveVec2Ref.current.copy(ballPosition);
       setBallPosition(toVec2(ballRef.current.position));
-      console.log('forSaveVec2Ref :', forSaveVec2Ref.current);
     }
   }
 

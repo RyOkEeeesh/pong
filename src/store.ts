@@ -107,7 +107,7 @@ export const useGameStore = create<GameStore>(set => ({
 
   setGameMode: gameMode => set({ gameMode }),
   setGameStatus: gameStatus => set({ gameStatus }),
-  setRole: role => set({role}),
+  setRole: role => set({ role }),
   addPoint: () => set(s => {
     const points = [ ...s.points ] as Position;
     points[Number(s.pointGetter)]++; 
@@ -167,10 +167,10 @@ export const useCameraStore = create<CameraStore>(set => ({
   motionCamera: null!,
   isObjectFit: false,
 
-  pushCamera: (...cams) => set(s => ({cameras: [...s.cameras, ...cams]})),
+  pushCamera: (...cams) => set(s => ({ cameras: [...s.cameras, ...cams] })),
   setCamNo: camNo => set({camNo}),
-  setMotionCamera: motionCamera => set({motionCamera}),
-  setIsObjectFit: isObjectFit => set({isObjectFit})
+  setMotionCamera: motionCamera => set({ motionCamera }),
+  setIsObjectFit: isObjectFit => set({ isObjectFit })
 }));
 
 // controller
