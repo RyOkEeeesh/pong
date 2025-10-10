@@ -47,6 +47,7 @@ export const EFFECT_MATERIAL_ARGS = {
 };
 
 export enum FramePriority {
+  SetDelta,
   Paddle,
   GameCore,
   Stage,

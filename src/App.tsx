@@ -1,12 +1,12 @@
 import { PerspectiveCamera, KeyboardControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import Stage from './stage';
 import { useCameraStore, useGameStore, useUserSetting } from './store';
 import { trackingLookAt } from './CameraControl';
-import { RoleStatus, STAGE_WIDTH } from './constants';
+import { FramePriority, RoleStatus, STAGE_WIDTH } from './constants';
 import { useShallow } from 'zustand/shallow';
 
 declare const __APP_VERSION__: string;

@@ -5,6 +5,12 @@ import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, FramePriority, FRICTION, GameS
 import { useGameStore, useStageStore } from './store';
 import { Hit, intersect } from './core';
 
+function SetDelta() {
+  const { setDelta } = useStageStore.getState();
+  useFrame((_, delta) => { setDelta(delta) }, FramePriority.SetDelta);
+  return null;
+}
+
 type Object2d = { name: string; ref: React.RefObject<THREE.Box2> }
 
 type ObjectProps = {
@@ -97,7 +103,7 @@ function handleHitGoalWall() {
 }
 
 function handleHit(obj: Object2d, hit: Hit) {
-  const { setHit } = useGameStore.getState();
+  const { isFinish, setHit } = useGameStore.getState();
   if (obj.name === PADDLE_1 || obj.name === PADDLE_2) {
     if (Math.abs(hit.normal.y) > 0.9) {
       handleHitPaddle();
@@ -116,7 +122,6 @@ function handleHit(obj: Object2d, hit: Hit) {
 }
 
 function onHit(ball: THREE.Box2, obj: Object2d): boolean {
-  console.log('onHit')
   const hit = intersect(ball, obj.ref.current);
   if (hit) {
     handleHit(obj, hit);
@@ -126,7 +131,7 @@ function onHit(ball: THREE.Box2, obj: Object2d): boolean {
 }
 
 export function CliGameCore() {
-  const ball = { name: 'ball', ref: useRef<THREE.Box2>(null!) };
+  const ball: Object2d = { name: 'ball', ref: useRef<THREE.Box2>(null!) };
   const paddles: [Object2d, Object2d] = [
     { name: PADDLE_2, ref: useRef<THREE.Box2>(null!) },
     { name: PADDLE_1, ref: useRef<THREE.Box2>(null!) }
@@ -220,15 +225,10 @@ export function CliGameCore() {
     beforePaddlePosition.current = null;
   }
 
-  useFrame((_, delta) => {
-    const { ballPosition, velocity, paddlesPosition, setBallSpeed, setDelta, setBallPosition } = useStageStore.getState();
+  useFrame(() => {
+    const { delta, ballPosition, velocity, paddlesPosition, setBallSpeed, setBallPosition } = useStageStore.getState();
     const { gameStatus, isFinish, serveHit, setGameStatus, setServeHit } = useGameStore.getState();
-    if (gameStatus === GameStatus.Pause) {
-      setDelta(0);
-      return;
-    }
 
-    setDelta(delta);
     move(paddles[0], tmpVec2.current.set(paddlesPosition[0] ,PADDLE_POSITION_Z2));
     move(paddles[1], tmpVec2.current.set(paddlesPosition[1] ,PADDLE_POSITION_Z1));
 
@@ -253,16 +253,17 @@ export function CliGameCore() {
       for (const obj of [ ...paddles, ...walls ]) {
         if (onHit(ball.ref.current, obj)) break;
       }
-    } else if (gameStatus === GameStatus.GetPoint) {
-      if (!done.current) {
-        done.current = true;
-        setBallSpeed();
-        isFinish
-          ? setBallPosition(tmpVec2.current.set(0, 0))
-          : moveBallForPaddle();
-      } else if (accept()) {
-        setGameStatus(isFinish ? GameStatus.End : GameStatus.Serving);
+      if (useGameStore.getState().gameStatus === GameStatus.GetPoint) {
+        if (!done.current) {
+          done.current = true;
+          setBallSpeed();
+          isFinish
+            ? setBallPosition(tmpVec2.current.set(0, 0))
+            : moveBallForPaddle();
+        }
       }
+    } else if (gameStatus === GameStatus.GetPoint) {
+      if (accept()) setGameStatus(isFinish ? GameStatus.End : GameStatus.Serving);
     } else { // GameStatus.End
       if (accept()) {
         // reset all してから
@@ -275,6 +276,7 @@ export function CliGameCore() {
 
   return (
     <>
+      <SetDelta />
       {[ball, ...paddles, ...walls].map((obj, i) =>
         <Box2 key={i} ref={obj.ref} args={argsList[i]} />
       )}

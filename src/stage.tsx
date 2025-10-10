@@ -186,14 +186,14 @@ export default function Stage({isResizing}: StageProps) {
 
   function moveBall(pos: THREE.Vector2) {
     const speed = 20;
-    const { ballPosition, setBallPosition, delta } = useStageStore.getState();
+    const { delta, ballPosition, setBallPosition } = useStageStore.getState();
+    console.log(ballPosition);
     for (const axis of ['y', 'x'] as ('x' | 'y')[]) {
       const dir = pos[axis] - ballPosition[axis];
       if (Math.abs(dir) > 0.001) {
         const step = Math.sign(dir) * speed * delta;
         ballPosition[axis] += Math.abs(dir) > Math.abs(step) ? step : dir;
         setBallPosition(ballPosition);
-        console.log(ballPosition);
         return false;
       }
     }
@@ -228,6 +228,7 @@ export default function Stage({isResizing}: StageProps) {
       saved.current = true;
       forSaveVec2Ref.current.copy(ballPosition);
       setBallPosition(toVec2(ballRef.current.position));
+      console.log('forSaveVec2Ref :', forSaveVec2Ref.current);
     }
   }
 
@@ -251,12 +252,9 @@ export default function Stage({isResizing}: StageProps) {
     } else if (gameStatus === GameStatus.GetPoint) {
       isntSaveProcess();
       if (!sleepRef.current || !sleepStartRef.current) {
-        console.log('sleep start');
         setSleep(250);
       } else if (sleep()) {
-        console.log('sleep done');
-        if (processMoveBall()) { // ここ直して
-          console.log('reset');
+        if (processMoveBall()) {
           resetSleep();
         }
       }
