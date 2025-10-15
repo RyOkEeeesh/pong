@@ -131,10 +131,10 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
           moveCenter(state.speed);
         }
       }
-    return;
-  } else {
-    waitMoving.current = null;
-  }
+      return;
+    } else {
+      waitMoving.current = null;
+    }
 
     if (predictedTargetX.current === null) setTargetX();
 

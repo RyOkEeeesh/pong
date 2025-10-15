@@ -59,10 +59,10 @@ const argsList = [
   ballArgs(),
   paddleArgs(),
   paddleArgs(),
-  sideWallArgs(),
-  sideWallArgs(),
   goalWallArgs(),
-  goalWallArgs()
+  goalWallArgs(),
+  sideWallArgs(),
+  sideWallArgs()
 ];
 
 function handleHitPaddle() {
@@ -137,10 +137,10 @@ export function CliGameCore() {
     { name: PADDLE_1, ref: useRef<THREE.Box2>(null!) }
   ];
   const walls: [Object2d, Object2d, Object2d, Object2d] = [
-    { name: SIDE_1, ref: useRef<THREE.Box2>(null!) },
-    { name: SIDE_2, ref: useRef<THREE.Box2>(null!) },
     { name: GOAL_1, ref: useRef<THREE.Box2>(null!) },
-    { name: GOAL_2, ref: useRef<THREE.Box2>(null!) }
+    { name: GOAL_2, ref: useRef<THREE.Box2>(null!) },
+    { name: SIDE_1, ref: useRef<THREE.Box2>(null!) },
+    { name: SIDE_2, ref: useRef<THREE.Box2>(null!) }
   ];
 
   useEffect(() => {
@@ -250,7 +250,7 @@ export function CliGameCore() {
     } else if (gameStatus === GameStatus.Playing) {
       setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
       move(ball, useStageStore.getState().ballPosition);
-      for (const obj of [ ...paddles, ...walls ]) {
+      for (const obj of [ ...walls, ...paddles ]) {
         if (onHit(ball.ref.current, obj)) break;
       }
       if (useGameStore.getState().gameStatus === GameStatus.GetPoint) {
