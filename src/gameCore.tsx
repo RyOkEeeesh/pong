@@ -11,7 +11,7 @@ function SetDelta() {
   return null;
 }
 
-type Object2d = { name: string; ref: React.RefObject<THREE.Box2> }
+type Object2d = { name: string; ref: React.RefObject<THREE.Box2>, args: ConstructorParameters<typeof THREE.Box2> }
 
 type ObjectProps = {
   args: ConstructorParameters<typeof THREE.Box2>;
@@ -55,16 +55,6 @@ function goalWallArgs(): ConstructorParameters<typeof THREE.Box2>{
   ];
 }
 
-const argsList = [
-  ballArgs(),
-  paddleArgs(),
-  paddleArgs(),
-  goalWallArgs(),
-  goalWallArgs(),
-  sideWallArgs(),
-  sideWallArgs()
-];
-
 function handleHitPaddle() {
   const { ballSpeed, ballPosition, paddlesPosition, setBallSpeed, setVelocity } = useStageStore.getState();
   const paddlePos = paddlesPosition[Number(ballPosition.y > 0)];
@@ -103,7 +93,7 @@ function handleHitGoalWall() {
 }
 
 function handleHit(obj: Object2d, hit: Hit) {
-  const { isFinish, setHit } = useGameStore.getState();
+  const { setHit } = useGameStore.getState();
   if (obj.name === PADDLE_1 || obj.name === PADDLE_2) {
     if (Math.abs(hit.normal.y) > 0.9) {
       handleHitPaddle();
@@ -131,16 +121,16 @@ function onHit(ball: THREE.Box2, obj: Object2d): boolean {
 }
 
 export function CliGameCore() {
-  const ball: Object2d = { name: 'ball', ref: useRef<THREE.Box2>(null!) };
+  const ball: Object2d = { name: 'ball', ref: useRef<THREE.Box2>(null!), args: ballArgs() };
   const paddles: [Object2d, Object2d] = [
-    { name: PADDLE_2, ref: useRef<THREE.Box2>(null!) },
-    { name: PADDLE_1, ref: useRef<THREE.Box2>(null!) }
+    { name: PADDLE_2, ref: useRef<THREE.Box2>(null!), args: paddleArgs() },
+    { name: PADDLE_1, ref: useRef<THREE.Box2>(null!), args: paddleArgs() }
   ];
   const walls: [Object2d, Object2d, Object2d, Object2d] = [
-    { name: GOAL_1, ref: useRef<THREE.Box2>(null!) },
-    { name: GOAL_2, ref: useRef<THREE.Box2>(null!) },
-    { name: SIDE_1, ref: useRef<THREE.Box2>(null!) },
-    { name: SIDE_2, ref: useRef<THREE.Box2>(null!) }
+    { name: GOAL_1, ref: useRef<THREE.Box2>(null!), args: goalWallArgs() },
+    { name: GOAL_2, ref: useRef<THREE.Box2>(null!), args: goalWallArgs() },
+    { name: SIDE_1, ref: useRef<THREE.Box2>(null!), args: sideWallArgs() },
+    { name: SIDE_2, ref: useRef<THREE.Box2>(null!), args: sideWallArgs() }
   ];
 
   useEffect(() => {
@@ -154,10 +144,11 @@ export function CliGameCore() {
     ) return;
     move(paddles[0], new THREE.Vector2(0, PADDLE_POSITION_Z2));
     move(paddles[1], new THREE.Vector2(0, PADDLE_POSITION_Z1));
-    move(walls[0], new THREE.Vector2(-STAGE_WIDTH / 2, 0));
-    move(walls[1], new THREE.Vector2(STAGE_WIDTH / 2, 0));
-    move(walls[2], new THREE.Vector2(0, -STAGE_HEIGHT / 2));
-    move(walls[3], new THREE.Vector2(0, STAGE_HEIGHT / 2));
+    move(walls[0], new THREE.Vector2(0, STAGE_HEIGHT / 2));
+    move(walls[1], new THREE.Vector2(0, -STAGE_HEIGHT / 2));
+    move(walls[2], new THREE.Vector2(-STAGE_WIDTH / 2, 0));
+    move(walls[3], new THREE.Vector2(STAGE_WIDTH / 2, 0));
+    console.log('moved');
   }, []);
 
   const done = useRef<boolean>(false);
@@ -225,12 +216,21 @@ export function CliGameCore() {
     beforePaddlePosition.current = null;
   }
 
-  useFrame(() => {
-    const { delta, ballPosition, velocity, paddlesPosition, setBallSpeed, setBallPosition } = useStageStore.getState();
-    const { gameStatus, isFinish, serveHit, setGameStatus, setServeHit } = useGameStore.getState();
-
+  function updatePaddlesPosition() {
+    const { paddlesPosition } = useStageStore.getState();
     move(paddles[0], tmpVec2.current.set(paddlesPosition[0] ,PADDLE_POSITION_Z2));
     move(paddles[1], tmpVec2.current.set(paddlesPosition[1] ,PADDLE_POSITION_Z1));
+  }
+
+  function updateBallPosition() {
+    move(ball, useStageStore.getState().ballPosition);
+  }
+
+  useFrame(() => {
+    const { delta, ballPosition, velocity, setBallSpeed, setBallPosition } = useStageStore.getState();
+    const { gameStatus, isFinish, serveHit, setGameStatus, setServeHit } = useGameStore.getState();
+
+    updatePaddlesPosition();
 
     if (gameStatus === GameStatus.First) {
       if (!done.current) {
@@ -249,7 +249,7 @@ export function CliGameCore() {
       }
     } else if (gameStatus === GameStatus.Playing) {
       setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
-      move(ball, useStageStore.getState().ballPosition);
+      updateBallPosition();
       for (const obj of [ ...walls, ...paddles ]) {
         if (onHit(ball.ref.current, obj)) break;
       }
@@ -271,14 +271,14 @@ export function CliGameCore() {
       }
     }
 
-    move(ball, useStageStore.getState().ballPosition);
+    updateBallPosition();
   }, FramePriority.GameCore);
 
   return (
     <>
       <SetDelta />
       {[ball, ...paddles, ...walls].map((obj, i) =>
-        <Box2 key={i} ref={obj.ref} args={argsList[i]} />
+        <Box2 key={i} ref={obj.ref} args={obj.args} />
       )}
     </>
   )

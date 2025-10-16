@@ -187,7 +187,6 @@ export default function Stage({isResizing}: StageProps) {
   function moveBall(pos: THREE.Vector2) {
     const speed = 20;
     const { delta, ballPosition, setBallPosition } = useStageStore.getState();
-    console.log(ballPosition);
     for (const axis of ['y', 'x'] as ('x' | 'y')[]) {
       const dir = pos[axis] - ballPosition[axis];
       if (Math.abs(dir) > 0.001) {
