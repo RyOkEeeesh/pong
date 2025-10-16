@@ -193,10 +193,8 @@ export class SerGameCore {
   process(d: number) {
     this.#context.delta = d;
 
-    // this.accept();
-    // this.#context.setServeHit(true);
-
-    // console.log(this.#context.now.ballPos);
+    this.accept();
+    this.#context.setServeHit(true);
 
     this.#paddles[0].move();
     this.#paddles[1].move();

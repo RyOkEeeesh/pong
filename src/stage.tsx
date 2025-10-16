@@ -10,6 +10,7 @@ import { CliGameCore } from './gameCore.tsx';
 import { Effect, TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
 import { useShallow } from 'zustand/shallow';
 import { log } from 'console';
+import { OrbitControls } from '@react-three/drei';
 
 type MeshProps = {
   name: string;
@@ -262,6 +263,7 @@ export default function Stage({isResizing}: StageProps) {
 
   return (
     <>
+      <OrbitControls />
       <CliGameCore />
       <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
       <PaddleController isP1={true} />
@@ -292,26 +294,22 @@ export default function Stage({isResizing}: StageProps) {
         />
       </group>
 
-      <group visible={true}>
-        <Paddle
-          ref={paddleRefs[1]}
-          name={PADDLE_1}
-          position={[0, 0, PADDLE_POSITION_Z1]}
-          material={wallMat.clone()}
-        />
-        <Paddle
-          ref={paddleRefs[0]}
-          name={PADDLE_2}
-          position={[0, 0, PADDLE_POSITION_Z2]}
-          material={wallMat.clone()}
-        />
+      <Paddle
+        ref={paddleRefs[1]}
+        name={PADDLE_1}
+        position={[0, 0, PADDLE_POSITION_Z1]}
+        material={wallMat.clone()}
+      />
+      <Paddle
+        ref={paddleRefs[0]}
+        name={PADDLE_2}
+        position={[0, 0, PADDLE_POSITION_Z2]}
+        material={wallMat.clone()}
+      />
 
-        <Ball ref={ballRef} material={wallMat.clone()} />
-        <Floor />
-        <PointDisplays points={points} />
-      </group>
-      
-
+      <Ball ref={ballRef} material={wallMat.clone()} />
+      <Floor />
+      <PointDisplays points={points} />
 
       <Effect triggerStretchEffect={triggerStretchEffect} triggerBlinkingEffect={triggerBlinkingEffect} />
     </>

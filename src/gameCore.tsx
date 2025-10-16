@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { forwardRef, useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, FramePriority, FRICTION, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
 import { useGameStore, useStageStore } from './store';
@@ -11,16 +11,19 @@ function SetDelta() {
   return null;
 }
 
-type Object2d = { name: string; ref: React.RefObject<THREE.Box2>, args: ConstructorParameters<typeof THREE.Box2> }
+type Object2d = { name: string; ref: React.RefObject<THREE.Box2> };
 
 type ObjectProps = {
   args: ConstructorParameters<typeof THREE.Box2>;
-}
+};
 
 function move(obj: Object2d, position: THREE.Vector2) {
   const size = new THREE.Vector2();
   obj.ref.current.getSize(size);
   obj.ref.current.setFromCenterAndSize(position, size);
+
+  const center = new THREE.Vector2();
+  obj.ref.current.getCenter(center);
 }
 
 const Box2 = forwardRef<THREE.Box2, ObjectProps>((props, ref) => 
@@ -98,7 +101,7 @@ function handleHit(obj: Object2d, hit: Hit) {
     if (Math.abs(hit.normal.y) > 0.9) {
       handleHitPaddle();
       setHit(obj.name, hit.point, hit.normal);
-    return;
+      return;
     }
     handleHitSideWall();
     return;
@@ -112,26 +115,38 @@ function handleHit(obj: Object2d, hit: Hit) {
 }
 
 function onHit(ball: THREE.Box2, obj: Object2d): boolean {
+  const { setBallPosition } = useStageStore.getState();
   const hit = intersect(ball, obj.ref.current);
   if (hit) {
     handleHit(obj, hit);
+    setBallPosition(hit.point);
     return true;
   }
   return false;
 }
 
 export function CliGameCore() {
-  const ball: Object2d = { name: 'ball', ref: useRef<THREE.Box2>(null!), args: ballArgs() };
+  const ball: Object2d = { name: 'ball', ref: useRef<THREE.Box2>(null!) };
   const paddles: [Object2d, Object2d] = [
-    { name: PADDLE_2, ref: useRef<THREE.Box2>(null!), args: paddleArgs() },
-    { name: PADDLE_1, ref: useRef<THREE.Box2>(null!), args: paddleArgs() }
+    { name: PADDLE_2, ref: useRef<THREE.Box2>(null!) },
+    { name: PADDLE_1, ref: useRef<THREE.Box2>(null!) }
   ];
   const walls: [Object2d, Object2d, Object2d, Object2d] = [
-    { name: GOAL_1, ref: useRef<THREE.Box2>(null!), args: goalWallArgs() },
-    { name: GOAL_2, ref: useRef<THREE.Box2>(null!), args: goalWallArgs() },
-    { name: SIDE_1, ref: useRef<THREE.Box2>(null!), args: sideWallArgs() },
-    { name: SIDE_2, ref: useRef<THREE.Box2>(null!), args: sideWallArgs() }
+    { name: GOAL_1, ref: useRef<THREE.Box2>(null!) },
+    { name: GOAL_2, ref: useRef<THREE.Box2>(null!) },
+    { name: SIDE_1, ref: useRef<THREE.Box2>(null!) },
+    { name: SIDE_2, ref: useRef<THREE.Box2>(null!) }
   ];
+
+  const argsList = useMemo(() => [
+    ballArgs(),
+    paddleArgs(),
+    paddleArgs(),
+    goalWallArgs(),
+    goalWallArgs(),
+    sideWallArgs(),
+    sideWallArgs()
+  ], []);
 
   useEffect(() => {
     if (
@@ -250,9 +265,8 @@ export function CliGameCore() {
     } else if (gameStatus === GameStatus.Playing) {
       setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
       updateBallPosition();
-      for (const obj of [ ...walls, ...paddles ]) {
+      for (const obj of [ ...walls, ...paddles ])
         if (onHit(ball.ref.current, obj)) break;
-      }
       if (useGameStore.getState().gameStatus === GameStatus.GetPoint) {
         if (!done.current) {
           done.current = true;
@@ -277,8 +291,8 @@ export function CliGameCore() {
   return (
     <>
       <SetDelta />
-      {[ball, ...paddles, ...walls].map((obj, i) =>
-        <Box2 key={i} ref={obj.ref} args={obj.args} />
+      {[ ball, ...paddles, ...walls ].map((obj, i) => 
+        <Box2 key={obj.name} ref={obj.ref} args={argsList[i]} />
       )}
     </>
   )
