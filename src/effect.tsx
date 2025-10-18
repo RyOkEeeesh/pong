@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { EFFECT_MATERIAL_ARGS, EFFECT_MESH_WIDTH, FramePriority, GameStatus, WALL_HEIGHT } from './constants';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useGameStore } from './store';
 import { useFrame } from '@react-three/fiber';
 
@@ -20,7 +20,7 @@ type BlinkingEffect = {
   difference: number;
   times: number;
   defEmissiveIntensity: number[];
-}
+};
 
 export type TriggerStretchEffect = {
   wall: THREE.Mesh;
@@ -28,7 +28,7 @@ export type TriggerStretchEffect = {
   normal: THREE.Vector3;
 };
 
-export type TriggerBlinkingEffect = {  
+export type TriggerBlinkingEffect = {
   mat: THREE.MeshStandardMaterial[];
   end: number;
   difference: number;
@@ -38,53 +38,64 @@ export type TriggerBlinkingEffect = {
 type EffectProps = {
   triggerStretchEffect: TriggerStretchEffect | null;
   triggerBlinkingEffect: TriggerBlinkingEffect | null;
-}
+};
 
-export function Effect({
-  triggerStretchEffect,
-  triggerBlinkingEffect,
-}: EffectProps) {
-  const [ effectPool, setEffectPool ] = useState<THREE.Mesh[]>(Array.from({ length: 4 }, () => {
-    const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT),
+const firstMeshAmount = 8;
+
+export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectProps) {
+  const effectPoolRef = useRef<THREE.Mesh[]>([]);
+
+  useEffect(() => {
+    if (effectPoolRef.current.length > 0) return;
+
+    const sharedGeometry = new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT);
+    const materialPairs = Array.from({ length: firstMeshAmount / 2 }, () =>
       new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS)
     );
-    mesh.visible = false;
-    return mesh;
-  }));
+    effectPoolRef.current = Array.from({ length: firstMeshAmount }, (_, i) => {
+      const mesh = new THREE.Mesh(
+        sharedGeometry,
+        materialPairs[Math.floor(i / 2)]
+      );
+      mesh.visible = false;
+      return mesh;
+    });
 
-  useEffect(() => {
-    if (!triggerStretchEffect) return;
-    stretchEffect(triggerStretchEffect)
-  }, [triggerStretchEffect])
+    // ✅ GPUウォームアップ
+    effectPoolRef.current.forEach(mesh => {
+      mesh.visible = true;
+      mesh.position.set(9999, 9999, 9999);
+    });
+    requestAnimationFrame(() => {
+      effectPoolRef.current.forEach(mesh => (mesh.visible = false));
+    });
+  }, []);
 
-  useEffect(() => {
-    if (!triggerBlinkingEffect) return;
-    blinkingEffect(triggerBlinkingEffect);
-  }, [triggerBlinkingEffect])
+  // ==========================
+  // Stretch Effect
+  // ==========================
+  const stretchEffectsRef = useRef<StretchEffect[]>([]);
 
   function getEffectMesh() {
-    const mesh = effectPool.find(m => !m.visible);
+    const mesh = effectPoolRef.current.find(m => !m.visible);
     if (mesh) {
       mesh.visible = true;
       return mesh;
     }
-    const newEffectMesh = new THREE.Mesh(
+    // 予備生成（足りなくなったら）
+    const newMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT),
       new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS)
     );
-    const newEffectPool = [ ...effectPool, newEffectMesh];
-    setEffectPool(newEffectPool);
-    return newEffectMesh;
+    newMesh.visible = true;
+    effectPoolRef.current.push(newMesh);
+    return newMesh;
   }
 
-  const stretchEffectsRef = useRef<StretchEffect[]>([]);
-
   function stretchEffect(props: TriggerStretchEffect) {
-    const {point, normal, wall} = props;
+    const { point, normal, wall } = props;
     const newEffects = ([-1, 1] as (-1 | 1)[]).map(side => {
       const mesh = getEffectMesh();
-      mesh.visible = true;
       mesh.rotation.copy(wall.rotation);
       return { mesh, startTime: performance.now(), side, normal, point, wall };
     });
@@ -92,7 +103,6 @@ export function Effect({
   }
 
   function updateStretchEffect() {
-    if (!stretchEffectsRef.current.length) return;
     const duration = 450;
     const now = performance.now();
     const gameStatus = useGameStore.getState().gameStatus;
@@ -111,25 +121,25 @@ export function Effect({
       effect.wall.geometry.computeBoundingBox();
       effect.wall.geometry.boundingBox?.getSize(wallSize);
 
-      const wallpoint = new THREE.Vector3();
-      effect.wall.getWorldPosition(wallpoint);
+      const wallPos = new THREE.Vector3();
+      effect.wall.getWorldPosition(wallPos);
 
-      const wallDirection = wallTangent.clone();
+      const wallDir = wallTangent.clone();
       const halfLength = wallSize.x / 2;
-      const wallStart = wallpoint.clone().add(wallDirection.clone().multiplyScalar(-halfLength));
-      const wallEnd = wallpoint.clone().add(wallDirection.clone().multiplyScalar(halfLength));
+      const wallStart = wallPos.clone().add(wallDir.clone().multiplyScalar(-halfLength));
+      const wallEnd = wallPos.clone().add(wallDir.clone().multiplyScalar(halfLength));
 
-      const basePosition = effect.point.clone().add(effect.normal.clone().multiplyScalar(0.06));
-      let effectPos = basePosition.clone().add(wallTangent.clone().multiplyScalar(6 * progress * effect.side));
+      const basePos = effect.point.clone().add(effect.normal.clone().multiplyScalar(0.06));
+      let effectPos = basePos.clone().add(wallTangent.clone().multiplyScalar(6 * progress * effect.side));
 
       const localOffset = effectPos.clone().sub(wallStart);
-      const projectedLength = localOffset.dot(wallDirection);
+      const projectedLength = localOffset.dot(wallDir);
       const halfEffectWidth = 0.75;
 
       if (projectedLength < halfEffectWidth) {
-        effectPos = wallStart.clone().add(wallDirection.clone().multiplyScalar(halfEffectWidth));
+        effectPos = wallStart.clone().add(wallDir.clone().multiplyScalar(halfEffectWidth));
       } else if (projectedLength > wallSize.x - halfEffectWidth) {
-        effectPos = wallEnd.clone().add(wallDirection.clone().multiplyScalar(-halfEffectWidth));
+        effectPos = wallEnd.clone().add(wallDir.clone().multiplyScalar(-halfEffectWidth));
       }
 
       effect.mesh.position.copy(effectPos);
@@ -141,27 +151,28 @@ export function Effect({
     });
   }
 
+  // ==========================
+  // Blinking Effect
+  // ==========================
   const blinkingEffectRef = useRef<BlinkingEffect[]>([]);
 
   function blinkingEffect(option: TriggerBlinkingEffect) {
     blinkingEffectRef.current.push({
       ...option,
       start: performance.now(),
-      defEmissiveIntensity: option.mat.map(m => m.emissiveIntensity)
+      defEmissiveIntensity: option.mat.map(m => m.emissiveIntensity),
     });
   }
 
   function updateBlinkingEffect() {
-    if (!blinkingEffectRef.current.length) return;
     const now = performance.now();
 
     blinkingEffectRef.current = blinkingEffectRef.current.filter(effect => {
       const { start, end, difference, times, mat, defEmissiveIntensity } = effect;
-      const elapsed = now - start!;
-
+      const elapsed = now - start;
       if (elapsed >= end) {
         mat.forEach((m, i) => {
-          m.emissiveIntensity = defEmissiveIntensity![i];
+          m.emissiveIntensity = defEmissiveIntensity[i];
           m.needsUpdate = true;
         });
         return false;
@@ -173,13 +184,23 @@ export function Effect({
       const step = difference * ((value + 1) / 2);
 
       mat.forEach((m, i) => {
-        m.emissiveIntensity = defEmissiveIntensity![i] + step;
+        m.emissiveIntensity = defEmissiveIntensity[i] + step;
         m.needsUpdate = true;
       });
-
       return true;
     });
   }
+
+  // ==========================
+  // React Hooks
+  // ==========================
+  useEffect(() => {
+    if (triggerStretchEffect) stretchEffect(triggerStretchEffect);
+  }, [triggerStretchEffect]);
+
+  useEffect(() => {
+    if (triggerBlinkingEffect) blinkingEffect(triggerBlinkingEffect);
+  }, [triggerBlinkingEffect]);
 
   useFrame(() => {
     updateStretchEffect();
@@ -187,8 +208,10 @@ export function Effect({
   }, FramePriority.Effect);
 
   return (
-    <> {
-      effectPool.map((mesh, i) => ( <primitive object={mesh} key={i} /> ))
-    } </>
-  )
+    <>
+      {effectPoolRef.current.map((mesh, i) => (
+        <primitive object={mesh} key={i} />
+      ))}
+    </>
+  );
 }

@@ -25,12 +25,10 @@ type DigitMeshProps = {
   material: THREE.MeshStandardMaterial;
 }
 
+const sharedSphereGeometry = new THREE.SphereGeometry(0.25, 8, 8);
+
 function DigitMesh(props: DigitMeshProps) {
-  return (
-    <mesh {...props}>
-      <sphereGeometry args={[0.25, 8, 8]} />
-    </mesh>
-  )
+  return <mesh {...props} geometry={sharedSphereGeometry} />
 }
 
 type DisplayProps = {
@@ -86,7 +84,7 @@ function DigitDisplay({num, position, isP1}: DisplayProps) {
       {
         positionMap.map((positions, i) => 
           positions.map((pos, j) => 
-            <DigitMesh key={`${i}-${j}`} position={(pos as [number, number, number])} material={materialMap[i]} />
+            <DigitMesh key={`DigitMesh${i}-${j}`} position={(pos as [number, number, number])} material={materialMap[i]} />
           )
         )
       }

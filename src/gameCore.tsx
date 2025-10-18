@@ -119,7 +119,8 @@ function onHit(ball: THREE.Box2, obj: Object2d): boolean {
   const hit = intersect(ball, obj.ref.current);
   if (hit) {
     handleHit(obj, hit);
-    setBallPosition(hit.point);
+    if (obj.name !== PADDLE_1 && obj.name !== PADDLE_2)
+      setBallPosition(hit.point);
     return true;
   }
   return false;

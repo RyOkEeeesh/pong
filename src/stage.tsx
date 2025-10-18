@@ -263,7 +263,6 @@ export default function Stage({isResizing}: StageProps) {
 
   return (
     <>
-      <OrbitControls />
       <CliGameCore />
       <PaddleController isP1={false} cpuMode={CPUMode.Easy} />
       <PaddleController isP1={true} />
