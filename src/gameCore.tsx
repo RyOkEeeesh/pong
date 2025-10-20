@@ -1,13 +1,12 @@
 import * as THREE from 'three';
-import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame, useLoader, useThree } from '@react-three/fiber';
-import { ACCELERATION, BALL_SIZE, BALL_SPEED_MAX, FramePriority, FRICTION, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
-import { useGameStore, useStageStore } from './store';
+import { forwardRef, useEffect, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { ACCELERATION, BALL_SIZE, BALL_SPEED, BALL_SPEED_MAX, FramePriority, FRICTION, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
+import { useGameStore, coreStore } from './store';
 import { Hit, intersect } from './core';
 
 function SetDelta() {
-  const { setDelta } = useStageStore.getState();
-  useFrame((_, delta) => { setDelta(delta) }, FramePriority.SetDelta);
+  useFrame((_, delta) => { coreStore.delta = delta }, FramePriority.SetDelta);
   return null;
 }
 
@@ -59,36 +58,30 @@ function goalWallArgs(): ConstructorParameters<typeof THREE.Box2>{
 }
 
 function handleHitPaddle() {
-  const { ballSpeed, ballPosition, paddlesPosition, setBallSpeed, setVelocity } = useStageStore.getState();
-  const paddlePos = paddlesPosition[Number(ballPosition.y > 0)];
+  const paddlePos = coreStore.paddlesPosition[Number(coreStore.ballPosition.y > 0)];
 
   const normalized = THREE.MathUtils.clamp(
-    (ballPosition.x - paddlePos) / PADDLE_HALF_X,
+    (coreStore.ballPosition.x - paddlePos) / PADDLE_HALF_X,
     -1,
     1
   );
   const maxAngle = Math.PI / 3;
   const angle = normalized * maxAngle;
-  const newVelocity = new THREE.Vector2(
-    ballSpeed * Math.sin(angle),
-    -Math.sign(ballPosition.y) * ballSpeed * Math.cos(angle)
+  coreStore.velocity.set(
+    coreStore.ballSpeed * Math.sin(angle),
+    -Math.sign(coreStore.ballPosition.y) * coreStore.ballSpeed * Math.cos(angle)
   );
-  setBallSpeed(Math.min(ballSpeed + ACCELERATION, BALL_SPEED_MAX));
-  setVelocity(newVelocity);
+  coreStore.ballSpeed = Math.min(coreStore.ballSpeed + ACCELERATION, BALL_SPEED_MAX);
 }
 
 function handleHitSideWall() {
-  const { velocity, setVelocity } = useStageStore.getState();
-  const v = velocity.clone();
-  v.x *= -1;
-  setVelocity(v);
+  coreStore.velocity.x *= -1;
 }
 
 function handleHitGoalWall() {
-  const { ballPosition, setVelocity } = useStageStore.getState();
   const { setGameStatus, addPoint, processAddPoint, setPointGetter } = useGameStore.getState();
-  const pointGetter = ballPosition.y < 0;
-  setVelocity(new THREE.Vector2());
+  const pointGetter = coreStore.ballPosition.y < 0;
+  coreStore.velocity.set(0, 0);
   setPointGetter(pointGetter);
   addPoint();
   processAddPoint();
@@ -115,12 +108,11 @@ function handleHit(obj: Object2d, hit: Hit) {
 }
 
 function onHit(ball: THREE.Box2, obj: Object2d): boolean {
-  const { setBallPosition } = useStageStore.getState();
   const hit = intersect(ball, obj.ref.current);
   if (hit) {
     handleHit(obj, hit);
     if (obj.name !== PADDLE_1 && obj.name !== PADDLE_2)
-      setBallPosition(hit.point);
+      coreStore.ballPosition.copy(hit.point);
     return true;
   }
   return false;
@@ -164,7 +156,6 @@ export function CliGameCore() {
     move(walls[1], new THREE.Vector2(0, -STAGE_HEIGHT / 2));
     move(walls[2], new THREE.Vector2(-STAGE_WIDTH / 2, 0));
     move(walls[3], new THREE.Vector2(STAGE_WIDTH / 2, 0));
-    console.log('moved');
   }, []);
 
   const done = useRef<boolean>(false);
@@ -182,13 +173,14 @@ export function CliGameCore() {
   const tmpVec2 = useRef<THREE.Vector2>(new THREE.Vector2());
 
   function moveBallForPaddle() {
-    const { paddlesPosition, setBallPosition } = useStageStore.getState();
     const { pointGetter } = useGameStore.getState();
     const posY = pointGetter ? PADDLE_POSITION_Z2 : PADDLE_POSITION_Z1;
-    setBallPosition(tmpVec2.current.set(
-      paddlesPosition[Number(!pointGetter)],
-      posY - Math.sign(posY) * 1.2
-    ));
+    coreStore.ballPosition.copy(
+      tmpVec2.current.set(
+        coreStore.paddlesPosition[Number(!pointGetter)],
+        posY - Math.sign(posY) * 1.2
+      )
+    );
   }
 
   const beforeBallPosition = useRef<THREE.Vector2 | null>(null);
@@ -197,9 +189,8 @@ export function CliGameCore() {
   const paddleVelocity = useRef<THREE.Vector2>(new THREE.Vector2());
 
   function changeServePosition() {
-    const { delta, ballPosition, paddlesPosition, setBallPosition } = useStageStore.getState();
-    const newBallPos = ballPosition.clone();
-    const paddlePos = new THREE.Vector2(paddlesPosition[Number(!useGameStore.getState().pointGetter)], 0);
+    const newBallPos = coreStore.ballPosition.clone();
+    const paddlePos = new THREE.Vector2(coreStore.paddlesPosition[Number(!useGameStore.getState().pointGetter)], 0);
 
     if ( !beforeBallPosition.current || !beforePaddlePosition.current ) {
       beforeBallPosition.current = newBallPos;
@@ -207,15 +198,15 @@ export function CliGameCore() {
       return;
     }
 
-    ballVelocity.current.subVectors(newBallPos, beforeBallPosition.current).divideScalar(delta);
-    paddleVelocity.current.subVectors(paddlePos, beforePaddlePosition.current!).divideScalar(delta);
-    beforeBallPosition.current?.copy(ballPosition);
-    beforePaddlePosition.current?.copy(paddlePos);
+    ballVelocity.current.subVectors(newBallPos, beforeBallPosition.current).divideScalar(coreStore.delta);
+    paddleVelocity.current.subVectors(paddlePos, beforePaddlePosition.current!).divideScalar(coreStore.delta);
+    beforeBallPosition.current.copy(coreStore.ballPosition);
+    beforePaddlePosition.current.copy(paddlePos);
 
     if (paddleVelocity.current.x !== ballVelocity.current.x) {
       ballVelocity.current.multiplyScalar(FRICTION);
       if(ballVelocity.current.lengthSq() < 0.0001) ballVelocity.current.set(0, 0);
-      newBallPos.x += ballVelocity.current.x * delta;
+      newBallPos.x += ballVelocity.current.x * coreStore.delta;
       newBallPos.x = THREE.MathUtils.clamp(newBallPos.x, -STAGE_WIDTH / 2 + 0.8, STAGE_WIDTH / 2 - 0.8);
     }
 
@@ -224,7 +215,7 @@ export function CliGameCore() {
       paddlePos.x - PADDLE_HALF_X + BALL_SIZE / 2,
       paddlePos.x + PADDLE_HALF_X - BALL_SIZE / 2
     );
-    setBallPosition(newBallPos);
+    coreStore.ballPosition.copy(newBallPos);
   }
 
   function resetBeforePositions() {
@@ -233,19 +224,16 @@ export function CliGameCore() {
   }
 
   function updatePaddlesPosition() {
-    const { paddlesPosition } = useStageStore.getState();
-    move(paddles[0], tmpVec2.current.set(paddlesPosition[0] ,PADDLE_POSITION_Z2));
-    move(paddles[1], tmpVec2.current.set(paddlesPosition[1] ,PADDLE_POSITION_Z1));
+    move(paddles[0], tmpVec2.current.set(coreStore.paddlesPosition[0] ,PADDLE_POSITION_Z2));
+    move(paddles[1], tmpVec2.current.set(coreStore.paddlesPosition[1] ,PADDLE_POSITION_Z1));
   }
 
   function updateBallPosition() {
-    move(ball, useStageStore.getState().ballPosition);
+    move(ball, coreStore.ballPosition);
   }
 
   useFrame(() => {
-    const { delta, ballPosition, velocity, setBallSpeed, setBallPosition } = useStageStore.getState();
     const { gameStatus, isFinish, serveHit, setGameStatus, setServeHit } = useGameStore.getState();
-
     updatePaddlesPosition();
 
     if (gameStatus === GameStatus.First) {
@@ -264,16 +252,16 @@ export function CliGameCore() {
         setGameStatus(GameStatus.Playing);
       }
     } else if (gameStatus === GameStatus.Playing) {
-      setBallPosition( ballPosition.clone().addScaledVector(velocity, delta) );
+      coreStore.ballPosition.addScaledVector(coreStore.velocity, coreStore.delta);
       updateBallPosition();
       for (const obj of [ ...walls, ...paddles ])
         if (onHit(ball.ref.current, obj)) break;
       if (useGameStore.getState().gameStatus === GameStatus.GetPoint) {
         if (!done.current) {
           done.current = true;
-          setBallSpeed();
+          coreStore.ballSpeed = BALL_SPEED;
           isFinish
-            ? setBallPosition(tmpVec2.current.set(0, 0))
+            ? coreStore.ballPosition.copy(tmpVec2.current.set(0, 0))
             : moveBallForPaddle();
         }
       }

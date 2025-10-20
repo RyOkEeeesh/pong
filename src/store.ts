@@ -4,62 +4,25 @@ import { BALL_SPEED, GAME_POINT, GAME_POINT_MAX, GameMode, GameStatus, RoleStatu
 
 export type Position = [number, number];
 
-type StageStore = {
+type CoreStore = {
   ballSpeed: number,
   ballPosition: THREE.Vector2;
   velocity: THREE.Vector2;
-
   paddlesPosition: Position;
-
   delta: number;
-
   pointDisplayMats: THREE.MeshStandardMaterial[][];
-
-  setBallSpeed: (sp?: number) => void;
-  setBallPosition: (pos: THREE.Vector2) => void;
-  setVelocity: (vel: THREE.Vector2) => void;
-  setPaddlePosition: (isP1: boolean, position: number) => void;
-  setDelta: (time: number) => void;
-  pushPointDisplayMats: (isP1: boolean, mats: THREE.MeshStandardMaterial[]) => void;
 };
 
 
 // 非レンダー用
-export const useStageStore = create<StageStore>(set => ({
+export const coreStore: CoreStore = {
   ballSpeed: BALL_SPEED,
   ballPosition: new THREE.Vector2(),
   velocity: new THREE.Vector2(),
-
   paddlesPosition: [0, 0] as Position, // [ p2Position, p1Position ]
-
   delta: 0,
-
-  pointDisplayMats: [[], []],
-
-  setBallSpeed: (sp = BALL_SPEED) =>
-    set(s => ({
-      ballSpeed: sp,
-      velocity: s.velocity.clone().normalize().multiplyScalar(sp)
-    })),
-  setBallPosition: pos =>
-    set({ ballPosition: pos.clone() }),
-  setVelocity: vel =>
-    set({ velocity: vel.clone() }),
-  setPaddlePosition: (isP1, position) =>
-    set(s => {
-      const paddlePosition = [ ...s.paddlesPosition ];
-      paddlePosition[Number(isP1)] = position;
-      return ({ paddlesPosition: (paddlePosition as Position) })
-    }),
-  setDelta: time =>
-    set({ delta: Math.min(time, 1000 / 24) }),
-  pushPointDisplayMats: (isP1, mats) =>
-    set(s => {
-      const mat = [ ...s.pointDisplayMats ];
-      mat[Number(isP1)].push(...mats);
-      return ({ pointDisplayMats: mat });
-    }),
-}));
+  pointDisplayMats: [[], []]
+};
 
 type GameStore = {
   gameMode: GameMode;
