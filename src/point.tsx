@@ -1,7 +1,7 @@
 import {} from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { useStageStore } from './store';
+import { coreStore } from './store';
 
 const digitMap = [
   [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1],
@@ -52,7 +52,7 @@ function DigitDisplay({num, position, isP1}: DisplayProps) {
   );
 
   useEffect(() => {
-    useStageStore.getState().pushPointDisplayMats(isP1, materialMap);
+    coreStore.pointDisplayMats[Number(isP1)].push(...materialMap)
   }, []);
 
   const positionMap = useMemo(() => [

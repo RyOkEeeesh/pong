@@ -2,14 +2,13 @@ import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CPUMode, EFFECT_MATERIAL_ARGS, EFFECT_MESH_WIDTH, FramePriority, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, PADDLE_WIDTH, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
-import { useCameraStore, useGameStore, useStageStore } from './store';
+import { useCameraStore, useGameStore, coreStore } from './store';
 import { PointDisplay } from './point.tsx';
 import { PaddleController } from './controller.tsx';
 import { fitObject } from './CameraControl.tsx';
 import { CliGameCore } from './gameCore.tsx';
 import { Effect, TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
 import { useShallow } from 'zustand/shallow';
-import { log } from 'console';
 import { OrbitControls } from '@react-three/drei';
 
 type MeshProps = {
@@ -127,9 +126,8 @@ export default function Stage({isResizing}: StageProps) {
 
   useEffect(() => {
     if(!matchPoint) return;
-    const { pointDisplayMats } = useStageStore.getState();
     const { pointGetter } = useGameStore.getState();
-    const mat = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+    const mat = coreStore.pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
     setTriggerBlinkingEffect({
       mat,
       end: 800,
@@ -140,9 +138,8 @@ export default function Stage({isResizing}: StageProps) {
 
   useEffect(() => {
     if(!isFinish) return;
-    const { pointDisplayMats } = useStageStore.getState();
     const { pointGetter } = useGameStore.getState();
-    const mat = pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+    const mat = coreStore.pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
     setTriggerBlinkingEffect({
       mat,
       end: 4000,
@@ -175,25 +172,21 @@ export default function Stage({isResizing}: StageProps) {
   }, [isResizing, camera]);
   
   function setPaddlesPosition() {
-    const { paddlesPosition } = useStageStore.getState();
-    paddleRefs[0].current.position.x = paddlesPosition[0];
-    paddleRefs[1].current.position.x = paddlesPosition[1];
+    paddleRefs[0].current.position.x = coreStore.paddlesPosition[0];
+    paddleRefs[1].current.position.x = coreStore.paddlesPosition[1];
   }
 
   function setBallPosition() {
-    const { ballPosition } = useStageStore.getState();
-    ballRef.current.position.set(ballPosition.x, 0, ballPosition.y)
+    ballRef.current.position.set(coreStore.ballPosition.x, 0, coreStore.ballPosition.y)
   }
 
   function moveBall(pos: THREE.Vector2) {
     const speed = 20;
-    const { delta, ballPosition, setBallPosition } = useStageStore.getState();
     for (const axis of ['y', 'x'] as ('x' | 'y')[]) {
-      const dir = pos[axis] - ballPosition[axis];
+      const dir = pos[axis] - coreStore.ballPosition[axis];
       if (Math.abs(dir) > 0.001) {
-        const step = Math.sign(dir) * speed * delta;
-        ballPosition[axis] += Math.abs(dir) > Math.abs(step) ? step : dir;
-        setBallPosition(ballPosition);
+        const step = Math.sign(dir) * speed * coreStore.delta;
+        coreStore.ballPosition[axis] += Math.abs(dir) > Math.abs(step) ? step : dir;
         return false;
       }
     }
@@ -224,10 +217,9 @@ export default function Stage({isResizing}: StageProps) {
 
   function isntSaveProcess() {
     if (!saved.current) {
-      const { ballPosition, setBallPosition } = useStageStore.getState();
       saved.current = true;
-      forSaveVec2Ref.current.copy(ballPosition);
-      setBallPosition(toVec2(ballRef.current.position));
+      forSaveVec2Ref.current.copy(coreStore.ballPosition);
+      coreStore.ballPosition.copy(toVec2(ballRef.current.position));
     }
   }
 
