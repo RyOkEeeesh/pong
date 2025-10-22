@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { EFFECT_MATERIAL_ARGS, EFFECT_MESH_WIDTH, FramePriority, GameStatus, WALL_HEIGHT } from './constants';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGameStore } from './store';
 import { useFrame } from '@react-three/fiber';
 
@@ -40,55 +40,57 @@ type EffectProps = {
   triggerBlinkingEffect: TriggerBlinkingEffect | null;
 };
 
-const firstMeshAmount = 8;
+const INITIAL_MESH_AMOUNT = 8;
 
 export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectProps) {
-  const effectPoolRef = useRef<THREE.Mesh[]>([]);
+  const [_, setUpdate] = useState<number>(0);
+
+  const planeGeometry = useMemo(() => new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT), []);
+  useEffect(() => () => planeGeometry.dispose(), [planeGeometry]);
+
+  const materialPoolRef = useRef<THREE.MeshStandardMaterial[]>([]);
+  const effectMeshPoolRef = useRef<THREE.Mesh[]>([]);
+
 
   useEffect(() => {
-    if (effectPoolRef.current.length > 0) return;
-
-    const sharedGeometry = new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT);
-    const materialPairs = Array.from({ length: firstMeshAmount / 2 }, () =>
-      new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS)
-    );
-    effectPoolRef.current = Array.from({ length: firstMeshAmount }, (_, i) => {
+    if (effectMeshPoolRef.current.length > 0) return;
+    for (let i = 0; i < INITIAL_MESH_AMOUNT; i++) {
+      if (i % 2 === 0)
+        materialPoolRef.current.push(new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS));
       const mesh = new THREE.Mesh(
-        sharedGeometry,
-        materialPairs[Math.floor(i / 2)]
+        planeGeometry,
+        materialPoolRef.current[Math.floor(i / 2)]
       );
-      mesh.visible = false;
-      return mesh;
-    });
-
-    // ✅ GPUウォームアップ
-    effectPoolRef.current.forEach(mesh => {
       mesh.visible = true;
       mesh.position.set(9999, 9999, 9999);
-    });
+      effectMeshPoolRef.current.push(mesh);
+    }
+    
     requestAnimationFrame(() => {
-      effectPoolRef.current.forEach(mesh => (mesh.visible = false));
+      effectMeshPoolRef.current.forEach(mesh => (mesh.visible = false));
     });
   }, []);
 
-  // ==========================
-  // Stretch Effect
-  // ==========================
   const stretchEffectsRef = useRef<StretchEffect[]>([]);
 
   function getEffectMesh() {
-    const mesh = effectPoolRef.current.find(m => !m.visible);
+    const mesh = effectMeshPoolRef.current.find(m => !m.visible);
     if (mesh) {
       mesh.visible = true;
       return mesh;
     }
-    // 予備生成（足りなくなったら）
+
+    if (!materialPoolRef.current[Math.floor((effectMeshPoolRef.current.length) / 2)])
+      materialPoolRef.current.push(new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS));
+
     const newMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(EFFECT_MESH_WIDTH, WALL_HEIGHT),
-      new THREE.MeshStandardMaterial(EFFECT_MATERIAL_ARGS)
+      planeGeometry,
+      materialPoolRef.current[Math.floor((effectMeshPoolRef.current.length) / 2)]
     );
     newMesh.visible = true;
-    effectPoolRef.current.push(newMesh);
+    effectMeshPoolRef.current.push(newMesh);
+
+    setUpdate(v => v + 1);
     return newMesh;
   }
 
@@ -107,7 +109,7 @@ export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectPr
     const now = performance.now();
     const gameStatus = useGameStore.getState().gameStatus;
 
-    stretchEffectsRef.current = stretchEffectsRef.current.filter(effect => {
+    stretchEffectsRef.current = stretchEffectsRef.current.filter((effect, i) => {
       const elapsed = now - effect.startTime;
       const progress = Math.min(elapsed / duration, 1);
 
@@ -143,6 +145,9 @@ export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectPr
       }
 
       effect.mesh.position.copy(effectPos);
+
+      if (stretchEffectsRef.current[i - 1]?.mesh.material === effect.mesh.material) return true;
+
       const material = effect.mesh.material as THREE.MeshStandardMaterial;
       material.opacity = 1 - progress;
       material.emissiveIntensity = 3 * (1 - progress);
@@ -151,9 +156,6 @@ export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectPr
     });
   }
 
-  // ==========================
-  // Blinking Effect
-  // ==========================
   const blinkingEffectRef = useRef<BlinkingEffect[]>([]);
 
   function blinkingEffect(option: TriggerBlinkingEffect) {
@@ -191,9 +193,6 @@ export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectPr
     });
   }
 
-  // ==========================
-  // React Hooks
-  // ==========================
   useEffect(() => {
     if (triggerStretchEffect) stretchEffect(triggerStretchEffect);
   }, [triggerStretchEffect]);
@@ -209,7 +208,7 @@ export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectPr
 
   return (
     <>
-      {effectPoolRef.current.map((mesh, i) => (
+      {effectMeshPoolRef.current.map((mesh, i) => (
         <primitive object={mesh} key={i} />
       ))}
     </>

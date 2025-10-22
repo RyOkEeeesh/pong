@@ -11,6 +11,10 @@ type CoreStore = {
   paddlesPosition: Position;
   delta: number;
   pointDisplayMats: THREE.MeshStandardMaterial[][];
+  gamePoint: number;
+  pointGetter: boolean;
+  serveHit: boolean;
+  acceptNextStatus: boolean;
 };
 
 
@@ -21,7 +25,11 @@ export const coreStore: CoreStore = {
   velocity: new THREE.Vector2(),
   paddlesPosition: [0, 0] as Position, // [ p2Position, p1Position ]
   delta: 0,
-  pointDisplayMats: [[], []]
+  pointDisplayMats: [[], []],
+  gamePoint: GAME_POINT,
+  pointGetter: Boolean(Math.round(Math.random())),
+  serveHit: false,
+  acceptNextStatus: false
 };
 
 type GameStore = {
@@ -29,17 +37,13 @@ type GameStore = {
   gameStatus: GameStatus;
   role: RoleStatus;
   points: Position;
-  gamePoint: number;
   matchPoint: boolean;
   isFinish: boolean;
-  pointGetter: boolean;
-  serveHit: boolean;
   hit: {
     name: string;
     point: THREE.Vector2;
     normal: THREE.Vector2;
   } | null;
-  acceptNextStatus: boolean;
 
   setGameMode: (gameMode: GameMode) => void;
   setGameStatus: (gameStatus: GameStatus) => void;
@@ -47,11 +51,8 @@ type GameStore = {
   addPoint: () => void;
   resetPoint: () => void;
   processAddPoint: () => void;
-  setPointGetter: (isP1: boolean) => void;
-  setServeHit: (serveHit: boolean) => void;
   setHit: (name: string, point: THREE.Vector2, normal: THREE.Vector2) => void;
   resetHit: () => void;
-  setAcceptNextStatus: (acceptNextStatus: boolean) => void;
 }
 
 // レンダー用
@@ -60,36 +61,32 @@ export const useGameStore = create<GameStore>(set => ({
   gameStatus: GameStatus.First,
   role: RoleStatus.Spectator,
   points: [0, 0] as Position,
-  gamePoint: GAME_POINT,
   matchPoint: false,
   isFinish: false,
-  pointGetter: Boolean(Math.round(Math.random())),
-  serveHit: false,
   hit: null,
-  acceptNextStatus: false,
 
   setGameMode: gameMode => set({ gameMode }),
   setGameStatus: gameStatus => set({ gameStatus }),
   setRole: role => set({ role }),
   addPoint: () => set(s => {
     const points = [ ...s.points ] as Position;
-    points[Number(s.pointGetter)]++; 
+    points[Number(coreStore.pointGetter)]++; 
     return { points };
   }),
   resetPoint: () => set({ points: [0, 0] }),
   processAddPoint: () =>
     set(s => {
       const max = Math.max(...s.points);
-      if (s.gamePoint - max === 1) {
+      if (coreStore.gamePoint - max === 1) {
         if (s.points[0] === s.points[1] && GAME_POINT_MAX - max !== 1) { // デュース
           return ({
-            gamePoint: Math.min(s.gamePoint + 1, GAME_POINT_MAX),
+            gamePoint: Math.min(coreStore.gamePoint + 1, GAME_POINT_MAX),
             matchPoint: false
           });
         } else {
           return ({ matchPoint: true });
         }
-      } else if (s.gamePoint === max) {
+      } else if (coreStore.gamePoint === max) {
         return ({
           matchPoint: false,
           isFinish: true
@@ -97,8 +94,6 @@ export const useGameStore = create<GameStore>(set => ({
       }
       return ({ matchPoint: false });
     }),
-  setPointGetter: isP1 => set({ pointGetter: isP1 }),
-  setServeHit: serveHit => set({ serveHit }),
   setHit: (name, point, normal) => set({
     hit: {
       name,
@@ -107,7 +102,6 @@ export const useGameStore = create<GameStore>(set => ({
     }
   }),
   resetHit: () => set({ hit: null }),
-  setAcceptNextStatus: (acceptNextStatus: boolean) => set({ acceptNextStatus })
 }));
 
 // camera

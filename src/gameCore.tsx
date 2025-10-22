@@ -79,10 +79,9 @@ function handleHitSideWall() {
 }
 
 function handleHitGoalWall() {
-  const { setGameStatus, addPoint, processAddPoint, setPointGetter } = useGameStore.getState();
-  const pointGetter = coreStore.ballPosition.y < 0;
+  const { setGameStatus, addPoint, processAddPoint } = useGameStore.getState();
   coreStore.velocity.set(0, 0);
-  setPointGetter(pointGetter);
+  coreStore.pointGetter = coreStore.ballPosition.y < 0;
   addPoint();
   processAddPoint();
   setGameStatus(GameStatus.GetPoint);
@@ -161,9 +160,8 @@ export function CliGameCore() {
   const done = useRef<boolean>(false);
 
   function accept(): boolean {
-    const { acceptNextStatus, setAcceptNextStatus } = useGameStore.getState();
-    if (acceptNextStatus) {
-      setAcceptNextStatus(false);
+    if (coreStore.acceptNextStatus) {
+      coreStore.acceptNextStatus = false;
       done.current = false;
       return true;
     }
@@ -173,11 +171,10 @@ export function CliGameCore() {
   const tmpVec2 = useRef<THREE.Vector2>(new THREE.Vector2());
 
   function moveBallForPaddle() {
-    const { pointGetter } = useGameStore.getState();
-    const posY = pointGetter ? PADDLE_POSITION_Z2 : PADDLE_POSITION_Z1;
+    const posY = coreStore.pointGetter ? PADDLE_POSITION_Z2 : PADDLE_POSITION_Z1;
     coreStore.ballPosition.copy(
       tmpVec2.current.set(
-        coreStore.paddlesPosition[Number(!pointGetter)],
+        coreStore.paddlesPosition[Number(!coreStore.pointGetter)],
         posY - Math.sign(posY) * 1.2
       )
     );
@@ -190,7 +187,7 @@ export function CliGameCore() {
 
   function changeServePosition() {
     const newBallPos = coreStore.ballPosition.clone();
-    const paddlePos = new THREE.Vector2(coreStore.paddlesPosition[Number(!useGameStore.getState().pointGetter)], 0);
+    const paddlePos = new THREE.Vector2(coreStore.paddlesPosition[Number(!coreStore.pointGetter)], 0);
 
     if ( !beforeBallPosition.current || !beforePaddlePosition.current ) {
       beforeBallPosition.current = newBallPos;
@@ -233,7 +230,7 @@ export function CliGameCore() {
   }
 
   useFrame(() => {
-    const { gameStatus, isFinish, serveHit, setGameStatus, setServeHit } = useGameStore.getState();
+    const { gameStatus, isFinish, setGameStatus } = useGameStore.getState();
     updatePaddlesPosition();
 
     if (gameStatus === GameStatus.First) {
@@ -245,8 +242,8 @@ export function CliGameCore() {
       }
     } else if (gameStatus === GameStatus.Serving) {
       changeServePosition();
-      if(serveHit) {
-        setServeHit(false);
+      if(coreStore.serveHit) {
+        coreStore.serveHit = false;
         handleHitPaddle();
         resetBeforePositions();
         setGameStatus(GameStatus.Playing);

@@ -108,10 +108,6 @@ export default function Stage({isResizing}: StageProps) {
     return out.set(vec2.x, 0, vec2.y);
   }
 
-  function toVec2(vec3: THREE.Vector3, out: THREE.Vector2 = new THREE.Vector2()) {
-    return out.set(vec3.x, vec3.z);
-  }
-
   const [ points, matchPoint, isFinish, hit ] = useGameStore(useShallow(s => [s.points, s.matchPoint, s.isFinish, s.hit]));
 
   useEffect(() => {
@@ -126,8 +122,7 @@ export default function Stage({isResizing}: StageProps) {
 
   useEffect(() => {
     if(!matchPoint) return;
-    const { pointGetter } = useGameStore.getState();
-    const mat = coreStore.pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+    const mat = coreStore.pointDisplayMats[Number(coreStore.pointGetter)].filter(mat => mat.emissiveIntensity === 1);
     setTriggerBlinkingEffect({
       mat,
       end: 800,
@@ -138,8 +133,7 @@ export default function Stage({isResizing}: StageProps) {
 
   useEffect(() => {
     if(!isFinish) return;
-    const { pointGetter } = useGameStore.getState();
-    const mat = coreStore.pointDisplayMats[Number(pointGetter)].filter(mat => mat.emissiveIntensity === 1);
+    const mat = coreStore.pointDisplayMats[Number(coreStore.pointGetter)].filter(mat => mat.emissiveIntensity === 1);
     setTriggerBlinkingEffect({
       mat,
       end: 4000,
@@ -150,18 +144,18 @@ export default function Stage({isResizing}: StageProps) {
 
   useEffect(() => {
     if (!hit) return;
-    const { name, point, normal } = hit;
+    const { name } = hit;
+    const point = toVec3(hit.point);
+    const normal = toVec3(hit.normal);
     if (name === SIDE_1 || name === SIDE_2) {
-      const wall = sideWallsRef.filter(sideref => sideref.current.name === name)[0].current;
-      const p = point.clone();
-      p.x = wall.position.x;
-      setTriggerStretchEffect( {wall, point: toVec3(p), normal: toVec3(normal) });
+      const wall = sideWallsRef.find(sideref => sideref.current.name === name)!.current;
+      point.x = wall.position.x;
+      setTriggerStretchEffect( {wall, point, normal });
       return;
     }
     const wall = name === PADDLE_1 ? goalWall1Ref.current : goalWall2Ref.current;
-    const p = toVec3(point);
-    p.z = wall.position.z;
-    setTriggerStretchEffect({wall, point: p, normal: toVec3(normal)})
+    point.z = wall.position.z;
+    setTriggerStretchEffect({wall, point, normal});
   }, [hit])
 
   useEffect(() => {
@@ -219,16 +213,15 @@ export default function Stage({isResizing}: StageProps) {
     if (!saved.current) {
       saved.current = true;
       forSaveVec2Ref.current.copy(coreStore.ballPosition);
-      coreStore.ballPosition.copy(toVec2(ballRef.current.position));
+      coreStore.ballPosition.set(ballRef.current.position.x, ballRef.current.position.z);
     }
   }
 
   function processMoveBall() {
     if (!saved.current) return;
-    const { setAcceptNextStatus } = useGameStore.getState();
     if (moveBall(forSaveVec2Ref.current)) {
       saved.current = false;
-      setAcceptNextStatus(true);
+      coreStore.acceptNextStatus = true;
       return true;
     }
     return false;

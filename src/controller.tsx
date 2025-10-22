@@ -1,7 +1,7 @@
 import { useKeyboardControls } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
-import { useGameStore, useStageStore, useUserSetting } from './store';
+import { useGameStore, coreStore, useUserSetting } from './store';
 import { BALL_SPEED, CPUMode, FramePriority, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from './constants';
 import * as THREE from 'three';
 
@@ -14,9 +14,9 @@ type PaddleControllerProps = {
 
 export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps) {
   const [_, get] = useKeyboardControls();
-  const { setPaddlePosition } = useStageStore.getState();
 
-  function getPaddlePosition() { return useStageStore.getState().paddlesPosition[Number(isP1)] };
+  function getPaddlePosition() { return coreStore.paddlesPosition[Number(isP1)] };
+  function setPaddlePosition(p: number) { coreStore.paddlesPosition[Number(isP1)] = p; }
 
   const paddleZ = isP1 ? PADDLE_POSITION_Z1 : PADDLE_POSITION_Z2;
 
@@ -36,18 +36,16 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   })();
 
 
-  const { setServeHit } = useGameStore.getState();
   const serveTime = useRef<NodeJS.Timeout | null>(null);
 
   function triggerServe() {
-    setServeHit(true);
+    coreStore.serveHit = true;
     if(serveTime.current) clearTimeout(serveTime.current);
     serveTime.current = null;
   }
 
   function handlePlayerServe() {
-    const { pointGetter } = useGameStore.getState();
-    if(pointGetter === isP1) return;
+    if(coreStore.pointGetter === isP1) return;
     const keys = get();
 
     if(serveTime.current === null) serveTime.current = setTimeout(triggerServe, 10000);
@@ -59,12 +57,11 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   };
 
   function handleCPUServe() {
-    const { pointGetter,serveHit } = useGameStore.getState();
     if(
       !moveCenter() ||
-      pointGetter === isP1 ||
+      coreStore.pointGetter === isP1 ||
       serveTime.current !== null ||
-      serveHit
+      coreStore.serveHit
     ) return;
     serveTime.current = setTimeout(triggerServe, Math.random() * 1000 + 50);
   }
@@ -76,29 +73,26 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     if (!state.missChance && !state.precision) return;
     if (predictedTargetX.current !== null) return;
 
-    const { ballPosition, velocity } = useStageStore.getState();
-
-    if (velocity.length() === 0) {
+    if (coreStore.velocity.length() === 0) {
       predictedTargetX.current = null;
       return;
     }
 
-    const timeToReach = Math.abs((paddleZ - ballPosition.y) / velocity.y);
+    const timeToReach = Math.abs((paddleZ - coreStore.ballPosition.y) / coreStore.velocity.y);
     const noise =
       Math.random() < state?.missChance ? (Math.random() - 0.5) * state?.precision : 0;
     const randomHitOffset = (Math.random() * 2 - 1) * PADDLE_HALF_X;
-    const targetX = ballPosition.x + velocity.x * timeToReach + noise + randomHitOffset;
+    const targetX = coreStore.ballPosition.x + coreStore.velocity.x * timeToReach + noise + randomHitOffset;
 
     predictedTargetX.current = targetX;
   }
 
   function paddleMove(move: number) {
     const posX = getPaddlePosition();
-    const newPos = Math.min(
+    setPaddlePosition(Math.min(
       Math.max(posX + move, -STAGE_WIDTH / 2 + PADDLE_HALF_X),
       STAGE_WIDTH / 2 - PADDLE_HALF_X
-    );
-    setPaddlePosition(isP1, newPos);
+    ));
   }
 
   function moveCenter(speed?: number) {
@@ -106,21 +100,20 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     const dx = 0 - paddleX;
     if(!dx) return true;
     const s = speed ?? 20;
-    const step = Math.sign(dx) * s * useStageStore.getState().delta;
+    const step = Math.sign(dx) * s * coreStore.delta;
     if (Math.abs(dx) <= Math.abs(step)) {
-      setPaddlePosition(isP1, 0);
+      setPaddlePosition(0);
       return true;
     }
-    setPaddlePosition(isP1, paddleX + step);
+    setPaddlePosition(paddleX + step);
     return false;
   }
 
   function handleCPUControl() {
     const paddleX = getPaddlePosition();
-    const { ballPosition, velocity, delta } = useStageStore.getState();
 
-    const speed = state.speed * delta;
-    const isBallMovingAway = (ballPosition.y - paddleZ) * velocity.y > 0;
+    const speed = state.speed * coreStore.delta;
+    const isBallMovingAway = (coreStore.ballPosition.y - paddleZ) * coreStore.velocity.y > 0;
 
     if (isBallMovingAway) {
       if (cpuMode === CPUMode.Hard) {
@@ -147,13 +140,13 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   const handlePlayerControl = isP1
     ? function() {
         const keys = get();
-        const { delta } = useStageStore.getState();
+        const { delta } = coreStore;
         if (keys.L1) paddleMove(-state.speed * delta);
         if (keys.R1) paddleMove(state.speed * delta);
       }
     : function() {
         const keys = get();
-        const { delta } = useStageStore.getState();
+        const { delta } = coreStore;
         if (keys.L2) paddleMove(-state.speed * delta);
         if (keys.R2) paddleMove(state.speed * delta);
       };
@@ -164,34 +157,22 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   const prevVel = useRef(new THREE.Vector2());
 
   useFrame(() => {
-    const { velocity } = useStageStore.getState();
     const { gameStatus } = useGameStore.getState();
-    if (!velocity.equals(prevVel.current)) {
+    if (!coreStore.velocity.equals(prevVel.current)) {
       predictedTargetX.current = null;
-      prevVel.current.copy(velocity);
+      prevVel.current.copy(coreStore.velocity);
     }
 
-    switch (gameStatus) {
-      case GameStatus.Waiting:
-        break;
-      case GameStatus.First:
-        break;
-      case GameStatus.Serving:
+    if (gameStatus === GameStatus.Serving) {
         handleServe();
-        break;
-      case GameStatus.Playing:
-        if (serveTime.current) {
-          clearTimeout(serveTime.current);
-          serveTime.current = null;
-        }
-        handleControls();
-        break;
-      case GameStatus.GetPoint:
-        break;
-      case GameStatus.End:
-        break;
-      case GameStatus.Pause:
-        break;
+    } else if (gameStatus === GameStatus.Playing) {
+      if (serveTime.current) {
+        clearTimeout(serveTime.current);
+        serveTime.current = null;
+      }
+      handleControls();
+    } else if (gameStatus === GameStatus.GetPoint) {
+      if (coreStore.pointGetter === isP1) handleControls();
     }
   }, FramePriority.Paddle);
 
