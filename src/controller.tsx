@@ -45,7 +45,7 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   }
 
   function handlePlayerServe() {
-    if(coreStore.pointGetter === isP1) return;
+    if(coreStore.pointGetter === isP1) return handlePlayerControl();
     const keys = get();
 
     if(serveTime.current === null) serveTime.current = setTimeout(triggerServe, 10000);
@@ -116,6 +116,8 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
     const isBallMovingAway = (coreStore.ballPosition.y - paddleZ) * coreStore.velocity.y > 0;
 
     if (isBallMovingAway) {
+      if (coreStore.gameStatus === GameStatus.GetPoint)
+        return moveCenter(state.speed);
       if (cpuMode === CPUMode.Hard) {
         const now = performance.now();
         if (waitMoving.current === null) {
@@ -157,23 +159,24 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
   const prevVel = useRef(new THREE.Vector2());
 
   useFrame(() => {
-    const { gameStatus } = useGameStore.getState();
     if (!coreStore.velocity.equals(prevVel.current)) {
       predictedTargetX.current = null;
       prevVel.current.copy(coreStore.velocity);
     }
 
-    if (gameStatus === GameStatus.Serving) {
-        handleServe();
-    } else if (gameStatus === GameStatus.Playing) {
+    if (coreStore.gameStatus === GameStatus.Serving)
+      return handleServe();
+    if (coreStore.gameStatus === GameStatus.Playing) {
       if (serveTime.current) {
         clearTimeout(serveTime.current);
         serveTime.current = null;
       }
-      handleControls();
-    } else if (gameStatus === GameStatus.GetPoint) {
-      if (coreStore.pointGetter === isP1) handleControls();
+      return handleControls();
     }
+    if (coreStore.gameStatus === GameStatus.GetPoint)
+      return coreStore.pointGetter === isP1 && handleControls();
+    if (coreStore.gameStatus === GameStatus.End)
+      return moveCenter();
   }, FramePriority.Paddle);
 
   return null;

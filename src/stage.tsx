@@ -108,7 +108,7 @@ export default function Stage({isResizing}: StageProps) {
     return out.set(vec2.x, 0, vec2.y);
   }
 
-  const [ points, matchPoint, isFinish, hit ] = useGameStore(useShallow(s => [s.points, s.matchPoint, s.isFinish, s.hit]));
+  const [ points, isMatch, isEnd, hit ] = useGameStore(useShallow(s => [s.points, s.isMatch, s.isEnd, s.hit]));
 
   useEffect(() => {
     if (!points[0] && !points[1]) return;
@@ -121,7 +121,7 @@ export default function Stage({isResizing}: StageProps) {
   }, [points])
 
   useEffect(() => {
-    if(!matchPoint) return;
+    if(!isMatch) return;
     const mat = coreStore.pointDisplayMats[Number(coreStore.pointGetter)].filter(mat => mat.emissiveIntensity === 1);
     setTriggerBlinkingEffect({
       mat,
@@ -129,10 +129,10 @@ export default function Stage({isResizing}: StageProps) {
       difference: -0.8,
       times: 4
     });
-  }, [matchPoint])
+  }, [isMatch])
 
   useEffect(() => {
-    if(!isFinish) return;
+    if(!isEnd) return;
     const mat = coreStore.pointDisplayMats[Number(coreStore.pointGetter)].filter(mat => mat.emissiveIntensity === 1);
     setTriggerBlinkingEffect({
       mat,
@@ -140,7 +140,7 @@ export default function Stage({isResizing}: StageProps) {
       difference: -0.8,
       times: 16
     });
-  }, [isFinish]);
+  }, [isEnd]);
 
   useEffect(() => {
     if (!hit) return;
@@ -188,22 +188,18 @@ export default function Stage({isResizing}: StageProps) {
   }
 
   const sleepRef = useRef<number | null>(null);
-  const sleepStartRef = useRef<number | null>(null);
 
   function setSleep(ms: number) {
-    sleepStartRef.current = performance.now();
-    sleepRef.current = ms;
+    sleepRef.current = performance.now() + ms;
   }
 
   function sleep(): boolean {
-    if (!sleepRef.current || !sleepStartRef.current) return false;
-    const elapsed = performance.now() - sleepStartRef.current;
-    return elapsed >= (sleepRef.current ?? 0);
+    if (!sleepRef.current) return false;
+    return performance.now() >= sleepRef.current;
   }
 
   function resetSleep() {
     sleepRef.current = null;
-    sleepStartRef.current = null;
   }
 
   const forSaveVec2Ref = useRef<THREE.Vector2>(new THREE.Vector2());
@@ -228,20 +224,14 @@ export default function Stage({isResizing}: StageProps) {
   }
 
   useFrame(() => {
-    const { gameStatus } = useGameStore.getState();
     setPaddlesPosition();
-    if (gameStatus === GameStatus.First) {
+    if (coreStore.gameStatus === GameStatus.First) {
       isntSaveProcess();
       processMoveBall();
-    } else if (gameStatus === GameStatus.GetPoint) {
+    } else if (coreStore.gameStatus === GameStatus.GetPoint) {
       isntSaveProcess();
-      if (!sleepRef.current || !sleepStartRef.current) {
-        setSleep(250);
-      } else if (sleep()) {
-        if (processMoveBall()) {
-          resetSleep();
-        }
-      }
+      if (!sleepRef.current) setSleep(250);
+      else if (sleep()) processMoveBall() && resetSleep();
     }
     setBallPosition();
   }, FramePriority.Stage);

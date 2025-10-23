@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { forwardRef, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { ACCELERATION, BALL_SIZE, BALL_SPEED, BALL_SPEED_MAX, FramePriority, FRICTION, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
+import { ACCELERATION, BALL_SIZE, BALL_SPEED, BALL_SPEED_MAX, FramePriority, FRICTION, GAME_POINT_MAX, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
 import { useGameStore, coreStore } from './store';
 import { Hit, intersect } from './core';
 
@@ -57,66 +57,6 @@ function goalWallArgs(): ConstructorParameters<typeof THREE.Box2>{
   ];
 }
 
-function handleHitPaddle() {
-  const paddlePos = coreStore.paddlesPosition[Number(coreStore.ballPosition.y > 0)];
-
-  const normalized = THREE.MathUtils.clamp(
-    (coreStore.ballPosition.x - paddlePos) / PADDLE_HALF_X,
-    -1,
-    1
-  );
-  const maxAngle = Math.PI / 3;
-  const angle = normalized * maxAngle;
-  coreStore.velocity.set(
-    coreStore.ballSpeed * Math.sin(angle),
-    -Math.sign(coreStore.ballPosition.y) * coreStore.ballSpeed * Math.cos(angle)
-  );
-  coreStore.ballSpeed = Math.min(coreStore.ballSpeed + ACCELERATION, BALL_SPEED_MAX);
-}
-
-function handleHitSideWall() {
-  coreStore.velocity.x *= -1;
-}
-
-function handleHitGoalWall() {
-  const { setGameStatus, addPoint, processAddPoint } = useGameStore.getState();
-  coreStore.velocity.set(0, 0);
-  coreStore.pointGetter = coreStore.ballPosition.y < 0;
-  addPoint();
-  processAddPoint();
-  setGameStatus(GameStatus.GetPoint);
-}
-
-function handleHit(obj: Object2d, hit: Hit) {
-  const { setHit } = useGameStore.getState();
-  if (obj.name === PADDLE_1 || obj.name === PADDLE_2) {
-    if (Math.abs(hit.normal.y) > 0.9) {
-      handleHitPaddle();
-      setHit(obj.name, hit.point, hit.normal);
-      return;
-    }
-    handleHitSideWall();
-    return;
-  }
-  if (obj.name === SIDE_1 || obj.name === SIDE_2) {
-    handleHitSideWall();
-    setHit(obj.name, hit.point, hit.normal);
-    return;
-  }
-  handleHitGoalWall();
-}
-
-function onHit(ball: THREE.Box2, obj: Object2d): boolean {
-  const hit = intersect(ball, obj.ref.current);
-  if (hit) {
-    handleHit(obj, hit);
-    if (obj.name !== PADDLE_1 && obj.name !== PADDLE_2)
-      coreStore.ballPosition.copy(hit.point);
-    return true;
-  }
-  return false;
-}
-
 export function CliGameCore() {
   const ball: Object2d = { name: 'ball', ref: useRef<THREE.Box2>(null!) };
   const paddles: [Object2d, Object2d] = [
@@ -156,6 +96,78 @@ export function CliGameCore() {
     move(walls[2], new THREE.Vector2(-STAGE_WIDTH / 2, 0));
     move(walls[3], new THREE.Vector2(STAGE_WIDTH / 2, 0));
   }, []);
+
+  function handleHitPaddle() {
+    const paddlePos = coreStore.paddlesPosition[Number(coreStore.ballPosition.y > 0)];
+
+    const normalized = THREE.MathUtils.clamp(
+      (coreStore.ballPosition.x - paddlePos) / PADDLE_HALF_X,
+      -1,
+      1
+    );
+    const maxAngle = Math.PI / 3;
+    const angle = normalized * maxAngle;
+    coreStore.velocity.set(
+      coreStore.ballSpeed * Math.sin(angle),
+      -Math.sign(coreStore.ballPosition.y) * coreStore.ballSpeed * Math.cos(angle)
+    );
+    coreStore.ballSpeed = Math.min(coreStore.ballSpeed + ACCELERATION, BALL_SPEED_MAX);
+  }
+
+  function handleHitSideWall() {
+    coreStore.velocity.x *= -1;
+  }
+  
+  function processAddPoint() {
+    const { points, setIsMatch, setIsEnd } = useGameStore.getState();
+    const max = Math.max(...points);
+    if (coreStore.gamePoint - max === 1) {
+      if (points[0] === points[1] && GAME_POINT_MAX - max !== 1) {
+        coreStore.gamePoint = Math.min(coreStore.gamePoint + 1, GAME_POINT_MAX);
+        setIsMatch(false);
+      } else setIsMatch(true);
+    } else if (coreStore.gamePoint === max) setIsEnd();
+  }
+
+  function handleHitGoalWall() {
+    const { addPoint } = useGameStore.getState();
+    coreStore.ballSpeed = BALL_SPEED;
+    coreStore.velocity.set(0, 0);
+    coreStore.pointGetter = coreStore.ballPosition.y < 0;
+    addPoint();
+    processAddPoint();
+    coreStore.gameStatus = GameStatus.GetPoint;
+  }
+
+  function handleHit(obj: Object2d, hit: Hit) {
+    const { setHit } = useGameStore.getState();
+    if (obj.name === PADDLE_1 || obj.name === PADDLE_2) {
+      if (Math.abs(hit.normal.y) > 0.9) {
+        handleHitPaddle();
+        setHit(obj.name, hit.point, hit.normal);
+        return;
+      }
+      handleHitSideWall();
+      return;
+    }
+    if (obj.name === SIDE_1 || obj.name === SIDE_2) {
+      handleHitSideWall();
+      setHit(obj.name, hit.point, hit.normal);
+      return;
+    }
+    handleHitGoalWall();
+  }
+
+  function onHit(ball: THREE.Box2, obj: Object2d): boolean {
+    const hit = intersect(ball, obj.ref.current);
+    if (hit) {
+      handleHit(obj, hit);
+      if (obj.name !== PADDLE_1 && obj.name !== PADDLE_2)
+        coreStore.ballPosition.copy(hit.point);
+      return true;
+    }
+    return false;
+  }
 
   const done = useRef<boolean>(false);
 
@@ -230,44 +242,42 @@ export function CliGameCore() {
   }
 
   useFrame(() => {
-    const { gameStatus, isFinish, setGameStatus } = useGameStore.getState();
+    const { isEnd } = useGameStore.getState();
     updatePaddlesPosition();
 
-    if (gameStatus === GameStatus.First) {
+    if (coreStore.gameStatus === GameStatus.First) {
       if (!done.current) {
         done.current = true;
         moveBallForPaddle();
-      } else if (accept()) {
-        setGameStatus(GameStatus.Serving);
-      }
-    } else if (gameStatus === GameStatus.Serving) {
+      } else if (accept())
+        coreStore.gameStatus = GameStatus.Serving;
+    } else if (coreStore.gameStatus === GameStatus.Serving) {
       changeServePosition();
       if(coreStore.serveHit) {
         coreStore.serveHit = false;
         handleHitPaddle();
         resetBeforePositions();
-        setGameStatus(GameStatus.Playing);
+        coreStore.gameStatus = GameStatus.Playing;
       }
-    } else if (gameStatus === GameStatus.Playing) {
+    } else if (coreStore.gameStatus === GameStatus.Playing) {
       coreStore.ballPosition.addScaledVector(coreStore.velocity, coreStore.delta);
       updateBallPosition();
       for (const obj of [ ...walls, ...paddles ])
         if (onHit(ball.ref.current, obj)) break;
-      if (useGameStore.getState().gameStatus === GameStatus.GetPoint) {
+      if (coreStore.gameStatus !== GameStatus.Playing) { // TODO handleHitGoalWall に移行したい
         if (!done.current) {
           done.current = true;
-          coreStore.ballSpeed = BALL_SPEED;
-          isFinish
+          isEnd
             ? coreStore.ballPosition.copy(tmpVec2.current.set(0, 0))
             : moveBallForPaddle();
         }
       }
-    } else if (gameStatus === GameStatus.GetPoint) {
-      if (accept()) setGameStatus(isFinish ? GameStatus.End : GameStatus.Serving);
+    } else if (coreStore.gameStatus === GameStatus.GetPoint) {
+      if (accept()) coreStore.gameStatus = isEnd ? GameStatus.End : GameStatus.Serving;
     } else { // GameStatus.End
       if (accept()) {
         // reset all してから
-        // setGameStatus(GameStatus.First);
+        // coreStore.gameStatus = GameStatus.First;
       }
     }
 
