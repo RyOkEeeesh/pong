@@ -184,11 +184,9 @@ export function CliGameCore() {
 
   function moveBallForPaddle() {
     const posY = coreStore.pointGetter ? PADDLE_POSITION_Z2 : PADDLE_POSITION_Z1;
-    coreStore.ballPosition.copy(
-      tmpVec2.current.set(
+    coreStore.ballPosition.set(
         coreStore.paddlesPosition[Number(!coreStore.pointGetter)],
         posY - Math.sign(posY) * 1.2
-      )
     );
   }
 
@@ -242,7 +240,6 @@ export function CliGameCore() {
   }
 
   useFrame(() => {
-    const { isEnd } = useGameStore.getState();
     updatePaddlesPosition();
 
     if (coreStore.gameStatus === GameStatus.First) {
@@ -264,16 +261,16 @@ export function CliGameCore() {
       updateBallPosition();
       for (const obj of [ ...walls, ...paddles ])
         if (onHit(ball.ref.current, obj)) break;
-      if (coreStore.gameStatus !== GameStatus.Playing) { // TODO handleHitGoalWall に移行したい
+      if (coreStore.gameStatus !== GameStatus.Playing) {
         if (!done.current) {
           done.current = true;
-          isEnd
-            ? coreStore.ballPosition.copy(tmpVec2.current.set(0, 0))
+          useGameStore.getState().isEnd
+            ? coreStore.ballPosition.set(0, 0)
             : moveBallForPaddle();
         }
       }
     } else if (coreStore.gameStatus === GameStatus.GetPoint) {
-      if (accept()) coreStore.gameStatus = isEnd ? GameStatus.End : GameStatus.Serving;
+      if (accept()) coreStore.gameStatus = useGameStore.getState().isEnd ? GameStatus.End : GameStatus.Serving;
     } else { // GameStatus.End
       if (accept()) {
         // reset all してから

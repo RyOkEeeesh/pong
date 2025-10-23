@@ -231,7 +231,9 @@ export default function Stage({isResizing}: StageProps) {
     } else if (coreStore.gameStatus === GameStatus.GetPoint) {
       isntSaveProcess();
       if (!sleepRef.current) setSleep(250);
-      else if (sleep()) processMoveBall() && resetSleep();
+      else if (sleep())
+        if(processMoveBall())
+          resetSleep();
     }
     setBallPosition();
   }, FramePriority.Stage);
