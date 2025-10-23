@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { EFFECT_MATERIAL_ARGS, EFFECT_MESH_WIDTH, FramePriority, GameStatus, WALL_HEIGHT } from './constants';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useGameStore } from './store';
+import { coreStore } from './store';
 import { useFrame } from '@react-three/fiber';
 
 type StretchEffect = {
@@ -107,13 +107,12 @@ export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectPr
   function updateStretchEffect() {
     const duration = 450;
     const now = performance.now();
-    const gameStatus = useGameStore.getState().gameStatus;
 
     stretchEffectsRef.current = stretchEffectsRef.current.filter((effect, i) => {
       const elapsed = now - effect.startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      if (progress >= 1 || gameStatus === GameStatus.GetPoint) {
+      if (progress >= 1 || coreStore.gameStatus === GameStatus.GetPoint) {
         effect.mesh.visible = false;
         return false;
       }

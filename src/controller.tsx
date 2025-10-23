@@ -1,6 +1,6 @@
 import { useKeyboardControls } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useGameStore, coreStore, useUserSetting } from './store';
 import { BALL_SPEED, CPUMode, FramePriority, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from './constants';
 import * as THREE from 'three';
@@ -20,20 +20,15 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
 
   const paddleZ = isP1 ? PADDLE_POSITION_Z1 : PADDLE_POSITION_Z2;
 
-  const state = (() => {
-    if (cpuMode === null) {
-      return isP1 ? { speed: useUserSetting(s => s.control.p1.speed) } : { speed: useUserSetting(s => s.control.p2.speed) };
-    }
+  const p1Speed = useUserSetting(s => s.control.p1.speed);
+  const p2Speed = useUserSetting(s => s.control.p2.speed);
 
-    switch (cpuMode) {
-      case CPUMode.Easy:
-        return { speed: BALL_SPEED - 10, missChance: 0.5, precision: 8 };
-      case CPUMode.Normal:
-        return { speed: BALL_SPEED - 7.5, missChance: 0.3, precision: 6 };
-      case CPUMode.Hard:
-        return { speed: BALL_SPEED - 5, missChance: 0.2, precision: 4 };
-    }
-  })();
+  const state = useMemo(() => {
+    if (cpuMode === null) return { speed: isP1 ? p1Speed : p2Speed };
+    if (cpuMode === CPUMode.Easy) return { speed: BALL_SPEED - 10, missChance: 0.5, precision: 8 };
+    if (cpuMode === CPUMode.Normal) return { speed: BALL_SPEED - 7.5, missChance: 0.4, precision: 6 };
+    return { speed: BALL_SPEED - 5, missChance: 0.2, precision: 4 };
+  }, [cpuMode, isP1, p1Speed, p2Speed]);
 
 
   const serveTime = useRef<NodeJS.Timeout | null>(null);
