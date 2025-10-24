@@ -84,18 +84,22 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
 
   function paddleMove(move: number) {
     const posX = getPaddlePosition();
-    function isBallNearPaddle(): boolean {
-      const line = paddleZ - Math.sign(paddleZ) * (PADDLE_DEPTH + BALL_SIZE) / 2;
-      return Math.sign(line) === Math.sign(coreStore.ballPosition.y) && Math.abs(line) > Math.abs(coreStore.ballPosition.y);
-    }
     const [ min, max ] = (() => {
+      const line = paddleZ - Math.sign(paddleZ) * (PADDLE_DEPTH + BALL_SIZE) / 2;
       if (
-        !isBallNearPaddle() ||
-        ((posX - PADDLE_HALF_X - BALL_SIZE / 2) <= coreStore.ballPosition.x &&
-        coreStore.ballPosition.x <= (posX + PADDLE_HALF_X + BALL_SIZE / 2) )
-      ) return [-STAGE_WIDTH / 2 + PADDLE_HALF_X, STAGE_WIDTH / 2 - PADDLE_HALF_X];
+        !( // ボールがラインの内側に入っていないとき
+          Math.sign(line) === Math.sign(coreStore.ballPosition.y) &&
+          Math.abs(line) > Math.abs(coreStore.ballPosition.y)
+        ) || ( // ライン内だけど、パドルの範囲内の時
+          ( posX - PADDLE_HALF_X - BALL_SIZE / 2 ) <= coreStore.ballPosition.x &&
+          coreStore.ballPosition.x <= ( posX + PADDLE_HALF_X + BALL_SIZE / 2 )
+        )
+      ) return [ -STAGE_WIDTH / 2 + PADDLE_HALF_X, STAGE_WIDTH / 2 - PADDLE_HALF_X ];
+      
+      if ( posX > coreStore.ballPosition.x ) // パドルより左にあるとき
+        return [ coreStore.ballPosition.x + BALL_SIZE / 2 + PADDLE_HALF_X, STAGE_WIDTH / 2 - PADDLE_HALF_X ];
 
-      return [0, 0]; // 続きから　
+      return [ -STAGE_WIDTH / 2 + PADDLE_HALF_X, coreStore.ballPosition.x - BALL_SIZE / 2 - PADDLE_HALF_X ];
     }) ();
     setPaddlePosition(
       THREE.MathUtils.clamp( posX + move, min, max )
