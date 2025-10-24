@@ -2,8 +2,9 @@ import { useKeyboardControls } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { useGameStore, coreStore, useUserSetting } from './store';
-import { BALL_SPEED, CPUMode, FramePriority, GameStatus, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from './constants';
+import { BALL_SIZE, BALL_SPEED, CPUMode, FramePriority, GameStatus, PADDLE_DEPTH, PADDLE_HALF_X, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, STAGE_WIDTH } from './constants';
 import * as THREE from 'three';
+import { useShallow } from 'zustand/shallow';
 
 
 
@@ -20,9 +21,8 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
 
   const paddleZ = isP1 ? PADDLE_POSITION_Z1 : PADDLE_POSITION_Z2;
 
-  const p1Speed = useUserSetting(s => s.control.p1.speed);
-  const p2Speed = useUserSetting(s => s.control.p2.speed);
-
+  const [ p1Speed, p2Speed ] = useUserSetting(useShallow(s => [s.control.p1.speed, s.control.p2.speed]));
+  
   const state = useMemo(() => {
     if (cpuMode === null) return { speed: isP1 ? p1Speed : p2Speed };
     if (cpuMode === CPUMode.Easy) return { speed: BALL_SPEED - 10, missChance: 0.5, precision: 8 };
@@ -84,10 +84,22 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
 
   function paddleMove(move: number) {
     const posX = getPaddlePosition();
-    setPaddlePosition(Math.min(
-      Math.max(posX + move, -STAGE_WIDTH / 2 + PADDLE_HALF_X),
-      STAGE_WIDTH / 2 - PADDLE_HALF_X
-    ));
+    function isBallNearPaddle(): boolean {
+      const line = paddleZ - Math.sign(paddleZ) * (PADDLE_DEPTH + BALL_SIZE) / 2;
+      return Math.sign(line) === Math.sign(coreStore.ballPosition.y) && Math.abs(line) > Math.abs(coreStore.ballPosition.y);
+    }
+    const [ min, max ] = (() => {
+      if (
+        !isBallNearPaddle() ||
+        ((posX - PADDLE_HALF_X - BALL_SIZE / 2) <= coreStore.ballPosition.x &&
+        coreStore.ballPosition.x <= (posX + PADDLE_HALF_X + BALL_SIZE / 2) )
+      ) return [-STAGE_WIDTH / 2 + PADDLE_HALF_X, STAGE_WIDTH / 2 - PADDLE_HALF_X];
+
+      return [0, 0]; // 続きから　
+    }) ();
+    setPaddlePosition(
+      THREE.MathUtils.clamp( posX + move, min, max )
+    );
   }
 
   function moveCenter(speed?: number) {

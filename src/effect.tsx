@@ -40,7 +40,7 @@ type EffectProps = {
   triggerBlinkingEffect: TriggerBlinkingEffect | null;
 };
 
-const INITIAL_MESH_AMOUNT = 8;
+const INITIAL_MESH_AMOUNT = 4;
 
 export function Effect({ triggerStretchEffect, triggerBlinkingEffect }: EffectProps) {
   const [_, setUpdate] = useState<number>(0);
