@@ -84,34 +84,17 @@ export function PaddleController({ isP1, cpuMode = null }: PaddleControllerProps
 
   function paddleMove(move: number) {
     const posX = getPaddlePosition();
-    const [ min, max ] = (() => {
-      const line = paddleZ - Math.sign(paddleZ) * (PADDLE_DEPTH + BALL_SIZE) / 2;
-      if (
-        !( // ボールがラインの内側に入っていないとき
-          Math.sign(line) === Math.sign(coreStore.ballPosition.y) &&
-          Math.abs(line) > Math.abs(coreStore.ballPosition.y)
-        ) || ( // ライン内だけど、パドルの範囲内の時
-          ( posX - PADDLE_HALF_X - BALL_SIZE / 2 ) <= coreStore.ballPosition.x &&
-          coreStore.ballPosition.x <= ( posX + PADDLE_HALF_X + BALL_SIZE / 2 )
-        )
-      ) return [ -STAGE_WIDTH / 2 + PADDLE_HALF_X, STAGE_WIDTH / 2 - PADDLE_HALF_X ];
-      
-      if ( posX > coreStore.ballPosition.x ) // パドルより左にあるとき
-        return [ coreStore.ballPosition.x + BALL_SIZE / 2 + PADDLE_HALF_X, STAGE_WIDTH / 2 - PADDLE_HALF_X ];
-
-      return [ -STAGE_WIDTH / 2 + PADDLE_HALF_X, coreStore.ballPosition.x - BALL_SIZE / 2 - PADDLE_HALF_X ];
-    }) ();
+    const [ min, max ] = [ -STAGE_WIDTH / 2 + PADDLE_HALF_X, STAGE_WIDTH / 2 - PADDLE_HALF_X ];
     setPaddlePosition(
       THREE.MathUtils.clamp( posX + move, min, max )
     );
   }
 
-  function moveCenter(speed?: number) {
+  function moveCenter(speed: number = 20) {
     const paddleX = getPaddlePosition();
     const dx = 0 - paddleX;
     if(!dx) return true;
-    const s = speed ?? 20;
-    const step = Math.sign(dx) * s * coreStore.delta;
+    const step = Math.sign(dx) * speed * coreStore.delta;
     if (Math.abs(dx) <= Math.abs(step)) {
       setPaddlePosition(0);
       return true;

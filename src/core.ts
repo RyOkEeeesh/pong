@@ -13,7 +13,7 @@ export interface Hit {
 }
 
 export function intersect(a: THREE.Box2, b: THREE.Box2): Hit | null {
-  if (!getBoxWithMargin(a, 0.1).intersectsBox(b)) return null;
+  if (!getBoxWithMargin(a, 0.075).intersectsBox(b)) return null;
 
   const overlapMin = new THREE.Vector2(
     Math.max(a.min.x, b.min.x),
