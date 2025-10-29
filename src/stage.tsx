@@ -80,13 +80,7 @@ function PointDisplays({points}: PointDisplaysPropos) {
   )
 }
 
-type StageProps = {
-  isResizing: boolean
-}
-
-export default function Stage({isResizing}: StageProps) {
-  const { camera } = useThree();
-  const { setIsObjectFit } = useCameraStore.getState();
+export default function Stage() {
   const [triggerStretchEffect, setTriggerStretchEffect] = useState<TriggerStretchEffect | null>(null);
   const [triggerBlinkingEffect, setTriggerBlinkingEffect] = useState<TriggerBlinkingEffect | null>(null);
 
@@ -158,13 +152,6 @@ export default function Stage({isResizing}: StageProps) {
     setTriggerStretchEffect({wall, point, normal});
   }, [hit])
 
-  useEffect(() => {
-    if (!stageGroup.current) return;
-    if (isResizing) return setIsObjectFit(false);
-    fitObject(camera as THREE.PerspectiveCamera, stageGroup.current, 1.1);
-    setIsObjectFit(true);
-  }, [isResizing, camera]);
-  
   function setPaddlesPosition() {
     paddleRefs[0].current.position.x = coreStore.paddlesPosition[0];
     paddleRefs[1].current.position.x = coreStore.paddlesPosition[1];
