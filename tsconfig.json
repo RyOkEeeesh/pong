@@ -4,7 +4,6 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "Node",
-    "ignoreDeprecations": "6.0",
     "strict": true,
 
     "jsx": "react-jsx",
@@ -22,7 +21,8 @@
     "allowImportingTsExtensions": true
   },
   "ts-node": {
-    "esm": true
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
