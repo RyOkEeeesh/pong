@@ -1,15 +1,20 @@
 import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame, useLoader, useThree } from '@react-three/fiber';
+import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CPUMode, FramePriority, GameStatus, GOAL_1, GOAL_2, PADDLE_1, PADDLE_2, PADDLE_HEIGHT, PADDLE_POSITION_Z1, PADDLE_POSITION_Z2, PADDLE_WIDTH, SIDE_1, SIDE_2, STAGE_HEIGHT, STAGE_WIDTH, WALL_DEPTH, WALL_HEIGHT } from './constants';
-import { useCameraStore, useGameStore, coreStore } from './store';
+import { useGameStore, coreStore } from './store';
 import { PointDisplay } from './point.tsx';
 import { PaddleController } from './controller.tsx';
-import { fitObject } from './CameraControl.tsx';
 import { CliGameCore } from './gameCore.tsx';
 import { Effect, TriggerBlinkingEffect, TriggerStretchEffect } from './effect.tsx';
 import { useShallow } from 'zustand/shallow';
 import { OrbitControls } from '@react-three/drei';
+
+/**
+ * めも
+ * 
+ * 
+ */
 
 type MeshProps = {
   name: string;
