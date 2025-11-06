@@ -25,8 +25,15 @@ import { useShallow } from 'zustand/shallow';
  *    シングル: 前回シングルまたはマルチで使っていた、カメラの位置まで移動後ゲームスタート
  *    デュオ: ゲームスタート
  *    マルチ: プレイヤーの場合シングル同様、観戦者は今のところコントロールだけ
- * 
+ *  ゲーム終了後
+ *    リトライ: そのまま
+ *    メニューに戻る: セレクトのカメラに移動
  */
+
+
+// fitObjectやるためにモーションカメラは指定のところに置いといて、
+// 切り替わった時とかは切り替わる前のポジションとかコピーして指定の場所までモーション移動
+// nextのステータスでもストアに保持しとこうかな
 
 type CameraProps = {
   stageGroup: RefObject<THREE.Group<THREE.Object3DEventMap>>;
@@ -45,7 +52,7 @@ export function Camera({ stageGroup }: CameraProps) {
 
   const [ isResizing, setIsResizing ] = useState<boolean>(false);
 
-  const timeoutidRef = useRef<NodeJS.Timeout>(undefined);
+  const timeoutIdRef = useRef<NodeJS.Timeout>(undefined);
 
   useEffect(() => {
     if (!stageGroup.current) return;
@@ -63,8 +70,8 @@ export function Camera({ stageGroup }: CameraProps) {
 
     function handleResize() {
       setIsResizing(true);
-      clearTimeout(timeoutidRef.current);
-      timeoutidRef.current = setTimeout(() => {
+      clearTimeout(timeoutIdRef.current);
+      timeoutIdRef.current = setTimeout(() => {
         setIsResizing(false);
       }, 1000 / 24);
     };
@@ -132,9 +139,6 @@ export function Camera({ stageGroup }: CameraProps) {
   useEffect(() => {
     if (!isObjectFitRef.current && camsRef.current.length !== 3 && !motionRef.current) return;
 
-    // fitObjectやるためにモーションカメラは指定のところに置いといて、
-    // 切り替わった時とかは切り替わる前のポジションとかコピーして指定の場所までモーション移動
-    // nextのステータスでもストアに保持しとこうかな
     if (role === RoleStatus.Spectator) {
       set({camera: motionRef.current});
 
