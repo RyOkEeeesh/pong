@@ -10,12 +10,6 @@ import { Effect, TriggerBlinkingEffect, TriggerStretchEffect } from './effect.ts
 import { useShallow } from 'zustand/shallow';
 import { OrbitControls } from '@react-three/drei';
 
-/**
- * めも
- * 
- * 
- */
-
 type MeshProps = {
   name: string;
   position: [number, number, number];

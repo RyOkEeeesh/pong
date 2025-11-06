@@ -7,6 +7,27 @@ import { fitObject, trackingLookAt } from './CameraControl';
 import { FramePriority, RoleStatus, STAGE_WIDTH } from './constants';
 import { useShallow } from 'zustand/shallow';
 
+/**
+ * GameMode: カメラ | 仕様
+ *  セレクト: motion | カメラは動かせない、勝手に追従とかして動いてる
+ *  シングル: 0,1,2 | カメラ切り替え可
+ *  デュオ: 1,2 | pcは2、スマホとタブレットは1
+ *  マルチ: motion,0,1,2 | プレイヤーはシングル同様、観戦者はmotionをコントロール可能
+ * 
+ * motionの移動 ( isObjectFitRef.current = true になってから、移動 )
+ *  ゲームモード選択時: 周りくるくるしたり、ボール追従したり
+ *  ゲームモード選択完了後: 2カメの位置に移動
+ *  ゲーム詳細選択ホバー
+ *    シングル: lookAt(paddle2)、CPUの強さを選択してるものに変更
+ *    デュオ: そのまま2カメ
+ *    マルチ: p1,p2選択時、それぞれのパドルをlookAt、観戦者はそのまま
+ *  ゲーム詳細選択完了
+ *    シングル: 前回シングルまたはマルチで使っていた、カメラの位置まで移動後ゲームスタート
+ *    デュオ: ゲームスタート
+ *    マルチ: プレイヤーの場合シングル同様、観戦者は今のところコントロールだけ
+ * 
+ */
+
 type CameraProps = {
   stageGroup: RefObject<THREE.Group<THREE.Object3DEventMap>>;
 }
@@ -36,7 +57,9 @@ export function Camera({ stageGroup }: CameraProps) {
     camsRef.current.forEach(cam => {
       trackingLookAt(cam);
       fitObject(cam, stageGroup.current, 1.1);
-    })
+    });
+
+    isObjectFitRef.current = true;
 
     function handleResize() {
       setIsResizing(true);
